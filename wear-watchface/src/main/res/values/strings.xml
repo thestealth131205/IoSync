@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IoSync Watchface</string>
+    <string name="complication_top_name">Oben (ioBroker)</string>
+    <string name="complication_bottom_name">Unten (ioBroker)</string>
+    <string name="complication_left_name">Links (ioBroker)</string>
+    <string name="complication_right_name">Rechts (ioBroker)</string>
+</resources>

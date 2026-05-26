@@ -1,0 +1,250 @@
+package com.iosync.app.wear
+
+import android.content.Context
+import android.util.Log
+import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
+import com.iosync.app.data.model.SmartHomeState
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
+private const val TAG = "WearDataLayerService"
+
+// ── Data Layer Pfade ──────────────────────────────────────────────────────────
+private const val PATH_STATES         = "/iosync/smarthome/states"
+private const val PATH_SINGLE_STATE   = "/iosync/smarthome/state"
+private const val PATH_SETTINGS       = "/iosync/smarthome/settings"
+private const val PATH_WATCHFACE_CONFIG = "/iosync/watchface/config"
+private const val PATH_PHONE_BATTERY  = "/iosync/phone/battery"
+
+// ── Allgemeine Keys ───────────────────────────────────────────────────────────
+private const val KEY_STATES_JSON    = "states_json"
+private const val KEY_STATE_ID       = "state_id"
+private const val KEY_STATE_JSON     = "state_json"
+private const val KEY_TIMESTAMP      = "timestamp"
+private const val KEY_HOST           = "host"
+private const val KEY_PORT           = "port"
+
+// ── Watchface-Konfigurationsschlüssel ─────────────────────────────────────────
+private const val KEY_WF_TIME_COLOR          = "wf_time_color"
+private const val KEY_WF_DATE_COLOR          = "wf_date_color"
+private const val KEY_WF_SHOW_SECONDS        = "wf_show_seconds"
+private const val KEY_WF_SHOW_TICKS          = "wf_show_ticks"
+private const val KEY_WF_SHOW_WEEKDAY        = "wf_show_weekday"
+private const val KEY_WF_SHOW_PHONE_BATTERY  = "wf_show_phone_battery"
+private const val KEY_WF_SHOW_IOBROKER_DATA  = "wf_show_iobroker_data"
+private const val KEY_WF_SHOW_SECONDS_RING   = "wf_show_seconds_ring"
+private const val KEY_WF_SECONDS_RING_COLOR  = "wf_seconds_ring_color"
+private const val KEY_WF_SECONDS_RING_WIDTH  = "wf_seconds_ring_width"
+
+// ── Aktions-Pille-Konfigurationsschlüssel ─────────────────────────────────────
+private const val KEY_WF_ACTION_PILL_ENABLED     = "wf_action_pill_enabled"
+private const val KEY_WF_ACTION_PILL_COLOR_TRUE  = "wf_action_pill_color_true"
+private const val KEY_WF_ACTION_PILL_COLOR_FALSE = "wf_action_pill_color_false"
+private const val KEY_WF_ACTION_PILL_IOBROKER_ID = "wf_action_pill_iobroker_id"
+private const val KEY_WF_ACTION_PILL_VALUE_MODE  = "wf_action_pill_value_mode"
+private const val KEY_WF_ACTION_PILL_FIXED_VALUE = "wf_action_pill_fixed_value"
+private const val KEY_WF_ACTION_PILL_STATE       = "wf_action_pill_state"
+
+// ── Aktions-Pille Status-Pfad ─────────────────────────────────────────────────
+private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
+private const val KEY_PILL_STATE         = "pill_state"
+
+// ── Akku-Keys ─────────────────────────────────────────────────────────────────
+private const val KEY_BATTERY_LEVEL   = "battery_level"
+private const val KEY_IS_CHARGING     = "is_charging"
+
+@Singleton
+class WearDataLayerService @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val moshi: Moshi
+) {
+
+    private val dataClient: DataClient by lazy { Wearable.getDataClient(context) }
+
+    private val statesListAdapter by lazy {
+        moshi.adapter<List<SmartHomeState>>(
+            Types.newParameterizedType(List::class.java, SmartHomeState::class.java)
+        )
+    }
+
+    private val stateAdapter by lazy {
+        moshi.adapter(SmartHomeState::class.java)
+    }
+
+    /**
+     * Serialisiert die vollständige SmartHomeState-Liste und schreibt sie in den
+     * Wearable Data Layer. Das Watchface und die Wear-App abonnieren diesen Pfad.
+     */
+    suspend fun syncStatesToWear(states: List<SmartHomeState>) {
+        withContext(Dispatchers.IO) {
+            try {
+                val json = statesListAdapter.toJson(states)
+                val request = PutDataMapRequest.create(PATH_STATES).apply {
+                    dataMap.putString(KEY_STATES_JSON, json)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "${states.size} States an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncStatesToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Schreibt ein einzelnes State-Update in den Data Layer.
+     * Nützlich für hochfrequente Updates eines bestimmten Datenpunkts.
+     */
+    suspend fun syncSingleStateToWear(state: SmartHomeState) {
+        withContext(Dispatchers.IO) {
+            try {
+                val json = stateAdapter.toJson(state)
+                val request = PutDataMapRequest.create("$PATH_SINGLE_STATE/${state.id}").apply {
+                    dataMap.putString(KEY_STATE_ID, state.id)
+                    dataMap.putString(KEY_STATE_JSON, json)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Einzelner State '${state.id}' an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncSingleStateToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt Verbindungseinstellungen (Host, Port) an die Wear-App.
+     */
+    suspend fun syncSettingsToWear(host: String, port: Int) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_SETTINGS).apply {
+                    dataMap.putString(KEY_HOST, host)
+                    dataMap.putInt(KEY_PORT, port)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Einstellungen (host=$host, port=$port) an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncSettingsToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt die vollständige Watchface-Konfiguration an die Uhr.
+     * Enthält Darstellungsoptionen sowie Schalter für Akkuanzeige und ioBroker-Daten.
+     */
+    suspend fun syncWatchFaceConfigToWear(
+        timeColor: String,
+        dateColor: String,
+        showSeconds: Boolean,
+        showTicks: Boolean,
+        showWeekday: Boolean,
+        showPhoneBattery: Boolean = false,
+        showIoBrokerData: Boolean = false,
+        showSecondsRing: Boolean = false,
+        secondsRingColor: String = "neon_yellow",
+        secondsRingWidth: Int = 5,
+        actionPillEnabled: Boolean = false,
+        actionPillColorTrue: String = "cyan",
+        actionPillColorFalse: String = "red",
+        actionPillIoBrokerId: String = "",
+        actionPillValueMode: String = "toggle",
+        actionPillFixedValue: String = "",
+        actionPillState: Boolean = false
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_WATCHFACE_CONFIG).apply {
+                    dataMap.putString(KEY_WF_TIME_COLOR, timeColor)
+                    dataMap.putString(KEY_WF_DATE_COLOR, dateColor)
+                    dataMap.putBoolean(KEY_WF_SHOW_SECONDS, showSeconds)
+                    dataMap.putBoolean(KEY_WF_SHOW_TICKS, showTicks)
+                    dataMap.putBoolean(KEY_WF_SHOW_WEEKDAY, showWeekday)
+                    dataMap.putBoolean(KEY_WF_SHOW_PHONE_BATTERY, showPhoneBattery)
+                    dataMap.putBoolean(KEY_WF_SHOW_IOBROKER_DATA, showIoBrokerData)
+                    dataMap.putBoolean(KEY_WF_SHOW_SECONDS_RING, showSecondsRing)
+                    dataMap.putString(KEY_WF_SECONDS_RING_COLOR, secondsRingColor)
+                    dataMap.putInt(KEY_WF_SECONDS_RING_WIDTH, secondsRingWidth)
+                    dataMap.putBoolean(KEY_WF_ACTION_PILL_ENABLED, actionPillEnabled)
+                    dataMap.putString(KEY_WF_ACTION_PILL_COLOR_TRUE, actionPillColorTrue)
+                    dataMap.putString(KEY_WF_ACTION_PILL_COLOR_FALSE, actionPillColorFalse)
+                    dataMap.putString(KEY_WF_ACTION_PILL_IOBROKER_ID, actionPillIoBrokerId)
+                    dataMap.putString(KEY_WF_ACTION_PILL_VALUE_MODE, actionPillValueMode)
+                    dataMap.putString(KEY_WF_ACTION_PILL_FIXED_VALUE, actionPillFixedValue)
+                    dataMap.putBoolean(KEY_WF_ACTION_PILL_STATE, actionPillState)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Watchface-Konfiguration an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncWatchFaceConfigToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt nur den aktuellen Aktions-Pille-Status an das Watchface.
+     * Wird nach einem Trigger-Befehl aufgerufen, um den neuen Zustand anzuzeigen.
+     */
+    suspend fun syncActionPillStateToWear(state: Boolean) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_ACTION_PILL_STATE).apply {
+                    dataMap.putBoolean(KEY_PILL_STATE, state)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Aktions-Pille Status ($state) an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncActionPillStateToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt den aktuellen Handy-Akkustand ans Watchface.
+     * @param level      Akkustand in Prozent (0–100)
+     * @param isCharging true wenn das Gerät gerade geladen wird
+     */
+    suspend fun syncPhoneBatteryToWear(level: Int, isCharging: Boolean) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_PHONE_BATTERY).apply {
+                    dataMap.putInt(KEY_BATTERY_LEVEL, level)
+                    dataMap.putBoolean(KEY_IS_CHARGING, isCharging)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Handy-Akku ($level %, lädt=$isCharging) an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncPhoneBatteryToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Entfernt alle IoSync-Daten aus dem Data Layer (z.B. bei Verbindungstrennung).
+     */
+    suspend fun clearWearData() {
+        withContext(Dispatchers.IO) {
+            try {
+                dataClient.deleteDataItems(
+                    android.net.Uri.parse("wear://*$PATH_STATES")
+                ).await()
+                Log.d(TAG, "Wear OS Data Layer geleert")
+            } catch (e: Exception) {
+                Log.e(TAG, "clearWearData fehlgeschlagen", e)
+            }
+        }
+    }
+}

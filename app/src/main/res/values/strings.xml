@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IoSync</string>
+    <string name="app_description">Smart Home Bridge für ioBroker &amp; Home Assistant</string>
+</resources>

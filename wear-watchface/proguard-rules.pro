@@ -1,0 +1,4 @@
+-keep class androidx.wear.watchface.** { *; }
+-keep class com.iosync.watchface.** { *; }
+-keep class com.google.android.gms.wearable.** { *; }
+-dontwarn kotlin.**
