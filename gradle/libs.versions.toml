@@ -15,7 +15,7 @@ coroutines = "1.9.0"
 datastore = "1.1.2"
 navigation = "2.8.5"
 room = "2.6.1"
-wearComposeBom = "1.0.0"
+wearCompose = "1.4.0"
 wearComposeFoundation = "1.4.0"
 wearComposeNavigation = "1.4.0"
 wearInput = "1.1.0"
@@ -74,12 +74,11 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 # Wearable Data Layer
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
 
-# Wear OS Compose BOM
-androidx-wear-compose-bom = { group = "androidx.wear.compose", name = "compose-bom", version.ref = "wearComposeBom" }
-androidx-wear-compose-material = { group = "androidx.wear.compose", name = "compose-material" }
+# Wear OS Compose
+androidx-wear-compose-material = { group = "androidx.wear.compose", name = "compose-material", version.ref = "wearCompose" }
 androidx-wear-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version.ref = "wearComposeFoundation" }
 androidx-wear-compose-navigation = { group = "androidx.wear.compose", name = "compose-navigation", version.ref = "wearComposeNavigation" }
-androidx-wear-compose-ui-tooling = { group = "androidx.wear.compose", name = "compose-ui-tooling" }
+androidx-wear-compose-ui-tooling = { group = "androidx.wear.compose", name = "compose-ui-tooling", version.ref = "wearCompose" }
 androidx-wear-input = { group = "androidx.wear", name = "wear-input", version.ref = "wearInput" }
 androidx-wear-ongoing = { group = "androidx.wear", name = "wear-ongoing", version.ref = "wearOngoingActivity" }
 

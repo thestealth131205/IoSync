@@ -58,7 +58,6 @@ dependencies {
     implementation(libs.androidx.splash.screen)
 
     // Wear OS Compose
-    implementation(platform(libs.androidx.wear.compose.bom))
     implementation(libs.androidx.wear.compose.material)
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.androidx.wear.compose.navigation)
