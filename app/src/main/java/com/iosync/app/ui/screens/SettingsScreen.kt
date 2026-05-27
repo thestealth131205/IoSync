@@ -185,7 +185,7 @@ fun SettingsScreen(
                     value = ioSyncPort,
                     onValueChange = { ioSyncPort = it.filter { c -> c.isDigit() } },
                     label = { Text("Port") },
-                    placeholder = { Text("7443") },
+                    placeholder = { Text("345") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -212,7 +212,7 @@ fun SettingsScreen(
                 onClick = {
                     viewModel.updateIoSyncSettings(
                         host     = ioSyncHost.trim(),
-                        port     = ioSyncPort.toIntOrNull() ?: 7443,
+                        port     = ioSyncPort.toIntOrNull() ?: 345,
                         username = ioSyncUsername.trim(),
                         password = ioSyncPassword
                     )

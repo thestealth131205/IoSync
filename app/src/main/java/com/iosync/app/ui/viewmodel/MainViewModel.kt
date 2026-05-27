@@ -61,7 +61,7 @@ data class MainUiState(
     val wfSecondsRingWidth: Int = 5,
     // IoSync Adapter Verbindung
     val ioSyncHost: String = "",
-    val ioSyncPort: Int = 7443,
+    val ioSyncPort: Int = 345,
     val ioSyncUsername: String = "",
     val ioSyncPassword: String = "",
     // Laufende IoSync-Datenpunkte (vom Adapter abgerufen)

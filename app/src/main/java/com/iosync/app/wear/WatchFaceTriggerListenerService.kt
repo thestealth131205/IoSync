@@ -50,7 +50,7 @@ class WatchFaceTriggerListenerService : WearableListenerService() {
         val prefs = dataStore.data.first()
 
         val host        = prefs[MainViewModel.KEY_IOSYNC_HOST]          ?: ""
-        val port        = prefs[MainViewModel.KEY_IOSYNC_PORT]          ?: 7443
+        val port        = prefs[MainViewModel.KEY_IOSYNC_PORT]          ?: 345
         val username    = prefs[MainViewModel.KEY_IOSYNC_USERNAME]       ?: ""
         val password    = prefs[MainViewModel.KEY_IOSYNC_PASSWORD]       ?: ""
         val ioBrokerId  = prefs[MainViewModel.KEY_ACTION_PILL_IOBROKER_ID] ?: ""
