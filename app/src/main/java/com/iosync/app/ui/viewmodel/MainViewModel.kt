@@ -62,6 +62,7 @@ data class MainUiState(
     val wfSecondsRingColor: String = "neon_yellow",
     val wfSecondsRingWidth: Int = 5,
     val wfSecondsGlowWidth: Int = 100,
+    val wfSecondsNumberColor: String = "dim_time",
     // Datenquelle: true = IoSync Adapter, false = Simple-API
     val useIoSyncAdapter: Boolean = true,
     // IoSync Adapter Verbindung
@@ -127,8 +128,9 @@ class MainViewModel @Inject constructor(
         val KEY_WF_SHOW_IOBROKER_DATA  = booleanPreferencesKey("wf_show_iobroker_data")
         val KEY_WF_SHOW_SECONDS_RING   = booleanPreferencesKey("wf_show_seconds_ring")
         val KEY_WF_SECONDS_RING_COLOR  = stringPreferencesKey("wf_seconds_ring_color")
-        val KEY_WF_SECONDS_RING_WIDTH  = intPreferencesKey("wf_seconds_ring_width")
-        val KEY_WF_SECONDS_GLOW_WIDTH  = intPreferencesKey("wf_seconds_glow_width")
+        val KEY_WF_SECONDS_RING_WIDTH    = intPreferencesKey("wf_seconds_ring_width")
+        val KEY_WF_SECONDS_GLOW_WIDTH    = intPreferencesKey("wf_seconds_glow_width")
+        val KEY_WF_SECONDS_NUMBER_COLOR  = stringPreferencesKey("wf_seconds_number_color")
         val KEY_USE_IOSYNC_ADAPTER   = booleanPreferencesKey("use_iosync_adapter")
         val KEY_IOSYNC_HOST          = stringPreferencesKey("iosync_host")
         val KEY_IOSYNC_PORT          = intPreferencesKey("iosync_port")
@@ -192,9 +194,10 @@ class MainViewModel @Inject constructor(
             val wfShowPhoneBattery  = prefs[KEY_WF_SHOW_PHONE_BATTERY]  ?: false
             val wfShowIoBrokerData  = prefs[KEY_WF_SHOW_IOBROKER_DATA]  ?: false
             val wfShowSecondsRing   = prefs[KEY_WF_SHOW_SECONDS_RING]   ?: false
-            val wfSecondsRingColor  = prefs[KEY_WF_SECONDS_RING_COLOR]  ?: "neon_yellow"
-            val wfSecondsRingWidth  = prefs[KEY_WF_SECONDS_RING_WIDTH]  ?: 5
-            val wfSecondsGlowWidth  = prefs[KEY_WF_SECONDS_GLOW_WIDTH]  ?: 100
+            val wfSecondsRingColor  = prefs[KEY_WF_SECONDS_RING_COLOR]   ?: "neon_yellow"
+            val wfSecondsRingWidth  = prefs[KEY_WF_SECONDS_RING_WIDTH]   ?: 5
+            val wfSecondsGlowWidth  = prefs[KEY_WF_SECONDS_GLOW_WIDTH]   ?: 100
+            val wfSecondsNumberColor = prefs[KEY_WF_SECONDS_NUMBER_COLOR] ?: "dim_time"
             val useIoSyncAdapter  = prefs[KEY_USE_IOSYNC_ADAPTER]   ?: true
             val ioSyncHost        = prefs[KEY_IOSYNC_HOST]          ?: ""
             val ioSyncPort        = prefs[KEY_IOSYNC_PORT]          ?: 7443
@@ -242,6 +245,7 @@ class MainViewModel @Inject constructor(
                     wfSecondsRingColor  = wfSecondsRingColor,
                     wfSecondsRingWidth  = wfSecondsRingWidth,
                     wfSecondsGlowWidth  = wfSecondsGlowWidth,
+                    wfSecondsNumberColor = wfSecondsNumberColor,
                     useIoSyncAdapter   = useIoSyncAdapter,
                     ioSyncHost         = ioSyncHost,
                     ioSyncPort         = ioSyncPort,
@@ -481,6 +485,7 @@ class MainViewModel @Inject constructor(
         secondsRingColor: String,
         secondsRingWidth: Int,
         secondsGlowWidth: Int = 100,
+        secondsNumberColor: String = _uiState.value.wfSecondsNumberColor,
         showWeather: Boolean,
         showHeartRate: Boolean,
         showOxygen: Boolean,
@@ -501,9 +506,10 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_SHOW_IOBROKER_DATA]  = showIoBrokerData
                 prefs[KEY_WF_SHOW_SECONDS_RING]   = showSecondsRing
                 prefs[KEY_WF_SECONDS_RING_COLOR]  = secondsRingColor
-                prefs[KEY_WF_SECONDS_RING_WIDTH]  = secondsRingWidth
-                prefs[KEY_WF_SECONDS_GLOW_WIDTH]  = secondsGlowWidth
-                prefs[KEY_WF_SHOW_WEATHER]        = showWeather
+                prefs[KEY_WF_SECONDS_RING_WIDTH]   = secondsRingWidth
+                prefs[KEY_WF_SECONDS_GLOW_WIDTH]   = secondsGlowWidth
+                prefs[KEY_WF_SECONDS_NUMBER_COLOR] = secondsNumberColor
+                prefs[KEY_WF_SHOW_WEATHER]         = showWeather
                 prefs[KEY_WF_SHOW_HEART_RATE]     = showHeartRate
                 prefs[KEY_WF_SHOW_OXYGEN]         = showOxygen
                 prefs[KEY_WF_SHOW_CALORIES]       = showCalories
@@ -518,10 +524,11 @@ class MainViewModel @Inject constructor(
                     wfShowPhoneBattery = showPhoneBattery,
                     wfShowIoBrokerData = showIoBrokerData,
                     wfShowSecondsRing  = showSecondsRing,
-                    wfSecondsRingColor = secondsRingColor,
-                    wfSecondsRingWidth = secondsRingWidth,
-                    wfSecondsGlowWidth = secondsGlowWidth,
-                    wfShowWeather      = showWeather,
+                    wfSecondsRingColor  = secondsRingColor,
+                    wfSecondsRingWidth  = secondsRingWidth,
+                    wfSecondsGlowWidth  = secondsGlowWidth,
+                    wfSecondsNumberColor = secondsNumberColor,
+                    wfShowWeather       = showWeather,
                     wfShowHeartRate    = showHeartRate,
                     wfShowOxygen       = showOxygen,
                     wfShowCalories     = showCalories
@@ -535,7 +542,7 @@ class MainViewModel @Inject constructor(
                 val s = _uiState.value
                 wearDataLayerService.syncWatchFaceConfigToWear(
                     timeColor, dateColor, showSeconds, showTicks, showWeekday, showPhoneBattery, showIoBrokerData,
-                    showSecondsRing, secondsRingColor, secondsRingWidth, secondsGlowWidth,
+                    showSecondsRing, secondsRingColor, secondsRingWidth, secondsGlowWidth, secondsNumberColor,
                     s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
                     s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
                     showWeather, showHeartRate, showOxygen, showCalories,
@@ -610,7 +617,7 @@ class MainViewModel @Inject constructor(
                 wearDataLayerService.syncWatchFaceConfigToWear(
                     s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
                     s.wfShowPhoneBattery, s.wfShowIoBrokerData, s.wfShowSecondsRing,
-                    s.wfSecondsRingColor, s.wfSecondsRingWidth, s.wfSecondsGlowWidth,
+                    s.wfSecondsRingColor, s.wfSecondsRingWidth, s.wfSecondsGlowWidth, s.wfSecondsNumberColor,
                     enabled, colorTrue, colorFalse, ioBrokerId, valueMode, fixedValue, currentState,
                     s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories,
                     s.showCustomSlots, s.customSlot1Label, s.customSlot2Label

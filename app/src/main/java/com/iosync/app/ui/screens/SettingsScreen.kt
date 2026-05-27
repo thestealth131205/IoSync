@@ -42,10 +42,12 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,9 +93,10 @@ fun SettingsScreen(
     var wfShowPhoneBattery by remember(uiState.wfShowPhoneBattery) { mutableStateOf(uiState.wfShowPhoneBattery) }
     var wfShowIoBrokerData by remember(uiState.wfShowIoBrokerData) { mutableStateOf(uiState.wfShowIoBrokerData) }
     var wfShowSecondsRing  by remember(uiState.wfShowSecondsRing)  { mutableStateOf(uiState.wfShowSecondsRing) }
-    var wfSecondsRingColor by remember(uiState.wfSecondsRingColor) { mutableStateOf(uiState.wfSecondsRingColor) }
-    var wfSecondsRingWidth by remember(uiState.wfSecondsRingWidth) { mutableStateOf(uiState.wfSecondsRingWidth.toFloat()) }
-    var wfSecondsGlowWidth by remember(uiState.wfSecondsGlowWidth) { mutableStateOf(uiState.wfSecondsGlowWidth.toFloat()) }
+    var wfSecondsRingColor   by remember(uiState.wfSecondsRingColor)   { mutableStateOf(uiState.wfSecondsRingColor) }
+    var wfSecondsRingWidth   by remember(uiState.wfSecondsRingWidth)   { mutableStateOf(uiState.wfSecondsRingWidth.toFloat()) }
+    var wfSecondsGlowWidth   by remember(uiState.wfSecondsGlowWidth)   { mutableStateOf(uiState.wfSecondsGlowWidth.toFloat()) }
+    var wfSecondsNumberColor by remember(uiState.wfSecondsNumberColor) { mutableStateOf(uiState.wfSecondsNumberColor) }
 
     // Wetter & Gesundheitsdaten
     var wfShowWeather   by remember(uiState.wfShowWeather)   { mutableStateOf(uiState.wfShowWeather) }
@@ -115,6 +118,39 @@ fun SettingsScreen(
     var pillIoBrokerId by remember(uiState.actionPillIoBrokerId) { mutableStateOf(uiState.actionPillIoBrokerId) }
     var pillValueMode  by remember(uiState.actionPillValueMode)  { mutableStateOf(uiState.actionPillValueMode) }
     var pillFixedValue by remember(uiState.actionPillFixedValue) { mutableStateOf(uiState.actionPillFixedValue) }
+
+    // ── Auto-Transfer bei Watchface-Einstellungsänderung ────────────────────
+    var wfSettingsInitialized by remember { mutableStateOf(false) }
+    LaunchedEffect(
+        wfTimeColor, wfDateColor, wfShowSeconds, wfShowTicks, wfShowWeekday,
+        wfShowPhoneBattery, wfShowIoBrokerData, wfShowSecondsRing, wfSecondsRingColor,
+        wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
+        wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories
+    ) {
+        if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
+        delay(400)
+        viewModel.updateWatchFaceConfig(
+            timeColor          = wfTimeColor,
+            dateColor          = wfDateColor,
+            showSeconds        = wfShowSeconds,
+            showTicks          = wfShowTicks,
+            showWeekday        = wfShowWeekday,
+            showPhoneBattery   = wfShowPhoneBattery,
+            showIoBrokerData   = wfShowIoBrokerData,
+            showSecondsRing    = wfShowSecondsRing,
+            secondsRingColor   = wfSecondsRingColor,
+            secondsRingWidth   = wfSecondsRingWidth.toInt(),
+            secondsGlowWidth   = wfSecondsGlowWidth.toInt(),
+            secondsNumberColor = wfSecondsNumberColor,
+            showWeather        = wfShowWeather,
+            showHeartRate      = wfShowHeartRate,
+            showOxygen         = wfShowOxygen,
+            showCalories       = wfShowCalories,
+            showCustomSlots    = showCustomSlots,
+            customSlot1Label   = customSlot1Label.trim(),
+            customSlot2Label   = customSlot2Label.trim()
+        )
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -370,6 +406,39 @@ fun SettingsScreen(
                 )
             }
 
+            if (wfShowSeconds) {
+                Text(
+                    text = "Sekundenzahl-Farbe",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    WatchFaceColorChip(
+                        color = Color(0xFFAAAAAA), label = "Gedimmt",
+                        selected = wfSecondsNumberColor == "dim_time",
+                        onClick = { wfSecondsNumberColor = "dim_time" }
+                    )
+                    WatchFaceColorChip(
+                        color = Color(0xFFE8E8E8), label = "Hellgrau",
+                        selected = wfSecondsNumberColor == "light_gray",
+                        onClick = { wfSecondsNumberColor = "light_gray" }
+                    )
+                    WatchFaceColorChip(
+                        color = Color(0xFFEAFF00), label = "Neon Gelb",
+                        selected = wfSecondsNumberColor == "neon_yellow",
+                        onClick = { wfSecondsNumberColor = "neon_yellow" }
+                    )
+                    WatchFaceColorChip(
+                        color = Color(0xFF00BCD4), label = "Cyan",
+                        selected = wfSecondsNumberColor == "cyan",
+                        onClick = { wfSecondsNumberColor = "cyan" }
+                    )
+                }
+            }
+
             WatchFaceToggleRow(
                 text = "Sekunden anzeigen",
                 checked = wfShowSeconds,
@@ -611,24 +680,25 @@ fun SettingsScreen(
             Button(
                 onClick = {
                     viewModel.updateWatchFaceConfig(
-                        timeColor        = wfTimeColor,
-                        dateColor        = wfDateColor,
-                        showSeconds      = wfShowSeconds,
-                        showTicks        = wfShowTicks,
-                        showWeekday      = wfShowWeekday,
-                        showPhoneBattery = wfShowPhoneBattery,
-                        showIoBrokerData = wfShowIoBrokerData,
-                        showSecondsRing  = wfShowSecondsRing,
-                        secondsRingColor = wfSecondsRingColor,
-                        secondsRingWidth = wfSecondsRingWidth.toInt(),
-                        secondsGlowWidth = wfSecondsGlowWidth.toInt(),
-                        showWeather      = wfShowWeather,
-                        showHeartRate    = wfShowHeartRate,
-                        showOxygen       = wfShowOxygen,
-                        showCalories     = wfShowCalories,
-                        showCustomSlots  = showCustomSlots,
-                        customSlot1Label = customSlot1Label.trim(),
-                        customSlot2Label = customSlot2Label.trim()
+                        timeColor          = wfTimeColor,
+                        dateColor          = wfDateColor,
+                        showSeconds        = wfShowSeconds,
+                        showTicks          = wfShowTicks,
+                        showWeekday        = wfShowWeekday,
+                        showPhoneBattery   = wfShowPhoneBattery,
+                        showIoBrokerData   = wfShowIoBrokerData,
+                        showSecondsRing    = wfShowSecondsRing,
+                        secondsRingColor   = wfSecondsRingColor,
+                        secondsRingWidth   = wfSecondsRingWidth.toInt(),
+                        secondsGlowWidth   = wfSecondsGlowWidth.toInt(),
+                        secondsNumberColor = wfSecondsNumberColor,
+                        showWeather        = wfShowWeather,
+                        showHeartRate      = wfShowHeartRate,
+                        showOxygen         = wfShowOxygen,
+                        showCalories       = wfShowCalories,
+                        showCustomSlots    = showCustomSlots,
+                        customSlot1Label   = customSlot1Label.trim(),
+                        customSlot2Label   = customSlot2Label.trim()
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),

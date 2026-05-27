@@ -143,6 +143,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
                 ComplicationType.SMALL_IMAGE
             ),
             textSizeSp = 18,
+            iconSizePx = 13,
             defaultType = ComplicationType.RANGED_VALUE
         )
 
@@ -176,6 +177,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
         defaultDataSource: Int,
         supportedTypes: List<ComplicationType>,
         textSizeSp: Int = 14,
+        iconSizePx: Int = 0,
         defaultType: ComplicationType = supportedTypes.first()
     ): ComplicationSlot {
         val drawable = ComplicationDrawable(context).apply {
@@ -190,6 +192,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
                 rangedValueSecondaryColor = android.graphics.Color.parseColor("#2E2E2E")
                 textSize = textSizeSp
                 titleSize = (textSizeSp * 0.75f).toInt()
+                if (iconSizePx > 0) iconSize = iconSizePx
             }
             ambientStyle.apply {
                 textColor = android.graphics.Color.parseColor("#888888")
