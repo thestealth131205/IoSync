@@ -135,25 +135,27 @@ class IoSyncWatchFaceService : WatchFaceService() {
         val bottomComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_BOTTOM_ID,
-            bounds = RectF(0.3f, 0.7f, 0.7f, 0.9f),
+            bounds = RectF(0.25f, 0.68f, 0.75f, 0.92f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
             supportedTypes = listOf(
                 ComplicationType.SHORT_TEXT,
                 ComplicationType.RANGED_VALUE,
                 ComplicationType.SMALL_IMAGE
-            )
+            ),
+            textSizeSp = 18
         )
 
         val leftComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_LEFT_ID,
-            bounds = RectF(0.10f, 0.50f, 0.35f, 0.75f),
+            bounds = RectF(0.05f, 0.48f, 0.38f, 0.78f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_SUNRISE_SUNSET,
             supportedTypes = listOf(
                 ComplicationType.SHORT_TEXT,
                 ComplicationType.SMALL_IMAGE,
                 ComplicationType.MONOCHROMATIC_IMAGE
-            )
+            ),
+            textSizeSp = 16
         )
 
         return ComplicationSlotsManager(
@@ -171,7 +173,8 @@ class IoSyncWatchFaceService : WatchFaceService() {
         id: Int,
         bounds: RectF,
         defaultDataSource: Int,
-        supportedTypes: List<ComplicationType>
+        supportedTypes: List<ComplicationType>,
+        textSizeSp: Int = 14
     ): ComplicationSlot {
         val drawable = ComplicationDrawable(context).apply {
             activeStyle.apply {
@@ -183,6 +186,8 @@ class IoSyncWatchFaceService : WatchFaceService() {
                 backgroundColor = android.graphics.Color.TRANSPARENT
                 rangedValuePrimaryColor = android.graphics.Color.parseColor("#EAFF00")
                 rangedValueSecondaryColor = android.graphics.Color.parseColor("#2E2E2E")
+                textSize = textSizeSp
+                titleSize = (textSizeSp * 0.75f).toInt()
             }
             ambientStyle.apply {
                 textColor = android.graphics.Color.parseColor("#888888")

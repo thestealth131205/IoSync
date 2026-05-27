@@ -756,7 +756,7 @@ class IoSyncWatchFaceRenderer(
         drawWeatherIcon(canvas, circleCx, iconCy, iconSize, config.weatherCondition)
 
         // Temperatur
-        weatherTempPaint.textSize = circleRadius * 0.55f
+        weatherTempPaint.textSize = circleRadius * 0.72f
         val tempText = "${config.weatherTemp}°"
         canvas.drawText(tempText, circleCx, circleCy + circleRadius * 0.55f, weatherTempPaint)
     }
@@ -895,12 +895,12 @@ class IoSyncWatchFaceRenderer(
         if (items.isEmpty()) return
 
         val labelSize = radius * 0.070f
-        val valueSize = radius * 0.095f
+        val valueSize = radius * 0.130f
         val iconSize  = radius * 0.065f
         val itemWidth = radius * 0.55f
         val totalWidth = items.size * itemWidth
-        val startX = cx - totalWidth / 2f + itemWidth / 2f + radius * 0.06f
-        val baseY = cy + radius * 0.63f
+        val startX = cx - totalWidth / 2f + itemWidth / 2f
+        val baseY = cy + radius * 0.55f
 
         healthLabelPaint.textSize = labelSize
         healthValuePaint.textSize = valueSize
