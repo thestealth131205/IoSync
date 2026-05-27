@@ -118,62 +118,54 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            // ── ioBroker Simple-API ──────────────────────────────────────────
+            // ── Datenquelle umschalten ─────────────────────────────────────────
             Text(
-                text = "ioBroker / Home Assistant Verbindung",
+                text = "Datenquelle",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            OutlinedTextField(
-                value = host,
-                onValueChange = { host = it },
-                label = { Text("Host / IP-Adresse") },
-                placeholder = { Text("192.168.1.100") },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
-            )
-
-            OutlinedTextField(
-                value = port,
-                onValueChange = { port = it.filter { c -> c.isDigit() } },
-                label = { Text("Port (Simple-API)") },
-                placeholder = { Text("8082") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-
-            Button(
-                onClick = {
-                    viewModel.updateConnectionSettings(
-                        host = host.trim(),
-                        port = port.toIntOrNull() ?: 8082
-                    )
-                    onBack()
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = NeonYellow,
-                    contentColor = Color(0xFF1A1A00)
-                )
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Speichern & Verbinden", style = MaterialTheme.typography.labelLarge)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (uiState.useIoSyncAdapter) "IoSync Adapter" else "Simple-API",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = if (uiState.useIoSyncAdapter) "Nutzt den IoSync ioBroker-Adapter"
+                               else "Nutzt die ioBroker Simple-API direkt",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = uiState.useIoSyncAdapter,
+                    onCheckedChange = { viewModel.updateDataSourceToggle(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF1A1A00),
+                        checkedTrackColor = NeonYellow
+                    )
+                )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
 
-            // ── IoSync Adapter ───────────────────────────────────────────────
+            // ── IoSync Adapter Verbindung ─────────────────────────────────────
             Text(
-                text = "IoSync Adapter (HTTPS API)",
+                text = "IoSync Adapter",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
             )
             Text(
-                text = "Verbindung zum IoSync ioBroker-Adapter für Watchface-Datenpunkte und Schreibzugriff.",
+                text = "Verbindung zum IoSync ioBroker-Adapter. Lädt Datenpunkte für App und Watchface.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
             )
 
             OutlinedTextField(
@@ -229,7 +221,59 @@ fun SettingsScreen(
                     contentColor = Color(0xFF1A1A00)
                 )
             ) {
-                Text("Adapter-Verbindung speichern", style = MaterialTheme.typography.labelLarge)
+                Text("Speichern & Verbinden", style = MaterialTheme.typography.labelLarge)
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // ── ioBroker Simple-API ────────────────────────────────────────────
+            Text(
+                text = "ioBroker Simple-API",
+                style = MaterialTheme.typography.titleSmall,
+                color = if (!uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+            )
+            Text(
+                text = "Nutzt die ioBroker Simple-API direkt für Datenpunkte.",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (!uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+            )
+
+            OutlinedTextField(
+                value = host,
+                onValueChange = { host = it },
+                label = { Text("Host / IP-Adresse") },
+                placeholder = { Text("192.168.1.100") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+            )
+
+            OutlinedTextField(
+                value = port,
+                onValueChange = { port = it.filter { c -> c.isDigit() } },
+                label = { Text("Port (Simple-API)") },
+                placeholder = { Text("8082") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+
+            Button(
+                onClick = {
+                    viewModel.updateConnectionSettings(
+                        host = host.trim(),
+                        port = port.toIntOrNull() ?: 8082
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (!uiState.useIoSyncAdapter) NeonYellow else Color(0xFF333333),
+                    contentColor = if (!uiState.useIoSyncAdapter) Color(0xFF1A1A00) else Color(0xFFAAAAAA)
+                )
+            ) {
+                Text("Simple-API speichern", style = MaterialTheme.typography.labelLarge)
             }
 
             Spacer(Modifier.height(8.dp))

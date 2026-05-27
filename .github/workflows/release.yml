@@ -51,11 +51,10 @@ jobs:
       - name: APKs umbenennen
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          # Signiert wenn Keystore vorhanden, sonst unsigned
           APP_APK=$(find app/build/outputs/apk/release/ -name "*.apk" | head -1)
           WF_APK=$(find wear-watchface/build/outputs/apk/release/ -name "*.apk" | head -1)
-          cp "$APP_APK" IoSync-app-$VERSION.apk
-          cp "$WF_APK" IoSync-watchface-$VERSION.apk
+          cp "$APP_APK" iosync-v$VERSION.apk
+          cp "$WF_APK" iosync_watchface-v$VERSION.apk
 
       - name: GitHub Release erstellen
         uses: softprops/action-gh-release@v2
@@ -70,13 +69,13 @@ jobs:
             ### Downloads
             | APK | Beschreibung |
             |-----|-------------|
-            | `IoSync-app-*.apk` | Smartphone App (Android 8+) |
-            | `IoSync-watchface-*.apk` | Wear OS Watchface (Wear OS 4) |
+            | `iosync-v*.apk` | Smartphone App (Android 8+) |
+            | `iosync_watchface-v*.apk` | Wear OS Watchface (Wear OS 4) |
 
             > Signierte Release-APKs.
           files: |
-            IoSync-app-${{ steps.version.outputs.version }}.apk
-            IoSync-watchface-${{ steps.version.outputs.version }}.apk
+            iosync-v${{ steps.version.outputs.version }}.apk
+            iosync_watchface-v${{ steps.version.outputs.version }}.apk
           draft: false
           prerelease: false
           make_latest: true

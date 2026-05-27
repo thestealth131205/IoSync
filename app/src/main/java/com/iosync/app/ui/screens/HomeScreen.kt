@@ -73,6 +73,9 @@ import com.iosync.app.ui.theme.SurfaceElevated
 import com.iosync.app.ui.theme.SurfaceMid
 import com.iosync.app.ui.viewmodel.MainUiState
 
+private fun MainUiState.activeHost(): String =
+    if (useIoSyncAdapter && ioSyncHost.isNotBlank()) "$ioSyncHost:$ioSyncPort" else "$host:$port"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -201,7 +204,7 @@ fun HomeScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "${uiState.host}:${uiState.port}",
+                    text = uiState.activeHost(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

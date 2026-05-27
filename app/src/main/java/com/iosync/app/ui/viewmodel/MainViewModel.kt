@@ -61,6 +61,8 @@ data class MainUiState(
     val wfShowSecondsRing: Boolean = false,
     val wfSecondsRingColor: String = "neon_yellow",
     val wfSecondsRingWidth: Int = 5,
+    // Datenquelle: true = IoSync Adapter, false = Simple-API
+    val useIoSyncAdapter: Boolean = true,
     // IoSync Adapter Verbindung
     val ioSyncHost: String = "",
     val ioSyncPort: Int = 345,
@@ -108,6 +110,7 @@ class MainViewModel @Inject constructor(
         val KEY_WF_SHOW_SECONDS_RING   = booleanPreferencesKey("wf_show_seconds_ring")
         val KEY_WF_SECONDS_RING_COLOR  = stringPreferencesKey("wf_seconds_ring_color")
         val KEY_WF_SECONDS_RING_WIDTH  = intPreferencesKey("wf_seconds_ring_width")
+        val KEY_USE_IOSYNC_ADAPTER   = booleanPreferencesKey("use_iosync_adapter")
         val KEY_IOSYNC_HOST          = stringPreferencesKey("iosync_host")
         val KEY_IOSYNC_PORT          = intPreferencesKey("iosync_port")
         val KEY_IOSYNC_USERNAME      = stringPreferencesKey("iosync_username")
@@ -160,6 +163,7 @@ class MainViewModel @Inject constructor(
             val wfShowSecondsRing   = prefs[KEY_WF_SHOW_SECONDS_RING]   ?: false
             val wfSecondsRingColor  = prefs[KEY_WF_SECONDS_RING_COLOR]  ?: "neon_yellow"
             val wfSecondsRingWidth  = prefs[KEY_WF_SECONDS_RING_WIDTH]  ?: 5
+            val useIoSyncAdapter  = prefs[KEY_USE_IOSYNC_ADAPTER]   ?: true
             val ioSyncHost        = prefs[KEY_IOSYNC_HOST]          ?: ""
             val ioSyncPort        = prefs[KEY_IOSYNC_PORT]          ?: 7443
             val ioSyncUsername    = prefs[KEY_IOSYNC_USERNAME]       ?: ""
@@ -190,6 +194,7 @@ class MainViewModel @Inject constructor(
                     wfShowSecondsRing   = wfShowSecondsRing,
                     wfSecondsRingColor  = wfSecondsRingColor,
                     wfSecondsRingWidth  = wfSecondsRingWidth,
+                    useIoSyncAdapter   = useIoSyncAdapter,
                     ioSyncHost         = ioSyncHost,
                     ioSyncPort         = ioSyncPort,
                     ioSyncUsername     = ioSyncUsername,
@@ -209,7 +214,7 @@ class MainViewModel @Inject constructor(
             }
 
             dynamicBaseUrl.update(host, port)
-            if (ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUsername, ioSyncPassword)
+            if (useIoSyncAdapter && ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUsername, ioSyncPassword)
             if (wfShowPhoneBattery) startBatteryPolling()
             if (wfShowWeather) startWeatherPolling()
         }
@@ -234,15 +239,37 @@ class MainViewModel @Inject constructor(
         refresh()
     }
 
-    // ── Simple-API ────────────────────────────────────────────────────────────
+    // ── Daten laden ─────────────────────────────────────────────────────────
 
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            when (val result = repository.fetchAllStates()) {
-                is RepoResult.Success -> _uiState.update { it.copy(isLoading = false, error = null) }
-                is RepoResult.Error   -> _uiState.update { it.copy(isLoading = false, error = result.message) }
-                is RepoResult.Loading -> Unit
+            val s = _uiState.value
+            if (s.useIoSyncAdapter && s.ioSyncHost.isNotBlank()) {
+                // Primär: IoSync Adapter
+                ioSyncClient.fetchDataPoints(s.ioSyncHost, s.ioSyncPort, s.ioSyncUsername, s.ioSyncPassword)
+                    .onSuccess { states ->
+                        val sorted = states.sortedBy { it.name }
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false, error = null,
+                                states = sorted,
+                                ioSyncStates = states,
+                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
+                            )
+                        }
+                        if (s.wfShowIoBrokerData) wearDataLayerService.syncStatesToWear(states)
+                    }
+                    .onFailure { e ->
+                        _uiState.update { it.copy(isLoading = false, error = "IoSync: ${e.message}") }
+                    }
+            } else {
+                // Fallback: Simple-API
+                when (val result = repository.fetchAllStates()) {
+                    is RepoResult.Success -> _uiState.update { it.copy(isLoading = false, error = null) }
+                    is RepoResult.Error   -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                    is RepoResult.Loading -> Unit
+                }
             }
         }
     }
@@ -330,19 +357,46 @@ class MainViewModel @Inject constructor(
             _uiState.update { it.copy(ioSyncHost = host, ioSyncPort = port, ioSyncUsername = username, ioSyncPassword = password) }
 
             ioSyncPollingJob?.cancel()
-            if (host.isNotBlank()) startIoSyncPolling(host, port, username, password)
+            if (host.isNotBlank()) {
+                startIoSyncPolling(host, port, username, password)
+                refresh()
+            }
         }
     }
 
-    /** Startet das periodische Abrufen vom IoSync Adapter. */
+    /** Wechselt die Datenquelle zwischen IoSync Adapter und Simple-API. */
+    fun updateDataSourceToggle(useIoSync: Boolean) {
+        viewModelScope.launch {
+            dataStore.edit { prefs -> prefs[KEY_USE_IOSYNC_ADAPTER] = useIoSync }
+            _uiState.update { it.copy(useIoSyncAdapter = useIoSync) }
+
+            if (useIoSync) {
+                val s = _uiState.value
+                if (s.ioSyncHost.isNotBlank()) {
+                    startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUsername, s.ioSyncPassword)
+                }
+            } else {
+                ioSyncPollingJob?.cancel()
+            }
+            refresh()
+        }
+    }
+
+    /** Startet das periodische Abrufen vom IoSync Adapter (primäre Datenquelle). */
     private fun startIoSyncPolling(host: String, port: Int, username: String, password: String) {
         ioSyncPollingJob?.cancel()
         ioSyncPollingJob = viewModelScope.launch {
             while (true) {
                 ioSyncClient.fetchDataPoints(host, port, username, password)
                     .onSuccess { states ->
-                        _uiState.update { it.copy(ioSyncStates = states) }
-                        // Watchface-Sync: IoSync-Datenpunkte übertragen wenn Anzeige aktiv
+                        val sorted = states.sortedBy { it.name }
+                        _uiState.update {
+                            it.copy(
+                                ioSyncStates = states,
+                                states = sorted,
+                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
+                            )
+                        }
                         if (_uiState.value.wfShowIoBrokerData) {
                             wearDataLayerService.syncStatesToWear(states)
                         }
