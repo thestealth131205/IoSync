@@ -147,20 +147,8 @@ class IoSyncWatchFaceService : WatchFaceService() {
         val leftComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_LEFT_ID,
-            bounds = RectF(0.05f, 0.4f, 0.3f, 0.65f),
+            bounds = RectF(0.10f, 0.50f, 0.35f, 0.75f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_SUNRISE_SUNSET,
-            supportedTypes = listOf(
-                ComplicationType.SHORT_TEXT,
-                ComplicationType.SMALL_IMAGE,
-                ComplicationType.MONOCHROMATIC_IMAGE
-            )
-        )
-
-        val rightComplication = buildComplicationSlot(
-            context = context,
-            id = COMPLICATION_RIGHT_ID,
-            bounds = RectF(0.7f, 0.4f, 0.95f, 0.65f),
-            defaultDataSource = SystemDataSources.DATA_SOURCE_DAY_AND_DATE,
             supportedTypes = listOf(
                 ComplicationType.SHORT_TEXT,
                 ComplicationType.SMALL_IMAGE,
@@ -172,8 +160,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
             complicationSlotCollection = listOf(
                 topComplication,
                 bottomComplication,
-                leftComplication,
-                rightComplication
+                leftComplication
             ),
             currentUserStyleRepository = currentUserStyleRepository
         )

@@ -20,6 +20,10 @@ import androidx.wear.watchface.WatchFace
 import androidx.wear.watchface.WatchState
 import androidx.wear.watchface.style.CurrentUserStyleRepository
 import androidx.wear.watchface.style.UserStyleSetting
+import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.DataEvent
+import com.google.android.gms.wearable.DataEventBuffer
+import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import com.iosync.watchface.datalayer.SmartHomeStateCache
 import com.iosync.watchface.datalayer.WatchFaceConfigCache
@@ -64,10 +68,11 @@ class IoSyncWatchFaceRenderer(
     canvasType = canvasType,
     interactiveDrawModeUpdateDelayMillis = FRAME_PERIOD_MS_DEFAULT,
     clearWithBackgroundTintBeforeRenderingHighlightLayer = false
-), WatchFace.TapListener {
+), WatchFace.TapListener, DataClient.OnDataChangedListener {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val density = context.resources.displayMetrics.density
+    private val dataClient: DataClient = Wearable.getDataClient(context)
 
     private var accentColor: Int = Color.parseColor("#EAFF00")
 
@@ -260,6 +265,14 @@ class IoSyncWatchFaceRenderer(
         private const val PATH_ACTION_TRIGGER = "/iosync/watchface/action_trigger"
         private const val TAG_PILL        = "WatchFacePill"
         private const val CONFIRM_DURATION_MS = 2000L
+
+        // Data Layer Pfade (gespiegelt aus WatchFaceDataListenerService)
+        private const val PATH_WATCHFACE_CONFIG = "/iosync/watchface/config"
+        private const val PATH_WEATHER          = "/iosync/watchface/weather"
+        private const val PATH_PHONE_BATTERY    = "/iosync/phone/battery"
+        private const val PATH_CUSTOM_SLOTS     = "/iosync/watchface/custom_slots"
+        private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
+        private const val PATH_STATES           = "/iosync/smarthome/states"
     }
 
     // ── Formatter ─────────────────────────────────────────────────────────────
@@ -282,6 +295,12 @@ class IoSyncWatchFaceRenderer(
     private var burnInFrame   = 0
 
     init {
+        // DataClient-Listener registrieren für Echtzeit-Updates
+        dataClient.addListener(this)
+
+        // Bestehende Config aus dem Data Layer laden (beim Start)
+        loadInitialConfig()
+
         scope.launch {
             currentUserStyleRepository.userStyle.collect { userStyle ->
                 userStyle[UserStyleSetting.Id("color_style")]?.let { option ->
@@ -293,6 +312,88 @@ class IoSyncWatchFaceRenderer(
                     accentTickPaint.color = accentColor
                 }
                 invalidate()
+            }
+        }
+    }
+
+    /**
+     * Liest beim Watchface-Start die bestehende Konfiguration aus dem Data Layer,
+     * damit Einstellungen auch nach einem Neustart erhalten bleiben.
+     */
+    private fun loadInitialConfig() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val dataItems = dataClient.dataItems.await()
+                dataItems.forEach { item ->
+                    when (item.uri.path) {
+                        PATH_WATCHFACE_CONFIG -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            WatchFaceConfigCache.updateFromDataMap(dataMap)
+                            Log.d(TAG_PILL, "Initiale Watchface-Config aus Data Layer geladen")
+                        }
+                        PATH_WEATHER -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            WatchFaceConfigCache.weatherTemp = dataMap.getInt("weather_temp", 0)
+                            dataMap.getString("weather_condition")?.let { WatchFaceConfigCache.weatherCondition = it }
+                        }
+                        PATH_PHONE_BATTERY -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            WatchFaceConfigCache.phoneBatteryLevel = dataMap.getInt("battery_level", -1)
+                            WatchFaceConfigCache.phoneBatteryCharging = dataMap.getBoolean("is_charging", false)
+                        }
+                        PATH_CUSTOM_SLOTS -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            dataMap.getString("wf_custom_slot1_label")?.let { WatchFaceConfigCache.customSlot1Label = it }
+                            dataMap.getString("wf_custom_slot1_value")?.let { WatchFaceConfigCache.customSlot1Value = it }
+                            dataMap.getString("wf_custom_slot2_label")?.let { WatchFaceConfigCache.customSlot2Label = it }
+                            dataMap.getString("wf_custom_slot2_value")?.let { WatchFaceConfigCache.customSlot2Value = it }
+                        }
+                        PATH_ACTION_PILL_STATE -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            WatchFaceConfigCache.actionPillState = dataMap.getBoolean("pill_state", false)
+                        }
+                    }
+                }
+                dataItems.release()
+            } catch (e: Exception) {
+                Log.e(TAG_PILL, "Initiale Config konnte nicht geladen werden", e)
+            }
+        }
+    }
+
+    /**
+     * Direkter DataClient-Listener — zuverlässiger als der manifest-registrierte
+     * WearableListenerService, da er im selben Prozess wie der Renderer läuft.
+     */
+    override fun onDataChanged(dataEvents: DataEventBuffer) {
+        dataEvents.forEach { event ->
+            if (event.type != DataEvent.TYPE_CHANGED) return@forEach
+            val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+            when (event.dataItem.uri.path) {
+                PATH_WATCHFACE_CONFIG -> {
+                    Log.d(TAG_PILL, "Watchface-Config via DataClient-Listener empfangen")
+                    WatchFaceConfigCache.updateFromDataMap(dataMap)
+                }
+                PATH_WEATHER -> {
+                    WatchFaceConfigCache.weatherTemp = dataMap.getInt("weather_temp", 0)
+                    dataMap.getString("weather_condition")?.let { WatchFaceConfigCache.weatherCondition = it }
+                }
+                PATH_PHONE_BATTERY -> {
+                    WatchFaceConfigCache.phoneBatteryLevel = dataMap.getInt("battery_level", -1)
+                    WatchFaceConfigCache.phoneBatteryCharging = dataMap.getBoolean("is_charging", false)
+                }
+                PATH_CUSTOM_SLOTS -> {
+                    dataMap.getString("wf_custom_slot1_label")?.let { WatchFaceConfigCache.customSlot1Label = it }
+                    dataMap.getString("wf_custom_slot1_value")?.let { WatchFaceConfigCache.customSlot1Value = it }
+                    dataMap.getString("wf_custom_slot2_label")?.let { WatchFaceConfigCache.customSlot2Label = it }
+                    dataMap.getString("wf_custom_slot2_value")?.let { WatchFaceConfigCache.customSlot2Value = it }
+                }
+                PATH_ACTION_PILL_STATE -> {
+                    WatchFaceConfigCache.actionPillState = dataMap.getBoolean("pill_state", false)
+                }
+                PATH_STATES -> {
+                    dataMap.getString("states_json")?.let { SmartHomeStateCache.updateFromJson(it) }
+                }
             }
         }
     }
@@ -642,8 +743,8 @@ class IoSyncWatchFaceRenderer(
     private fun drawWeatherCircle(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
         val circleRadius = radius * 0.18f
-        val circleCx = cx - radius * 0.52f
-        val circleCy = cy - radius * 0.42f
+        val circleCx = cx - radius * 0.42f
+        val circleCy = cy - radius * 0.50f
 
         // Hintergrund-Kreis
         canvas.drawCircle(circleCx, circleCy, circleRadius, weatherCircleBgPaint)
@@ -798,8 +899,8 @@ class IoSyncWatchFaceRenderer(
         val iconSize  = radius * 0.065f
         val itemWidth = radius * 0.55f
         val totalWidth = items.size * itemWidth
-        val startX = cx - totalWidth / 2f + itemWidth / 2f
-        val baseY = cy + radius * 0.72f
+        val startX = cx - totalWidth / 2f + itemWidth / 2f + radius * 0.06f
+        val baseY = cy + radius * 0.63f
 
         healthLabelPaint.textSize = labelSize
         healthValuePaint.textSize = valueSize
@@ -1060,6 +1161,7 @@ class IoSyncWatchFaceRenderer(
     }
 
     override fun onDestroy() {
+        dataClient.removeListener(this)
         healthSensorManager.stop()
         scope.cancel()
         super.onDestroy()
