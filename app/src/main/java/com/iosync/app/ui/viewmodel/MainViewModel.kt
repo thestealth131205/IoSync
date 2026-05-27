@@ -66,6 +66,7 @@ data class MainUiState(
     // IoSync Adapter Verbindung
     val ioSyncHost: String = "",
     val ioSyncPort: Int = 345,
+    val ioSyncUseHttps: Boolean = false,
     val ioSyncUsername: String = "",
     val ioSyncPassword: String = "",
     // Laufende IoSync-Datenpunkte (vom Adapter abgerufen)
@@ -113,6 +114,7 @@ class MainViewModel @Inject constructor(
         val KEY_USE_IOSYNC_ADAPTER   = booleanPreferencesKey("use_iosync_adapter")
         val KEY_IOSYNC_HOST          = stringPreferencesKey("iosync_host")
         val KEY_IOSYNC_PORT          = intPreferencesKey("iosync_port")
+        val KEY_IOSYNC_USE_HTTPS     = booleanPreferencesKey("iosync_use_https")
         val KEY_IOSYNC_USERNAME      = stringPreferencesKey("iosync_username")
         val KEY_IOSYNC_PASSWORD      = stringPreferencesKey("iosync_password")
         // Aktions-Pille
@@ -166,6 +168,7 @@ class MainViewModel @Inject constructor(
             val useIoSyncAdapter  = prefs[KEY_USE_IOSYNC_ADAPTER]   ?: true
             val ioSyncHost        = prefs[KEY_IOSYNC_HOST]          ?: ""
             val ioSyncPort        = prefs[KEY_IOSYNC_PORT]          ?: 7443
+            val ioSyncUseHttps    = prefs[KEY_IOSYNC_USE_HTTPS]     ?: false
             val ioSyncUsername    = prefs[KEY_IOSYNC_USERNAME]       ?: ""
             val ioSyncPassword    = prefs[KEY_IOSYNC_PASSWORD]       ?: ""
             val actionPillEnabled    = prefs[KEY_ACTION_PILL_ENABLED]     ?: false
@@ -197,6 +200,7 @@ class MainViewModel @Inject constructor(
                     useIoSyncAdapter   = useIoSyncAdapter,
                     ioSyncHost         = ioSyncHost,
                     ioSyncPort         = ioSyncPort,
+                    ioSyncUseHttps     = ioSyncUseHttps,
                     ioSyncUsername     = ioSyncUsername,
                     ioSyncPassword     = ioSyncPassword,
                     actionPillEnabled    = actionPillEnabled,
@@ -214,7 +218,7 @@ class MainViewModel @Inject constructor(
             }
 
             dynamicBaseUrl.update(host, port)
-            if (useIoSyncAdapter && ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUsername, ioSyncPassword)
+            if (useIoSyncAdapter && ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUseHttps, ioSyncUsername, ioSyncPassword)
             if (wfShowPhoneBattery) startBatteryPolling()
             if (wfShowWeather) startWeatherPolling()
         }
@@ -247,7 +251,7 @@ class MainViewModel @Inject constructor(
             val s = _uiState.value
             if (s.useIoSyncAdapter && s.ioSyncHost.isNotBlank()) {
                 // Primär: IoSync Adapter
-                ioSyncClient.fetchDataPoints(s.ioSyncHost, s.ioSyncPort, s.ioSyncUsername, s.ioSyncPassword)
+                ioSyncClient.fetchDataPoints(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
                     .onSuccess { states ->
                         val sorted = states.sortedBy { it.name }
                         _uiState.update {
@@ -325,7 +329,7 @@ class MainViewModel @Inject constructor(
                 _uiState.update { it.copy(error = "IoSync Adapter nicht konfiguriert") }
                 return@launch
             }
-            ioSyncClient.setState(s.ioSyncHost, s.ioSyncPort, s.ioSyncUsername, s.ioSyncPassword, id, value)
+            ioSyncClient.setState(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword, id, value)
                 .onFailure { _uiState.update { st -> st.copy(error = "IoSync setState: ${it.message}") } }
         }
     }
@@ -346,19 +350,20 @@ class MainViewModel @Inject constructor(
     /**
      * Speichert die IoSync-Adapter-Verbindungseinstellungen und startet das Polling neu.
      */
-    fun updateIoSyncSettings(host: String, port: Int, username: String, password: String) {
+    fun updateIoSyncSettings(host: String, port: Int, useHttps: Boolean, username: String, password: String) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
-                prefs[KEY_IOSYNC_HOST]     = host
-                prefs[KEY_IOSYNC_PORT]     = port
-                prefs[KEY_IOSYNC_USERNAME] = username
-                prefs[KEY_IOSYNC_PASSWORD] = password
+                prefs[KEY_IOSYNC_HOST]       = host
+                prefs[KEY_IOSYNC_PORT]       = port
+                prefs[KEY_IOSYNC_USE_HTTPS]  = useHttps
+                prefs[KEY_IOSYNC_USERNAME]   = username
+                prefs[KEY_IOSYNC_PASSWORD]   = password
             }
-            _uiState.update { it.copy(ioSyncHost = host, ioSyncPort = port, ioSyncUsername = username, ioSyncPassword = password) }
+            _uiState.update { it.copy(ioSyncHost = host, ioSyncPort = port, ioSyncUseHttps = useHttps, ioSyncUsername = username, ioSyncPassword = password) }
 
             ioSyncPollingJob?.cancel()
             if (host.isNotBlank()) {
-                startIoSyncPolling(host, port, username, password)
+                startIoSyncPolling(host, port, useHttps, username, password)
                 refresh()
             }
         }
@@ -373,7 +378,7 @@ class MainViewModel @Inject constructor(
             if (useIoSync) {
                 val s = _uiState.value
                 if (s.ioSyncHost.isNotBlank()) {
-                    startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUsername, s.ioSyncPassword)
+                    startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
                 }
             } else {
                 ioSyncPollingJob?.cancel()
@@ -383,11 +388,11 @@ class MainViewModel @Inject constructor(
     }
 
     /** Startet das periodische Abrufen vom IoSync Adapter (primäre Datenquelle). */
-    private fun startIoSyncPolling(host: String, port: Int, username: String, password: String) {
+    private fun startIoSyncPolling(host: String, port: Int, useHttps: Boolean, username: String, password: String) {
         ioSyncPollingJob?.cancel()
         ioSyncPollingJob = viewModelScope.launch {
             while (true) {
-                ioSyncClient.fetchDataPoints(host, port, username, password)
+                ioSyncClient.fetchDataPoints(host, port, useHttps, username, password)
                     .onSuccess { states ->
                         val sorted = states.sortedBy { it.name }
                         _uiState.update {

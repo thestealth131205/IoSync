@@ -65,11 +65,12 @@ class IoSyncClient @Inject constructor() {
     suspend fun fetchDataPoints(
         host: String,
         port: Int,
+        useHttps: Boolean = false,
         username: String,
         password: String
     ): Result<List<SmartHomeState>> = withContext(Dispatchers.IO) {
         runCatching {
-            val url = buildUrl(host, port, "/api/datapoints")
+            val url = buildUrl(host, port, "/api/datapoints", useHttps)
             val response = okHttpClient.newCall(
                 buildRequest(url, username, password).get().build()
             ).execute()
@@ -103,13 +104,14 @@ class IoSyncClient @Inject constructor() {
     suspend fun setState(
         host: String,
         port: Int,
+        useHttps: Boolean = false,
         username: String,
         password: String,
         id: String,
         value: String
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val url  = buildUrl(host, port, "/api/setState")
+            val url  = buildUrl(host, port, "/api/setState", useHttps)
             val body = JSONObject().apply { put("id", id); put("value", value) }
                 .toString().toRequestBody("application/json".toMediaType())
             val response = okHttpClient.newCall(
@@ -125,11 +127,12 @@ class IoSyncClient @Inject constructor() {
     suspend fun checkHealth(
         host: String,
         port: Int,
+        useHttps: Boolean = false,
         username: String,
         password: String
     ): Boolean = withContext(Dispatchers.IO) {
         runCatching {
-            val url = buildUrl(host, port, "/api/health")
+            val url = buildUrl(host, port, "/api/health", useHttps)
             val response = okHttpClient.newCall(
                 buildRequest(url, username, password).get().build()
             ).execute()
@@ -137,12 +140,13 @@ class IoSyncClient @Inject constructor() {
         }.getOrDefault(false)
     }
 
-    private fun buildUrl(host: String, port: Int, path: String): String {
+    private fun buildUrl(host: String, port: Int, path: String, useHttps: Boolean = false): String {
         val h = host.trim().trimEnd('/')
         return if (h.startsWith("http://") || h.startsWith("https://")) {
             "$h:$port$path"
         } else {
-            "https://$h:$port$path"
+            val scheme = if (useHttps) "https" else "http"
+            "$scheme://$h:$port$path"
         }
     }
 

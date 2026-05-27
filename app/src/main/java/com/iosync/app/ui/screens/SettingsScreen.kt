@@ -62,10 +62,11 @@ fun SettingsScreen(
     var port by remember(uiState.port) { mutableStateOf(uiState.port.toString()) }
 
     // IoSync Adapter Verbindung
-    var ioSyncHost     by remember(uiState.ioSyncHost)     { mutableStateOf(uiState.ioSyncHost) }
-    var ioSyncPort     by remember(uiState.ioSyncPort)     { mutableStateOf(uiState.ioSyncPort.toString()) }
-    var ioSyncUsername by remember(uiState.ioSyncUsername) { mutableStateOf(uiState.ioSyncUsername) }
-    var ioSyncPassword by remember(uiState.ioSyncPassword) { mutableStateOf(uiState.ioSyncPassword) }
+    var ioSyncHost      by remember(uiState.ioSyncHost)      { mutableStateOf(uiState.ioSyncHost) }
+    var ioSyncPort      by remember(uiState.ioSyncPort)      { mutableStateOf(uiState.ioSyncPort.toString()) }
+    var ioSyncUseHttps  by remember(uiState.ioSyncUseHttps)  { mutableStateOf(uiState.ioSyncUseHttps) }
+    var ioSyncUsername  by remember(uiState.ioSyncUsername)   { mutableStateOf(uiState.ioSyncUsername) }
+    var ioSyncPassword  by remember(uiState.ioSyncPassword)  { mutableStateOf(uiState.ioSyncPassword) }
 
     // Watchface-Konfiguration
     var wfTimeColor        by remember(uiState.wfTimeColor)        { mutableStateOf(uiState.wfTimeColor) }
@@ -179,6 +180,11 @@ fun SettingsScreen(
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProtocolSelector(
+                    useHttps = ioSyncUseHttps,
+                    onSelect = { ioSyncUseHttps = it },
+                    modifier = Modifier.weight(1f)
+                )
                 OutlinedTextField(
                     value = ioSyncPort,
                     onValueChange = { ioSyncPort = it.filter { c -> c.isDigit() } },
@@ -211,6 +217,7 @@ fun SettingsScreen(
                     viewModel.updateIoSyncSettings(
                         host     = ioSyncHost.trim(),
                         port     = ioSyncPort.toIntOrNull() ?: 345,
+                        useHttps = ioSyncUseHttps,
                         username = ioSyncUsername.trim(),
                         password = ioSyncPassword
                     )
@@ -730,6 +737,39 @@ private fun PillColorChip(
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             color = if (selected) NeonYellow else MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun ProtocolSelector(
+    useHttps: Boolean,
+    onSelect: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier
+    ) {
+        Button(
+            onClick = { onSelect(false) },
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (!useHttps) NeonYellow else Color(0xFF2A2A2A),
+                contentColor   = if (!useHttps) Color(0xFF1A1A00) else Color(0xFFAAAAAA)
+            )
+        ) {
+            Text("HTTP", style = MaterialTheme.typography.labelMedium)
+        }
+        Button(
+            onClick = { onSelect(true) },
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (useHttps) NeonYellow else Color(0xFF2A2A2A),
+                contentColor   = if (useHttps) Color(0xFF1A1A00) else Color(0xFFAAAAAA)
+            )
+        ) {
+            Text("HTTPS", style = MaterialTheme.typography.labelMedium)
+        }
     }
 }
 
