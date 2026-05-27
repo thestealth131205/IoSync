@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,7 +9,7 @@ plugins {
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = java.util.Properties()
+val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
@@ -43,7 +45,7 @@ android {
         // OpenWeatherMap API Key aus local.properties oder Umgebungsvariable
         val localProps = rootProject.file("local.properties")
         val owmKey = if (localProps.exists()) {
-            val props = java.util.Properties()
+            val props = Properties()
             props.load(localProps.inputStream())
             props.getProperty("OPENWEATHER_API_KEY", "")
         } else {
