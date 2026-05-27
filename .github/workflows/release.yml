@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release APKs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: JDK 17 einrichten
+        run: |
+          sudo apt-get install -y openjdk-17-jdk-headless
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+
+      - name: Gradle Wrapper ausführbar machen
+        run: chmod +x gradlew
+
+      - name: Version auslesen
+        id: version
+        run: |
+          VERSION=$(grep 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Alle APKs bauen
+        run: ./gradlew :app:assembleRelease :wear-app:assembleRelease :wear-watchface:assembleRelease --no-daemon
+
+      - name: APKs umbenennen
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          cp app/build/outputs/apk/release/app-release-unsigned.apk IoSync-app-$VERSION.apk
+          cp wear-app/build/outputs/apk/release/wear-app-release-unsigned.apk IoSync-wear-$VERSION.apk
+          cp wear-watchface/build/outputs/apk/release/wear-watchface-release-unsigned.apk IoSync-watchface-$VERSION.apk
+
+      - name: GitHub Release erstellen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: IoSync ${{ steps.version.outputs.version }}
+          body: |
+            ## IoSync ${{ steps.version.outputs.version }}
+
+            ### Downloads
+            | APK | Beschreibung |
+            |-----|-------------|
+            | `IoSync-app-*.apk` | Smartphone App (Android 8+) |
+            | `IoSync-wear-*.apk` | Wear OS App (Wear OS 3+) |
+            | `IoSync-watchface-*.apk` | Wear OS Watchface (Wear OS 4) |
+
+            > APKs sind unsigniert. Fuer Produktion mit eigenem Keystore signieren.
+          files: |
+            IoSync-app-${{ steps.version.outputs.version }}.apk
+            IoSync-wear-${{ steps.version.outputs.version }}.apk
+            IoSync-watchface-${{ steps.version.outputs.version }}.apk
+          draft: false
+          prerelease: false
+          make_latest: true
