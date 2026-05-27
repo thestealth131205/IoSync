@@ -659,11 +659,11 @@ class IoSyncWatchFaceRenderer(
         val paint = if (isCharging) batteryChargingPaint else batteryPaint
         phoneIconStrokePaint.color = paint.color
 
-        // Icon-Dimensionen und Position (rechts neben der oberen Komplikation)
+        // Icon-Dimensionen und Position (rechts von der Mitte, auf gleicher Höhe wie Uhren-Akku)
         val iconW   = radius * 0.095f
         val iconH   = radius * 0.155f
-        val iconCx  = cx + radius * 0.575f
-        val iconTop = cy - radius * 0.765f
+        val iconCx  = cx + radius * 0.25f
+        val iconTop = cy - radius * 0.20f
         val iconBottom = iconTop + iconH
         val iconLeft   = iconCx - iconW / 2f
         val iconRight  = iconCx + iconW / 2f

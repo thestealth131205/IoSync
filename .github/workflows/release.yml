@@ -46,6 +46,8 @@ jobs:
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Alle APKs bauen
+        env:
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
         run: ./gradlew :app:assembleRelease :wear-watchface:assembleRelease --no-daemon
 
       - name: APKs umbenennen
