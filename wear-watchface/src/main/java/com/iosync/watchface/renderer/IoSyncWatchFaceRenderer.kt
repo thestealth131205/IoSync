@@ -179,13 +179,23 @@ class IoSyncWatchFaceRenderer(
         color = Color.parseColor("#888888")
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         isAntiAlias = true
-        textAlign = Paint.Align.LEFT
+        textAlign = Paint.Align.CENTER
     }
     private val batteryChargingPaint = Paint().apply {
         color = Color.parseColor("#4CAF50")
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         isAntiAlias = true
-        textAlign = Paint.Align.LEFT
+        textAlign = Paint.Align.CENTER
+    }
+    private val phoneIconStrokePaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeWidth = 2.5f
+    }
+    private val phoneScreenFillPaint = Paint().apply {
+        color = Color.argb(55, 255, 255, 255)
+        isAntiAlias = true
+        style = Paint.Style.FILL
     }
     private val overlayBgPaint = Paint().apply {
         color = Color.argb(160, 0, 0, 0)
@@ -429,7 +439,7 @@ class IoSyncWatchFaceRenderer(
         val by = if (isAmbient) burnInOffsetY else 0f
 
         val timeStr      = timeFormatter.format(zonedDateTime)
-        val timeFontSize = radius * 0.46f
+        val timeFontSize = radius * 0.437f
 
         if (isAmbient) {
             ambientTimePaint.textSize  = timeFontSize
@@ -448,7 +458,7 @@ class IoSyncWatchFaceRenderer(
 
             if (config.showSeconds) {
                 val secStr      = secondsFormatter.format(zonedDateTime)
-                val secFontSize = timeFontSize * 0.5f
+                val secFontSize = timeFontSize * 0.475f
                 secondsPaint.color    = dimColor(timeColor, 0.75f)
                 secondsPaint.textSize = secFontSize
 
@@ -468,7 +478,7 @@ class IoSyncWatchFaceRenderer(
                 // Datum "MO DD" unterhalb der Sekunden, linksbündig mit Sekunden
                 weekdayBottomY = if (config.showWeekday) {
                     val dateStr      = "${weekdayShort(zonedDateTime)} ${zonedDateTime.dayOfMonth}"
-                    val dateFontSize = secFontSize * 0.80f
+                    val dateFontSize = secFontSize * 0.72f
                     weekdayPaint.color     = dateColor
                     weekdayPaint.textSize  = dateFontSize
                     weekdayPaint.textAlign = Paint.Align.LEFT
@@ -485,7 +495,7 @@ class IoSyncWatchFaceRenderer(
                 // Ohne Sekunden: Datum zentriert unterhalb der Zeit
                 weekdayBottomY = if (config.showWeekday) {
                     val dateStr      = "${weekdayShort(zonedDateTime)} ${zonedDateTime.dayOfMonth}"
-                    val dateFontSize = timeFontSize * 0.28f
+                    val dateFontSize = timeFontSize * 0.252f
                     weekdayPaint.color     = dateColor
                     weekdayPaint.textSize  = dateFontSize
                     weekdayPaint.textAlign = Paint.Align.CENTER
@@ -503,7 +513,7 @@ class IoSyncWatchFaceRenderer(
             }
 
             // Handy-Akkustand (optional, vom Smartphone aktivierbar)
-            if (config.showPhoneBattery && config.phoneBatteryLevel >= 0) {
+            if (config.showPhoneBattery) {
                 drawPhoneBattery(canvas, cx, cy, radius, config.phoneBatteryLevel, config.phoneBatteryCharging)
             }
 
@@ -514,7 +524,7 @@ class IoSyncWatchFaceRenderer(
 
             // Custom ioBroker-Slots (2 Datenpunkte unterhalb der Uhrzeit)
             if (config.showCustomSlots) {
-                drawCustomSlots(canvas, cx, cy, radius)
+                drawCustomSlots(canvas, cx, cy, radius, weekdayBottomY)
             }
 
             // Gesundheitsdaten (Puls, SpO2, Kalorien)
@@ -634,8 +644,9 @@ class IoSyncWatchFaceRenderer(
     }
 
     /**
-     * Zeichnet den Handy-Akkustand als kleines Label oben links.
-     * Grün wenn das Gerät geladen wird, grau sonst.
+     * Zeichnet den Handy-Akkustand rechts neben dem Uhren-Akku (obere Komplikation).
+     * Symbol: stilisiertes Smartphone-Rechteck (Canvas-gezeichnet), darunter die Prozentzahl.
+     * Grün wenn das Gerät geladen wird, grau sonst. Zeigt "--" wenn noch kein Wert empfangen.
      */
     private fun drawPhoneBattery(
         canvas: Canvas,
@@ -645,28 +656,56 @@ class IoSyncWatchFaceRenderer(
         level: Int,
         isCharging: Boolean
     ) {
-        val textSize = radius * 0.095f
         val paint = if (isCharging) batteryChargingPaint else batteryPaint
-        paint.textSize = textSize
+        phoneIconStrokePaint.color = paint.color
 
-        val icon = if (isCharging) "+" else "P"   // einfache ASCII-Symbole (keine Emoji-Abhängigkeit)
-        val text = "$level%"
-        val full = "$icon$text"
+        // Icon-Dimensionen und Position (rechts neben der oberen Komplikation)
+        val iconW   = radius * 0.095f
+        val iconH   = radius * 0.155f
+        val iconCx  = cx + radius * 0.575f
+        val iconTop = cy - radius * 0.765f
+        val iconBottom = iconTop + iconH
+        val iconLeft   = iconCx - iconW / 2f
+        val iconRight  = iconCx + iconW / 2f
+        val cornerR    = iconW * 0.20f
 
-        // Position: oben links, innerhalb des Zifferblatts
-        val x = cx - radius * 0.56f
-        val y = cy - radius * 0.50f
-
-        // Hintergrund-Pill für bessere Lesbarkeit
-        val textBounds = Rect()
-        paint.getTextBounds(full, 0, full.length, textBounds)
-        val padH = textSize * 0.25f
-        val padV = textSize * 0.18f
+        // Hintergrund-Pill
+        val bgPad = radius * 0.025f
         canvas.drawRoundRect(
-            RectF(x - padH, y - textBounds.height() - padV, x + textBounds.width() + padH, y + padV),
-            6f, 6f, overlayBgPaint
+            RectF(iconLeft - bgPad, iconTop - bgPad, iconRight + bgPad, iconBottom + iconH * 0.22f + bgPad),
+            cornerR + bgPad, cornerR + bgPad, overlayBgPaint
         )
-        canvas.drawText(full, x, y, paint)
+
+        // Smartphone-Körper (Outline)
+        canvas.drawRoundRect(RectF(iconLeft, iconTop, iconRight, iconBottom), cornerR, cornerR, phoneIconStrokePaint)
+
+        // Bildschirm-Fläche (helles Innenrechteck)
+        val sInset = iconW * 0.18f
+        canvas.drawRect(
+            iconLeft + sInset,
+            iconTop + iconH * 0.10f,
+            iconRight - sInset,
+            iconBottom - iconH * 0.22f,
+            phoneScreenFillPaint
+        )
+
+        // Home-Button (kleiner Kreis am unteren Innenrand)
+        val homeR  = iconW * 0.13f
+        val homeCy = iconBottom - iconH * 0.11f
+        canvas.drawCircle(iconCx, homeCy, homeR, phoneIconStrokePaint)
+
+        // Ladeblitz bei charging (+) über dem Screen
+        if (isCharging) {
+            paint.textSize = iconH * 0.28f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("+", iconCx, iconTop + iconH * 0.52f, paint)
+        }
+
+        // Prozentzahl unterhalb des Icons
+        val levelText = if (level >= 0) "$level%" else "--"
+        paint.textSize = radius * 0.085f
+        paint.textAlign = Paint.Align.CENTER
+        canvas.drawText(levelText, iconCx, iconBottom + radius * 0.115f, paint)
     }
 
     /**
@@ -982,13 +1021,15 @@ class IoSyncWatchFaceRenderer(
      * Zeichnet zwei ioBroker-Werte-Slots unterhalb der Uhrzeit, nebeneinander.
      * Format: "LBL 12.3" — Label in Grau, Wert in Neon-Gelb.
      */
-    private fun drawCustomSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+    private fun drawCustomSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float, clockBottomY: Float) {
         val config = WatchFaceConfigCache
         val fontSize = radius * 0.11f
         customSlotLabelPaint.textSize = fontSize
         customSlotValuePaint.textSize = fontSize
 
-        val slotY = cy + radius * 0.38f
+        val dp5 = 5f * context.resources.displayMetrics.density
+        val fm = customSlotValuePaint.fontMetrics
+        val slotY = clockBottomY + dp5 - fm.ascent
         val gap = radius * 0.04f
         val slotSpacing = radius * 0.48f
 

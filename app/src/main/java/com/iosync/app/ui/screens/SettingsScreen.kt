@@ -727,38 +727,39 @@ fun SettingsScreen(
                         selected = pillColorFalse == "light_gray", onClick = { pillColorFalse = "light_gray" })
                 }
 
-                Button(
-                    onClick = {
-                        viewModel.updateActionPillConfig(
-                            enabled    = pillEnabled,
-                            colorTrue  = pillColorTrue,
-                            colorFalse = pillColorFalse,
-                            ioBrokerId = pillIoBrokerId.trim(),
-                            valueMode  = pillValueMode,
-                            fixedValue = pillFixedValue.trim()
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeonYellow,
-                        contentColor = Color(0xFF1A1A00)
-                    )
-                ) {
-                    Text("Pille auf Uhr übertragen", style = MaterialTheme.typography.labelLarge)
-                }
+            }
 
-                // Sync-Status-Konsole (Pille)
-                if (uiState.wearSyncLog.isNotBlank()) {
-                    Text(
-                        text = uiState.wearSyncLog,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (uiState.wearSyncLog.startsWith("Fehler"))
-                            Color(0xFFF44336) else Color(0xFF4CAF50),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth()
+            Button(
+                onClick = {
+                    viewModel.updateActionPillConfig(
+                        enabled    = pillEnabled,
+                        colorTrue  = pillColorTrue,
+                        colorFalse = pillColorFalse,
+                        ioBrokerId = pillIoBrokerId.trim(),
+                        valueMode  = pillValueMode,
+                        fixedValue = pillFixedValue.trim()
                     )
-                }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NeonYellow,
+                    contentColor = Color(0xFF1A1A00)
+                )
+            ) {
+                Text("Pille auf Uhr übertragen", style = MaterialTheme.typography.labelLarge)
+            }
+
+            // Sync-Status-Konsole (Pille)
+            if (uiState.wearSyncLog.isNotBlank()) {
+                Text(
+                    text = uiState.wearSyncLog,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (uiState.wearSyncLog.startsWith("Fehler"))
+                        Color(0xFFF44336) else Color(0xFF4CAF50),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             Spacer(Modifier.height(16.dp))
