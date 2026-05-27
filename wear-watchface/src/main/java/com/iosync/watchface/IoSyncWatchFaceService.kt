@@ -138,11 +138,12 @@ class IoSyncWatchFaceService : WatchFaceService() {
             bounds = RectF(0.25f, 0.68f, 0.75f, 0.92f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
             supportedTypes = listOf(
-                ComplicationType.SHORT_TEXT,
                 ComplicationType.RANGED_VALUE,
+                ComplicationType.SHORT_TEXT,
                 ComplicationType.SMALL_IMAGE
             ),
-            textSizeSp = 18
+            textSizeSp = 18,
+            defaultType = ComplicationType.RANGED_VALUE
         )
 
         val leftComplication = buildComplicationSlot(
@@ -174,7 +175,8 @@ class IoSyncWatchFaceService : WatchFaceService() {
         bounds: RectF,
         defaultDataSource: Int,
         supportedTypes: List<ComplicationType>,
-        textSizeSp: Int = 14
+        textSizeSp: Int = 14,
+        defaultType: ComplicationType = supportedTypes.first()
     ): ComplicationSlot {
         val drawable = ComplicationDrawable(context).apply {
             activeStyle.apply {
@@ -207,7 +209,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
             supportedTypes = supportedTypes,
             defaultDataSourcePolicy = DefaultComplicationDataSourcePolicy(
                 systemDataSource = defaultDataSource,
-                systemDataSourceDefaultType = supportedTypes.first()
+                systemDataSourceDefaultType = defaultType
             ),
             bounds = ComplicationSlotBounds(bounds)
         ).build()

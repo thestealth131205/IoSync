@@ -676,9 +676,9 @@ class IoSyncWatchFaceRenderer(
      */
     private fun drawActionPill(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config   = WatchFaceConfigCache
-        val halfW    = radius * 0.38f
+        val halfW    = radius * 0.266f   // 30% kürzer als vorher (0.38 * 0.7)
         val halfH    = radius * 0.055f
-        val centerY  = cy + radius * 0.655f
+        val centerY  = cy + radius * 0.72f  // etwas weiter unten
 
         pillBounds.set(cx - halfW, centerY - halfH, cx + halfW, centerY + halfH)
 
@@ -694,12 +694,6 @@ class IoSyncWatchFaceRenderer(
         // Rand in voller Farbe
         pillStrokePaint.color = activeColor
         canvas.drawRoundRect(pillBounds, halfH, halfH, pillStrokePaint)
-
-        // Text "TRUE" / "FALSE"
-        val label = if (config.actionPillState) "TRUE" else "FALSE"
-        pillTextPaint.textSize = halfH * 1.15f
-        pillTextPaint.color    = if (config.actionPillState) Color.BLACK else Color.WHITE
-        canvas.drawText(label, cx, centerY + halfH * 0.42f, pillTextPaint)
     }
 
     private fun colorFromPillId(id: String): Int = when (id) {
