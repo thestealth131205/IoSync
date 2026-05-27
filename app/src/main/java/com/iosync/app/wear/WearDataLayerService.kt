@@ -55,6 +55,14 @@ private const val PATH_WEATHER            = "/iosync/watchface/weather"
 private const val KEY_WEATHER_TEMP        = "weather_temp"
 private const val KEY_WEATHER_CONDITION   = "weather_condition"
 
+// ── Custom ioBroker-Slots ─────────────────────────────────────────────────────
+private const val KEY_WF_CUSTOM_SLOT1_LABEL = "wf_custom_slot1_label"
+private const val KEY_WF_CUSTOM_SLOT1_VALUE = "wf_custom_slot1_value"
+private const val KEY_WF_CUSTOM_SLOT2_LABEL = "wf_custom_slot2_label"
+private const val KEY_WF_CUSTOM_SLOT2_VALUE = "wf_custom_slot2_value"
+private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
+private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
+
 // ── Aktions-Pille-Konfigurationsschlüssel ─────────────────────────────────────
 private const val KEY_WF_ACTION_PILL_ENABLED     = "wf_action_pill_enabled"
 private const val KEY_WF_ACTION_PILL_COLOR_TRUE  = "wf_action_pill_color_true"
@@ -175,7 +183,10 @@ class WearDataLayerService @Inject constructor(
         showWeather: Boolean = true,
         showHeartRate: Boolean = true,
         showOxygen: Boolean = false,
-        showCalories: Boolean = true
+        showCalories: Boolean = true,
+        showCustomSlots: Boolean = false,
+        customSlot1Label: String = "",
+        customSlot2Label: String = ""
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -201,12 +212,16 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_ACTION_PILL_VALUE_MODE, actionPillValueMode)
                     dataMap.putString(KEY_WF_ACTION_PILL_FIXED_VALUE, actionPillFixedValue)
                     dataMap.putBoolean(KEY_WF_ACTION_PILL_STATE, actionPillState)
+                    dataMap.putBoolean(KEY_WF_SHOW_CUSTOM_SLOTS, showCustomSlots)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT1_LABEL, customSlot1Label)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT2_LABEL, customSlot2Label)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
                 Log.d(TAG, "Watchface-Konfiguration an Wear OS übertragen")
             } catch (e: Exception) {
                 Log.e(TAG, "syncWatchFaceConfigToWear fehlgeschlagen", e)
+                throw e
             }
         }
     }
@@ -245,6 +260,30 @@ class WearDataLayerService @Inject constructor(
                 Log.d(TAG, "Aktions-Pille Status ($state) an Wear OS übertragen")
             } catch (e: Exception) {
                 Log.e(TAG, "syncActionPillStateToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt die aktuellen Werte der Custom ioBroker-Slots ans Watchface.
+     */
+    suspend fun syncCustomSlotsToWear(
+        slot1Label: String, slot1Value: String,
+        slot2Label: String, slot2Value: String
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_CUSTOM_SLOTS).apply {
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT1_LABEL, slot1Label)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT1_VALUE, slot1Value)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT2_LABEL, slot2Label)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT2_VALUE, slot2Value)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Custom-Slot-Daten an Wear OS übertragen: $slot1Label=$slot1Value, $slot2Label=$slot2Value")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncCustomSlotsToWear fehlgeschlagen", e)
             }
         }
     }

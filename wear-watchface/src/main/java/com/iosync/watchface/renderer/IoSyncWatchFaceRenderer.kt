@@ -243,10 +243,23 @@ class IoSyncWatchFaceRenderer(
     private var pillBounds = RectF()
     private var lastTapTime = 0L
 
+    // ── Config-Bestätigung (2 s Overlay) ───────────────────────────────────────
+    private val confirmPaint = Paint().apply {
+        color = Color.parseColor("#EAFF00")
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
+    }
+    private val confirmBgPaint = Paint().apply {
+        color = Color.argb(200, 0, 0, 0)
+        isAntiAlias = true
+        style = Paint.Style.FILL
+    }
     companion object {
         private const val DOUBLE_TAP_MS   = 400L
         private const val PATH_ACTION_TRIGGER = "/iosync/watchface/action_trigger"
         private const val TAG_PILL        = "WatchFacePill"
+        private const val CONFIRM_DURATION_MS = 2000L
     }
 
     // ── Formatter ─────────────────────────────────────────────────────────────
@@ -398,6 +411,11 @@ class IoSyncWatchFaceRenderer(
                 drawWeatherCircle(canvas, cx, cy, radius)
             }
 
+            // Custom ioBroker-Slots (2 Datenpunkte unterhalb der Uhrzeit)
+            if (config.showCustomSlots) {
+                drawCustomSlots(canvas, cx, cy, radius)
+            }
+
             // Gesundheitsdaten (Puls, SpO2, Kalorien)
             drawHealthData(canvas, cx, cy, radius)
 
@@ -408,6 +426,33 @@ class IoSyncWatchFaceRenderer(
         }
 
         drawComplications(canvas, zonedDateTime, isAmbient)
+
+        // Config-Bestätigung anzeigen (2 s nach Empfang)
+        if (!isAmbient) {
+            val elapsed = System.currentTimeMillis() - config.lastConfigReceivedAt
+            if (elapsed in 0 until CONFIRM_DURATION_MS) {
+                val alpha = ((1f - elapsed.toFloat() / CONFIRM_DURATION_MS) * 255).toInt()
+                val text = "Config empfangen"
+                confirmPaint.textSize = radius * 0.10f
+                confirmPaint.alpha = alpha
+                confirmBgPaint.alpha = (alpha * 0.78f).toInt()
+                val textY = cy - radius * 0.72f
+                val textBounds = Rect()
+                confirmPaint.getTextBounds(text, 0, text.length, textBounds)
+                val padH = radius * 0.06f
+                val padV = radius * 0.03f
+                canvas.drawRoundRect(
+                    RectF(
+                        cx - textBounds.width() / 2f - padH,
+                        textY + textBounds.top - padV,
+                        cx + textBounds.width() / 2f + padH,
+                        textY + textBounds.bottom + padV
+                    ),
+                    radius * 0.03f, radius * 0.03f, confirmBgPaint
+                )
+                canvas.drawText(text, cx, textY, confirmPaint)
+            }
+        }
     }
 
     /**
@@ -725,28 +770,32 @@ class IoSyncWatchFaceRenderer(
      * Zeichnet Gesundheitswerte (Puls, SpO2, Kalorien) unterhalb der Uhrzeit.
      * Positioniert sich am unteren Rand des Zifferblatts.
      */
+    // Label, Value, Color, IconType
+    private data class HealthItem(val label: String, val value: String, val color: Int, val icon: String)
+
     private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
         val health = healthSensorManager
-        val items = mutableListOf<Triple<String, String, Int>>() // Label, Value, Color
+        val items = mutableListOf<HealthItem>()
 
         if (config.showHeartRate) {
             val hrText = if (health.heartRate > 0) "${health.heartRate}" else "--"
-            items.add(Triple("PULS", hrText, Color.parseColor("#F44336")))
+            items.add(HealthItem("PULS", hrText, Color.parseColor("#F44336"), "heart"))
         }
         if (config.showOxygen) {
             val o2Text = if (health.spO2 > 0) "${health.spO2}%" else "--%"
-            items.add(Triple("OXYGEN", o2Text, Color.parseColor("#42A5F5")))
+            items.add(HealthItem("OXYGEN", o2Text, Color.parseColor("#42A5F5"), "oxygen"))
         }
         if (config.showCalories) {
             val calText = if (health.calories > 0) "${health.calories}" else "0"
-            items.add(Triple("KCAL", calText, Color.parseColor("#FF9800")))
+            items.add(HealthItem("KCAL", calText, Color.parseColor("#FF9800"), "flame"))
         }
 
         if (items.isEmpty()) return
 
         val labelSize = radius * 0.070f
         val valueSize = radius * 0.095f
+        val iconSize  = radius * 0.065f
         val itemWidth = radius * 0.55f
         val totalWidth = items.size * itemWidth
         val startX = cx - totalWidth / 2f + itemWidth / 2f
@@ -756,14 +805,116 @@ class IoSyncWatchFaceRenderer(
         healthValuePaint.textSize = valueSize
 
         for ((index, item) in items.withIndex()) {
-            val (label, value, color) = item
             val x = startX + index * itemWidth
 
-            healthLabelPaint.color = Color.parseColor("#666666")
-            canvas.drawText(label, x, baseY, healthLabelPaint)
+            // Symbol links vom Label
+            val labelWidth = healthLabelPaint.measureText(item.label)
+            val iconGap = iconSize * 0.35f
+            val totalLabelWidth = iconSize + iconGap + labelWidth
+            val labelStartX = x - totalLabelWidth / 2f
 
-            healthValuePaint.color = color
-            canvas.drawText(value, x, baseY + valueSize * 1.2f, healthValuePaint)
+            drawHealthIcon(canvas, labelStartX + iconSize / 2f, baseY - labelSize * 0.30f, iconSize, item.icon)
+
+            healthLabelPaint.color = Color.parseColor("#AAAAAA")
+            healthLabelPaint.textAlign = Paint.Align.LEFT
+            canvas.drawText(item.label, labelStartX + iconSize + iconGap, baseY, healthLabelPaint)
+            healthLabelPaint.textAlign = Paint.Align.CENTER
+
+            healthValuePaint.color = item.color
+            canvas.drawText(item.value, x, baseY + valueSize * 1.2f, healthValuePaint)
+        }
+    }
+
+    /** Zeichnet ein kleines Icon (Herz, Flamme, O2-Tropfen) für die Gesundheitsanzeige. */
+    private fun drawHealthIcon(canvas: Canvas, cx: Float, cy: Float, size: Float, type: String) {
+        val iconPaint = Paint().apply {
+            isAntiAlias = true
+            style = Paint.Style.FILL
+        }
+        when (type) {
+            "heart" -> {
+                iconPaint.color = Color.parseColor("#AAAAAA")
+                val path = android.graphics.Path()
+                val s = size * 0.55f
+                // Herz aus zwei Bögen + Spitze
+                path.moveTo(cx, cy + s * 0.6f) // Spitze unten
+                path.cubicTo(cx - s * 1.3f, cy - s * 0.2f, cx - s * 0.6f, cy - s * 1.2f, cx, cy - s * 0.5f)
+                path.cubicTo(cx + s * 0.6f, cy - s * 1.2f, cx + s * 1.3f, cy - s * 0.2f, cx, cy + s * 0.6f)
+                path.close()
+                canvas.drawPath(path, iconPaint)
+            }
+            "flame" -> {
+                iconPaint.color = Color.parseColor("#FF9800")
+                val path = android.graphics.Path()
+                val s = size * 0.55f
+                // Flamme
+                path.moveTo(cx, cy + s * 0.7f) // Basis unten
+                path.cubicTo(cx - s * 0.8f, cy + s * 0.1f, cx - s * 0.5f, cy - s * 0.6f, cx, cy - s * 0.9f)
+                path.cubicTo(cx + s * 0.5f, cy - s * 0.6f, cx + s * 0.8f, cy + s * 0.1f, cx, cy + s * 0.7f)
+                path.close()
+                canvas.drawPath(path, iconPaint)
+            }
+            "oxygen" -> {
+                iconPaint.color = Color.parseColor("#AAAAAA")
+                val path = android.graphics.Path()
+                val s = size * 0.50f
+                // Tropfen (O2)
+                path.moveTo(cx, cy - s * 0.9f) // Spitze oben
+                path.cubicTo(cx - s * 0.8f, cy + s * 0.1f, cx - s * 0.6f, cy + s * 0.8f, cx, cy + s * 0.8f)
+                path.cubicTo(cx + s * 0.6f, cy + s * 0.8f, cx + s * 0.8f, cy + s * 0.1f, cx, cy - s * 0.9f)
+                path.close()
+                canvas.drawPath(path, iconPaint)
+            }
+        }
+    }
+
+    // ── Custom ioBroker-Slots ──────────────────────────────────────────────────
+
+    private val customSlotLabelPaint = Paint().apply {
+        color = Color.parseColor("#888888")
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.RIGHT
+    }
+    private val customSlotValuePaint = Paint().apply {
+        color = Color.parseColor("#EAFF00")
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.LEFT
+    }
+
+    /**
+     * Zeichnet zwei ioBroker-Werte-Slots unterhalb der Uhrzeit, nebeneinander.
+     * Format: "LBL 12.3" — Label in Grau, Wert in Neon-Gelb.
+     */
+    private fun drawCustomSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+        val fontSize = radius * 0.11f
+        customSlotLabelPaint.textSize = fontSize
+        customSlotValuePaint.textSize = fontSize
+
+        val slotY = cy + radius * 0.38f
+        val gap = radius * 0.04f
+        val slotSpacing = radius * 0.48f
+
+        // Slot 1 (links)
+        if (config.customSlot1Label.isNotBlank()) {
+            val slotCx = cx - slotSpacing / 2f
+            val labelText = config.customSlot1Label.take(3).uppercase()
+            customSlotLabelPaint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(labelText, slotCx - gap / 2f, slotY, customSlotLabelPaint)
+            customSlotValuePaint.textAlign = Paint.Align.LEFT
+            canvas.drawText(config.customSlot1Value, slotCx + gap / 2f, slotY, customSlotValuePaint)
+        }
+
+        // Slot 2 (rechts)
+        if (config.customSlot2Label.isNotBlank()) {
+            val slotCx = cx + slotSpacing / 2f
+            val labelText = config.customSlot2Label.take(3).uppercase()
+            customSlotLabelPaint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(labelText, slotCx - gap / 2f, slotY, customSlotLabelPaint)
+            customSlotValuePaint.textAlign = Paint.Align.LEFT
+            canvas.drawText(config.customSlot2Value, slotCx + gap / 2f, slotY, customSlotValuePaint)
         }
     }
 

@@ -53,6 +53,16 @@ private const val PATH_WEATHER            = "/iosync/watchface/weather"
 private const val KEY_WEATHER_TEMP        = "weather_temp"
 private const val KEY_WEATHER_CONDITION   = "weather_condition"
 
+// ── Custom ioBroker-Slots (2 Datenpunkte unter der Uhrzeit) ─────────────────
+private const val KEY_WF_CUSTOM_SLOT1_LABEL = "wf_custom_slot1_label"
+private const val KEY_WF_CUSTOM_SLOT1_VALUE = "wf_custom_slot1_value"
+private const val KEY_WF_CUSTOM_SLOT2_LABEL = "wf_custom_slot2_label"
+private const val KEY_WF_CUSTOM_SLOT2_VALUE = "wf_custom_slot2_value"
+private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
+
+// ── Custom-Slot-Daten (Echtzeit-Updates der Werte) ──────────────────────────
+private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
+
 // ── Aktions-Pille Status-Pfad (separater Pfad für schnelle State-Updates) ────
 private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
 private const val KEY_PILL_STATE         = "pill_state"
@@ -95,6 +105,14 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     WatchFaceConfigCache.weatherTemp = dataMap.getInt(KEY_WEATHER_TEMP, 0)
                     dataMap.getString(KEY_WEATHER_CONDITION)?.let { WatchFaceConfigCache.weatherCondition = it }
                     Log.d(TAG, "Wetterdaten empfangen: ${WatchFaceConfigCache.weatherTemp}°C, ${WatchFaceConfigCache.weatherCondition}")
+                }
+                PATH_CUSTOM_SLOTS -> {
+                    val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT1_LABEL)?.let { WatchFaceConfigCache.customSlot1Label = it }
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT1_VALUE)?.let { WatchFaceConfigCache.customSlot1Value = it }
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT2_LABEL)?.let { WatchFaceConfigCache.customSlot2Label = it }
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT2_VALUE)?.let { WatchFaceConfigCache.customSlot2Value = it }
+                    Log.d(TAG, "Custom-Slot-Daten empfangen: ${WatchFaceConfigCache.customSlot1Label}=${WatchFaceConfigCache.customSlot1Value}, ${WatchFaceConfigCache.customSlot2Label}=${WatchFaceConfigCache.customSlot2Value}")
                 }
                 PATH_ACTION_PILL_STATE -> {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -144,8 +162,16 @@ object WatchFaceConfigCache {
     @Volatile var actionPillValueMode: String = "toggle"
     @Volatile var actionPillFixedValue: String = ""
     @Volatile var actionPillState: Boolean = false
+    @Volatile var lastConfigReceivedAt: Long = 0L
+    // Custom ioBroker-Slots (2 Datenpunkte unter der Uhrzeit)
+    @Volatile var showCustomSlots: Boolean = false
+    @Volatile var customSlot1Label: String = ""
+    @Volatile var customSlot1Value: String = "--"
+    @Volatile var customSlot2Label: String = ""
+    @Volatile var customSlot2Value: String = "--"
 
     fun updateFromDataMap(dataMap: DataMap) {
+        lastConfigReceivedAt = System.currentTimeMillis()
         dataMap.getString(KEY_WF_TIME_COLOR)?.let { timeColorId = it }
         dataMap.getString(KEY_WF_DATE_COLOR)?.let { dateColorId = it }
         if (dataMap.containsKey(KEY_WF_SHOW_SECONDS))       showSeconds        = dataMap.getBoolean(KEY_WF_SHOW_SECONDS)
@@ -167,6 +193,9 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_ACTION_PILL_VALUE_MODE)?.let  { actionPillValueMode  = it }
         dataMap.getString(KEY_WF_ACTION_PILL_FIXED_VALUE)?.let { actionPillFixedValue = it }
         if (dataMap.containsKey(KEY_WF_ACTION_PILL_STATE))      actionPillState       = dataMap.getBoolean(KEY_WF_ACTION_PILL_STATE)
+        if (dataMap.containsKey(KEY_WF_SHOW_CUSTOM_SLOTS))      showCustomSlots       = dataMap.getBoolean(KEY_WF_SHOW_CUSTOM_SLOTS)
+        dataMap.getString(KEY_WF_CUSTOM_SLOT1_LABEL)?.let { customSlot1Label = it }
+        dataMap.getString(KEY_WF_CUSTOM_SLOT2_LABEL)?.let { customSlot2Label = it }
     }
 }
 

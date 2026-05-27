@@ -84,7 +84,20 @@ data class MainUiState(
     val wfShowWeather: Boolean = true,
     val wfShowHeartRate: Boolean = true,
     val wfShowOxygen: Boolean = false,
-    val wfShowCalories: Boolean = true
+    val wfShowCalories: Boolean = true,
+    // Wetter-Standort
+    val weatherUseFixedLocation: Boolean = false,
+    val weatherFixedLat: Double = 0.0,
+    val weatherFixedLon: Double = 0.0,
+    val weatherFixedCity: String = "",
+    // Custom ioBroker-Slots (2 Datenpunkte auf dem Watchface)
+    val showCustomSlots: Boolean = false,
+    val customSlot1Id: String = "",
+    val customSlot1Label: String = "",
+    val customSlot2Id: String = "",
+    val customSlot2Label: String = "",
+    // Sync-Status-Log für die Konsolenanzeige
+    val wearSyncLog: String = ""
 )
 
 @HiltViewModel
@@ -131,6 +144,17 @@ class MainViewModel @Inject constructor(
         val KEY_WF_SHOW_HEART_RATE  = booleanPreferencesKey("wf_show_heart_rate")
         val KEY_WF_SHOW_OXYGEN      = booleanPreferencesKey("wf_show_oxygen")
         val KEY_WF_SHOW_CALORIES    = booleanPreferencesKey("wf_show_calories")
+        // Custom ioBroker-Slots
+        val KEY_SHOW_CUSTOM_SLOTS   = booleanPreferencesKey("show_custom_slots")
+        val KEY_CUSTOM_SLOT1_ID     = stringPreferencesKey("custom_slot1_id")
+        val KEY_CUSTOM_SLOT1_LABEL  = stringPreferencesKey("custom_slot1_label")
+        val KEY_CUSTOM_SLOT2_ID     = stringPreferencesKey("custom_slot2_id")
+        val KEY_CUSTOM_SLOT2_LABEL  = stringPreferencesKey("custom_slot2_label")
+        // Wetter-Standort
+        val KEY_WEATHER_USE_FIXED   = booleanPreferencesKey("weather_use_fixed")
+        val KEY_WEATHER_FIXED_LAT   = stringPreferencesKey("weather_fixed_lat")
+        val KEY_WEATHER_FIXED_LON   = stringPreferencesKey("weather_fixed_lon")
+        val KEY_WEATHER_FIXED_CITY  = stringPreferencesKey("weather_fixed_city")
 
         // Polling-Intervall für IoSync Datenpunkte (30 Sekunden)
         private const val IOSYNC_POLL_INTERVAL_MS = 30_000L
@@ -182,6 +206,20 @@ class MainViewModel @Inject constructor(
             val wfShowHeartRate   = prefs[KEY_WF_SHOW_HEART_RATE]  ?: true
             val wfShowOxygen      = prefs[KEY_WF_SHOW_OXYGEN]      ?: false
             val wfShowCalories    = prefs[KEY_WF_SHOW_CALORIES]    ?: true
+            val showCustomSlots   = prefs[KEY_SHOW_CUSTOM_SLOTS]   ?: false
+            val customSlot1Id     = prefs[KEY_CUSTOM_SLOT1_ID]     ?: ""
+            val customSlot1Label  = prefs[KEY_CUSTOM_SLOT1_LABEL]  ?: ""
+            val customSlot2Id     = prefs[KEY_CUSTOM_SLOT2_ID]     ?: ""
+            val customSlot2Label  = prefs[KEY_CUSTOM_SLOT2_LABEL]  ?: ""
+            val weatherUseFixed   = prefs[KEY_WEATHER_USE_FIXED]   ?: false
+            val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
+            val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
+            val weatherFixedCity  = prefs[KEY_WEATHER_FIXED_CITY]  ?: ""
+
+            // WeatherService festen Standort konfigurieren
+            weatherService.useFixedLocation = weatherUseFixed
+            weatherService.fixedLat = if (weatherUseFixed) weatherFixedLat else null
+            weatherService.fixedLon = if (weatherUseFixed) weatherFixedLon else null
 
             _uiState.update {
                 it.copy(
@@ -213,7 +251,16 @@ class MainViewModel @Inject constructor(
                     wfShowWeather     = wfShowWeather,
                     wfShowHeartRate   = wfShowHeartRate,
                     wfShowOxygen      = wfShowOxygen,
-                    wfShowCalories    = wfShowCalories
+                    wfShowCalories    = wfShowCalories,
+                    showCustomSlots    = showCustomSlots,
+                    customSlot1Id      = customSlot1Id,
+                    customSlot1Label   = customSlot1Label,
+                    customSlot2Id      = customSlot2Id,
+                    customSlot2Label   = customSlot2Label,
+                    weatherUseFixedLocation = weatherUseFixed,
+                    weatherFixedLat   = weatherFixedLat,
+                    weatherFixedLon   = weatherFixedLon,
+                    weatherFixedCity  = weatherFixedCity
                 )
             }
 
@@ -405,6 +452,7 @@ class MainViewModel @Inject constructor(
                         if (_uiState.value.wfShowIoBrokerData) {
                             wearDataLayerService.syncStatesToWear(states)
                         }
+                        if (_uiState.value.showCustomSlots) syncCustomSlotValues()
                     }
                     .onFailure { /* Fehler werden im IoSyncClient geloggt */ }
                 delay(IOSYNC_POLL_INTERVAL_MS)
@@ -428,9 +476,13 @@ class MainViewModel @Inject constructor(
         showWeather: Boolean,
         showHeartRate: Boolean,
         showOxygen: Boolean,
-        showCalories: Boolean
+        showCalories: Boolean,
+        showCustomSlots: Boolean = _uiState.value.showCustomSlots,
+        customSlot1Label: String = _uiState.value.customSlot1Label,
+        customSlot2Label: String = _uiState.value.customSlot2Label
     ) {
         viewModelScope.launch {
+            _uiState.update { it.copy(wearSyncLog = "Sende Watchface-Konfiguration …") }
             dataStore.edit { prefs ->
                 prefs[KEY_WF_TIME_COLOR]          = timeColor
                 prefs[KEY_WF_DATE_COLOR]          = dateColor
@@ -465,14 +517,20 @@ class MainViewModel @Inject constructor(
                     wfShowCalories     = showCalories
                 )
             }
-            val s = _uiState.value
-            wearDataLayerService.syncWatchFaceConfigToWear(
-                timeColor, dateColor, showSeconds, showTicks, showWeekday, showPhoneBattery, showIoBrokerData,
-                showSecondsRing, secondsRingColor, secondsRingWidth,
-                s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
-                s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
-                showWeather, showHeartRate, showOxygen, showCalories
-            )
+            try {
+                val s = _uiState.value
+                wearDataLayerService.syncWatchFaceConfigToWear(
+                    timeColor, dateColor, showSeconds, showTicks, showWeekday, showPhoneBattery, showIoBrokerData,
+                    showSecondsRing, secondsRingColor, secondsRingWidth,
+                    s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
+                    s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
+                    showWeather, showHeartRate, showOxygen, showCalories,
+                    showCustomSlots, customSlot1Label, customSlot2Label
+                )
+                _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
 
             // Akku-Polling starten/stoppen je nach Konfiguration
             if (showPhoneBattery && batteryPollingJob?.isActive != true) {
@@ -509,6 +567,7 @@ class MainViewModel @Inject constructor(
         fixedValue: String
     ) {
         viewModelScope.launch {
+            _uiState.update { it.copy(wearSyncLog = "Sende Aktions-Pille-Konfiguration …") }
             val currentState = _uiState.value.actionPillState
             dataStore.edit { prefs ->
                 prefs[KEY_ACTION_PILL_ENABLED]     = enabled
@@ -528,14 +587,20 @@ class MainViewModel @Inject constructor(
                     actionPillFixedValue = fixedValue
                 )
             }
-            val s = _uiState.value
-            wearDataLayerService.syncWatchFaceConfigToWear(
-                s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
-                s.wfShowPhoneBattery, s.wfShowIoBrokerData, s.wfShowSecondsRing,
-                s.wfSecondsRingColor, s.wfSecondsRingWidth,
-                enabled, colorTrue, colorFalse, ioBrokerId, valueMode, fixedValue, currentState,
-                s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories
-            )
+            try {
+                val s = _uiState.value
+                wearDataLayerService.syncWatchFaceConfigToWear(
+                    s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
+                    s.wfShowPhoneBattery, s.wfShowIoBrokerData, s.wfShowSecondsRing,
+                    s.wfSecondsRingColor, s.wfSecondsRingWidth,
+                    enabled, colorTrue, colorFalse, ioBrokerId, valueMode, fixedValue, currentState,
+                    s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories,
+                    s.showCustomSlots, s.customSlot1Label, s.customSlot2Label
+                )
+                _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
         }
     }
 
@@ -549,6 +614,67 @@ class MainViewModel @Inject constructor(
             _uiState.update { it.copy(actionPillState = newState) }
             wearDataLayerService.syncActionPillStateToWear(newState)
         }
+    }
+
+    // ── Custom ioBroker-Slots ────────────────────────────────────────────────
+
+    /**
+     * Speichert die Konfiguration der Custom-Slots und überträgt sie an die Uhr.
+     */
+    fun updateCustomSlotsConfig(
+        enabled: Boolean,
+        slot1Id: String,
+        slot1Label: String,
+        slot2Id: String,
+        slot2Label: String
+    ) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_SHOW_CUSTOM_SLOTS]  = enabled
+                prefs[KEY_CUSTOM_SLOT1_ID]    = slot1Id
+                prefs[KEY_CUSTOM_SLOT1_LABEL] = slot1Label
+                prefs[KEY_CUSTOM_SLOT2_ID]    = slot2Id
+                prefs[KEY_CUSTOM_SLOT2_LABEL] = slot2Label
+            }
+            _uiState.update {
+                it.copy(
+                    showCustomSlots  = enabled,
+                    customSlot1Id    = slot1Id,
+                    customSlot1Label = slot1Label,
+                    customSlot2Id    = slot2Id,
+                    customSlot2Label = slot2Label
+                )
+            }
+            // Sofort Werte senden falls Daten vorhanden
+            if (enabled) syncCustomSlotValues()
+        }
+    }
+
+    /**
+     * Liest die aktuellen Werte für die Custom-Slots aus den ioBroker-States
+     * und sendet sie an die Uhr.
+     */
+    private suspend fun syncCustomSlotValues() {
+        val s = _uiState.value
+        if (!s.showCustomSlots) return
+        val states = s.ioSyncStates.ifEmpty { s.states }
+
+        val val1 = states.firstOrNull { it.id == s.customSlot1Id }
+        val val2 = states.firstOrNull { it.id == s.customSlot2Id }
+
+        val formatted1 = formatSlotValue(val1?.value)
+        val formatted2 = formatSlotValue(val2?.value)
+
+        wearDataLayerService.syncCustomSlotsToWear(
+            s.customSlot1Label, formatted1,
+            s.customSlot2Label, formatted2
+        )
+    }
+
+    private fun formatSlotValue(value: String?): String {
+        if (value == null) return "--"
+        val num = value.toDoubleOrNull() ?: return value.take(6)
+        return String.format("%.1f", num)
     }
 
     // ── Handy-Akku ────────────────────────────────────────────────────────────
@@ -596,6 +722,59 @@ class MainViewModel @Inject constructor(
                     }
                 delay(WEATHER_SYNC_INTERVAL_MS)
             }
+        }
+    }
+
+    /** Sucht Orte per OpenWeatherMap Geocoding. */
+    fun searchWeatherLocations(query: String, onResult: (List<com.iosync.app.data.network.GeocodingResult>) -> Unit) {
+        viewModelScope.launch {
+            weatherService.searchLocations(query)
+                .onSuccess { onResult(it) }
+                .onFailure { onResult(emptyList()) }
+        }
+    }
+
+    /** Setzt einen festen Wetter-Standort. */
+    fun setFixedWeatherLocation(lat: Double, lon: Double, city: String) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_WEATHER_USE_FIXED] = true
+                prefs[KEY_WEATHER_FIXED_LAT] = lat.toString()
+                prefs[KEY_WEATHER_FIXED_LON] = lon.toString()
+                prefs[KEY_WEATHER_FIXED_CITY] = city
+            }
+            weatherService.useFixedLocation = true
+            weatherService.fixedLat = lat
+            weatherService.fixedLon = lon
+            _uiState.update { it.copy(
+                weatherUseFixedLocation = true,
+                weatherFixedLat = lat,
+                weatherFixedLon = lon,
+                weatherFixedCity = city
+            ) }
+            // Sofort neue Wetterdaten abrufen
+            weatherService.fetchWeather()
+                .onSuccess { wearDataLayerService.syncWeatherToWear(it.temperature, it.condition) }
+        }
+    }
+
+    /** Wechselt auf GPS-basierten Echtzeit-Standort für Wetter. */
+    fun useRealtimeWeatherLocation() {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_WEATHER_USE_FIXED] = false
+                prefs[KEY_WEATHER_FIXED_CITY] = ""
+            }
+            weatherService.useFixedLocation = false
+            weatherService.fixedLat = null
+            weatherService.fixedLon = null
+            _uiState.update { it.copy(
+                weatherUseFixedLocation = false,
+                weatherFixedCity = ""
+            ) }
+            // Sofort neue Wetterdaten abrufen
+            weatherService.fetchWeather()
+                .onSuccess { wearDataLayerService.syncWeatherToWear(it.temperature, it.condition) }
         }
     }
 

@@ -33,20 +33,28 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.iosync.app.data.network.GeocodingResult
 import com.iosync.app.ui.theme.NeonYellow
+import com.iosync.app.ui.viewmodel.MainUiState
 import com.iosync.app.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,6 +93,13 @@ fun SettingsScreen(
     var wfShowHeartRate by remember(uiState.wfShowHeartRate) { mutableStateOf(uiState.wfShowHeartRate) }
     var wfShowOxygen    by remember(uiState.wfShowOxygen)    { mutableStateOf(uiState.wfShowOxygen) }
     var wfShowCalories  by remember(uiState.wfShowCalories)  { mutableStateOf(uiState.wfShowCalories) }
+
+    // Custom ioBroker-Slots
+    var showCustomSlots by remember(uiState.showCustomSlots) { mutableStateOf(uiState.showCustomSlots) }
+    var customSlot1Id    by remember(uiState.customSlot1Id)    { mutableStateOf(uiState.customSlot1Id) }
+    var customSlot1Label by remember(uiState.customSlot1Label) { mutableStateOf(uiState.customSlot1Label) }
+    var customSlot2Id    by remember(uiState.customSlot2Id)    { mutableStateOf(uiState.customSlot2Id) }
+    var customSlot2Label by remember(uiState.customSlot2Label) { mutableStateOf(uiState.customSlot2Label) }
 
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
@@ -402,6 +417,11 @@ fun SettingsScreen(
                 checked = wfShowWeather,
                 onCheckedChange = { wfShowWeather = it }
             )
+
+            if (wfShowWeather) {
+                WeatherLocationSection(viewModel = viewModel, uiState = uiState)
+            }
+
             WatchFaceToggleRow(
                 text = "Puls anzeigen",
                 subText = "Herzfrequenz vom Sensor der Uhr",
@@ -420,6 +440,91 @@ fun SettingsScreen(
                 checked = wfShowCalories,
                 onCheckedChange = { wfShowCalories = it }
             )
+
+            Spacer(Modifier.height(4.dp))
+
+            // ── Custom ioBroker-Slots ────────────────────────────────────────
+            Text(
+                text = "ioBroker-Werte auf Watchface",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            WatchFaceToggleRow(
+                text = "ioBroker-Slots anzeigen",
+                subText = "Zwei Datenpunkte unter der Uhrzeit (Label + Wert)",
+                checked = showCustomSlots,
+                onCheckedChange = { showCustomSlots = it }
+            )
+
+            if (showCustomSlots) {
+                Text(
+                    text = "Slot 1",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = customSlot1Label,
+                        onValueChange = { if (it.length <= 3) customSlot1Label = it },
+                        label = { Text("Name") },
+                        placeholder = { Text("z.B. TMP") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = customSlot1Id,
+                        onValueChange = { customSlot1Id = it },
+                        label = { Text("ioBroker Datenpunkt-ID") },
+                        placeholder = { Text("hm-rpc.0.ABC.1.TEMP") },
+                        modifier = Modifier.weight(3f),
+                        singleLine = true
+                    )
+                }
+
+                Text(
+                    text = "Slot 2",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = customSlot2Label,
+                        onValueChange = { if (it.length <= 3) customSlot2Label = it },
+                        label = { Text("Name") },
+                        placeholder = { Text("z.B. HUM") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = customSlot2Id,
+                        onValueChange = { customSlot2Id = it },
+                        label = { Text("ioBroker Datenpunkt-ID") },
+                        placeholder = { Text("hm-rpc.0.ABC.1.HUMIDITY") },
+                        modifier = Modifier.weight(3f),
+                        singleLine = true
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        viewModel.updateCustomSlotsConfig(
+                            enabled    = showCustomSlots,
+                            slot1Id    = customSlot1Id.trim(),
+                            slot1Label = customSlot1Label.trim(),
+                            slot2Id    = customSlot2Id.trim(),
+                            slot2Label = customSlot2Label.trim()
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonYellow,
+                        contentColor = Color(0xFF1A1A00)
+                    )
+                ) {
+                    Text("Slots speichern & übertragen", style = MaterialTheme.typography.labelLarge)
+                }
+            }
 
             Spacer(Modifier.height(4.dp))
 
@@ -499,7 +604,10 @@ fun SettingsScreen(
                         showWeather      = wfShowWeather,
                         showHeartRate    = wfShowHeartRate,
                         showOxygen       = wfShowOxygen,
-                        showCalories     = wfShowCalories
+                        showCalories     = wfShowCalories,
+                        showCustomSlots  = showCustomSlots,
+                        customSlot1Label = customSlot1Label.trim(),
+                        customSlot2Label = customSlot2Label.trim()
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -509,6 +617,19 @@ fun SettingsScreen(
                 )
             ) {
                 Text("Auf Uhr übertragen", style = MaterialTheme.typography.labelLarge)
+            }
+
+            // Sync-Status-Konsole
+            if (uiState.wearSyncLog.isNotBlank()) {
+                Text(
+                    text = uiState.wearSyncLog,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (uiState.wearSyncLog.startsWith("Fehler"))
+                        Color(0xFFF44336) else Color(0xFF4CAF50),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             Spacer(Modifier.height(8.dp))
@@ -619,6 +740,19 @@ fun SettingsScreen(
                 ) {
                     Text("Pille auf Uhr übertragen", style = MaterialTheme.typography.labelLarge)
                 }
+
+                // Sync-Status-Konsole (Pille)
+                if (uiState.wearSyncLog.isNotBlank()) {
+                    Text(
+                        text = uiState.wearSyncLog,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (uiState.wearSyncLog.startsWith("Fehler"))
+                            Color(0xFFF44336) else Color(0xFF4CAF50),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             Spacer(Modifier.height(16.dp))
@@ -643,6 +777,109 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun WeatherLocationSection(
+    viewModel: MainViewModel,
+    uiState: MainUiState
+) {
+    val context = LocalContext.current
+    var searchQuery by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<GeocodingResult>>(emptyList()) }
+    var locationPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        locationPermissionGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        if (locationPermissionGranted) {
+            viewModel.useRealtimeWeatherLocation()
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = if (uiState.weatherUseFixedLocation && uiState.weatherFixedCity.isNotBlank())
+                "Standort: ${uiState.weatherFixedCity}" else "Standort: GPS (Echtzeit)",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // Suchleiste für festen Standort
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { query ->
+                searchQuery = query
+                if (query.length >= 2) {
+                    viewModel.searchWeatherLocations(query) { results ->
+                        searchResults = results
+                    }
+                } else {
+                    searchResults = emptyList()
+                }
+            },
+            label = { Text("Ort suchen") },
+            placeholder = { Text("z.B. Berlin, München ...") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        // Suchergebnisse
+        searchResults.forEach { result ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        viewModel.setFixedWeatherLocation(result.lat, result.lon, result.displayName)
+                        searchQuery = ""
+                        searchResults = emptyList()
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = result.displayName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        // Button: Echtzeit-Standort verwenden
+        Button(
+            onClick = {
+                if (locationPermissionGranted) {
+                    viewModel.useRealtimeWeatherLocation()
+                } else {
+                    permissionLauncher.launch(arrayOf(
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (!uiState.weatherUseFixedLocation) NeonYellow else Color(0xFF2A2A2A),
+                contentColor = if (!uiState.weatherUseFixedLocation) Color(0xFF1A1A00) else Color(0xFFAAAAAA)
+            )
+        ) {
+            Text(
+                text = if (locationPermissionGranted) "Echtzeit-Standort verwenden"
+                       else "Standort-Berechtigung erteilen",
+                style = MaterialTheme.typography.labelLarge
+            )
         }
     }
 }

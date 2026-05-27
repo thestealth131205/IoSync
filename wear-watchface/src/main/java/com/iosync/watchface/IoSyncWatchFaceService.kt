@@ -191,9 +191,9 @@ class IoSyncWatchFaceService : WatchFaceService() {
                 textColor = android.graphics.Color.parseColor("#EAFF00")
                 titleColor = android.graphics.Color.parseColor("#999999")
                 iconColor = android.graphics.Color.parseColor("#EAFF00")
-                borderColor = android.graphics.Color.parseColor("#2E2E2E")
-                borderWidth = 1
-                backgroundColor = android.graphics.Color.parseColor("#111111")
+                borderColor = android.graphics.Color.TRANSPARENT
+                borderWidth = 0
+                backgroundColor = android.graphics.Color.TRANSPARENT
                 rangedValuePrimaryColor = android.graphics.Color.parseColor("#EAFF00")
                 rangedValueSecondaryColor = android.graphics.Color.parseColor("#2E2E2E")
             }
