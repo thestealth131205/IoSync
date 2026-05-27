@@ -459,7 +459,7 @@ class IoSyncWatchFaceRenderer(
             if (config.showSeconds) {
                 val secStr      = secondsFormatter.format(zonedDateTime)
                 val secFontSize = timeFontSize * 0.475f
-                secondsPaint.color    = dimColor(timeColor, 0.75f)
+                secondsPaint.color    = if (config.secondsNumberColorId == "dim_time") dimColor(timeColor, 0.75f) else colorFromId(config.secondsNumberColorId)
                 secondsPaint.textSize = secFontSize
 
                 val timeWidth = timePaint.measureText(timeStr)

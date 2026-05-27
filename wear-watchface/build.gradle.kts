@@ -32,8 +32,8 @@ android {
         applicationId = "com.iosync.app"
         minSdk = 30  // Wear OS 3+ (API 30)
         targetSdk = 36
-        versionCode = 320
-        versionName = "3.2.0"
+        versionCode = 321
+        versionName = "3.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
