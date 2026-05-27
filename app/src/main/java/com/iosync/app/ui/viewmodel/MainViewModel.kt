@@ -90,6 +90,8 @@ data class MainUiState(
     val weatherFixedLat: Double = 0.0,
     val weatherFixedLon: Double = 0.0,
     val weatherFixedCity: String = "",
+    val weatherSearchResults: List<com.iosync.app.data.network.GeocodingResult> = emptyList(),
+    val weatherSearching: Boolean = false,
     // Custom ioBroker-Slots (2 Datenpunkte auf dem Watchface)
     val showCustomSlots: Boolean = false,
     val customSlot1Id: String = "",
@@ -518,6 +520,10 @@ class MainViewModel @Inject constructor(
                 )
             }
             try {
+                if (!wearDataLayerService.isWatchConnected()) {
+                    _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
+                    return@launch
+                }
                 val s = _uiState.value
                 wearDataLayerService.syncWatchFaceConfigToWear(
                     timeColor, dateColor, showSeconds, showTicks, showWeekday, showPhoneBattery, showIoBrokerData,
@@ -588,6 +594,10 @@ class MainViewModel @Inject constructor(
                 )
             }
             try {
+                if (!wearDataLayerService.isWatchConnected()) {
+                    _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
+                    return@launch
+                }
                 val s = _uiState.value
                 wearDataLayerService.syncWatchFaceConfigToWear(
                     s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
@@ -646,7 +656,15 @@ class MainViewModel @Inject constructor(
                 )
             }
             // Sofort Werte senden falls Daten vorhanden
-            if (enabled) syncCustomSlotValues()
+            if (enabled) {
+                if (!wearDataLayerService.isWatchConnected()) {
+                    _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
+                    return@launch
+                }
+                _uiState.update { it.copy(wearSyncLog = "Sende Slot-Daten …") }
+                syncCustomSlotValues()
+                _uiState.update { it.copy(wearSyncLog = "Slot-Daten übertragen") }
+            }
         }
     }
 
@@ -725,13 +743,32 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    private var weatherSearchJob: Job? = null
+
     /** Sucht Orte per OpenWeatherMap Geocoding. */
-    fun searchWeatherLocations(query: String, onResult: (List<com.iosync.app.data.network.GeocodingResult>) -> Unit) {
-        viewModelScope.launch {
-            weatherService.searchLocations(query)
-                .onSuccess { onResult(it) }
-                .onFailure { onResult(emptyList()) }
+    fun searchWeatherLocations(query: String) {
+        weatherSearchJob?.cancel()
+        if (query.length < 2) {
+            _uiState.update { it.copy(weatherSearchResults = emptyList(), weatherSearching = false) }
+            return
         }
+        _uiState.update { it.copy(weatherSearching = true) }
+        weatherSearchJob = viewModelScope.launch {
+            delay(300) // Debounce
+            weatherService.searchLocations(query)
+                .onSuccess { results ->
+                    _uiState.update { it.copy(weatherSearchResults = results, weatherSearching = false) }
+                }
+                .onFailure {
+                    _uiState.update { it.copy(weatherSearchResults = emptyList(), weatherSearching = false) }
+                }
+        }
+    }
+
+    /** Leert die Wetter-Suchergebnisse. */
+    fun clearWeatherSearchResults() {
+        weatherSearchJob?.cancel()
+        _uiState.update { it.copy(weatherSearchResults = emptyList(), weatherSearching = false) }
     }
 
     /** Setzt einen festen Wetter-Standort. */
@@ -750,7 +787,9 @@ class MainViewModel @Inject constructor(
                 weatherUseFixedLocation = true,
                 weatherFixedLat = lat,
                 weatherFixedLon = lon,
-                weatherFixedCity = city
+                weatherFixedCity = city,
+                weatherSearchResults = emptyList(),
+                weatherSearching = false
             ) }
             // Sofort neue Wetterdaten abrufen
             weatherService.fetchWeather()

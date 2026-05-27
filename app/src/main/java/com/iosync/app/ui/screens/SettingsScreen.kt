@@ -15,12 +15,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Icon
@@ -52,6 +57,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.network.GeocodingResult
 import com.iosync.app.ui.theme.NeonYellow
 import com.iosync.app.ui.viewmodel.MainUiState
@@ -458,6 +464,9 @@ fun SettingsScreen(
             )
 
             if (showCustomSlots) {
+                val availableStates = uiState.states
+
+                // Slot 1
                 Text(
                     text = "Slot 1",
                     style = MaterialTheme.typography.labelMedium,
@@ -472,16 +481,15 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
-                    OutlinedTextField(
-                        value = customSlot1Id,
-                        onValueChange = { customSlot1Id = it },
-                        label = { Text("ioBroker Datenpunkt-ID") },
-                        placeholder = { Text("hm-rpc.0.ABC.1.TEMP") },
-                        modifier = Modifier.weight(3f),
-                        singleLine = true
+                    DatapointDropdown(
+                        selectedId = customSlot1Id,
+                        availableStates = availableStates,
+                        onSelect = { customSlot1Id = it },
+                        modifier = Modifier.weight(3f)
                     )
                 }
 
+                // Slot 2
                 Text(
                     text = "Slot 2",
                     style = MaterialTheme.typography.labelMedium,
@@ -496,13 +504,11 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
-                    OutlinedTextField(
-                        value = customSlot2Id,
-                        onValueChange = { customSlot2Id = it },
-                        label = { Text("ioBroker Datenpunkt-ID") },
-                        placeholder = { Text("hm-rpc.0.ABC.1.HUMIDITY") },
-                        modifier = Modifier.weight(3f),
-                        singleLine = true
+                    DatapointDropdown(
+                        selectedId = customSlot2Id,
+                        availableStates = availableStates,
+                        onSelect = { customSlot2Id = it },
+                        modifier = Modifier.weight(3f)
                     )
                 }
 
@@ -788,7 +794,6 @@ private fun WeatherLocationSection(
 ) {
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
-    var searchResults by remember { mutableStateOf<List<GeocodingResult>>(emptyList()) }
     var locationPermissionGranted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
@@ -822,39 +827,66 @@ private fun WeatherLocationSection(
             value = searchQuery,
             onValueChange = { query ->
                 searchQuery = query
-                if (query.length >= 2) {
-                    viewModel.searchWeatherLocations(query) { results ->
-                        searchResults = results
-                    }
-                } else {
-                    searchResults = emptyList()
-                }
+                viewModel.searchWeatherLocations(query)
             },
             label = { Text("Ort suchen") },
             placeholder = { Text("z.B. Berlin, München ...") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            trailingIcon = {
+                if (uiState.weatherSearching) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = NeonYellow
+                    )
+                }
+            }
         )
 
         // Suchergebnisse
-        searchResults.forEach { result ->
-            Row(
+        if (uiState.weatherSearchResults.isNotEmpty()) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        viewModel.setFixedWeatherLocation(result.lat, result.lon, result.displayName)
-                        searchQuery = ""
-                        searchResults = emptyList()
-                    }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .background(Color(0xFF1E1E1E), RoundedCornerShape(8.dp))
+                    .padding(4.dp)
             ) {
-                Text(
-                    text = result.displayName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                uiState.weatherSearchResults.forEachIndexed { index, result ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.setFixedWeatherLocation(result.lat, result.lon, result.displayName)
+                                searchQuery = result.name
+                                viewModel.clearWeatherSearchResults()
+                            }
+                            .padding(vertical = 10.dp, horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "📍",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text(
+                            text = result.displayName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    if (index < uiState.weatherSearchResults.lastIndex) {
+                        HorizontalDivider(color = Color(0xFF333333))
+                    }
+                }
             }
+        } else if (!uiState.weatherSearching && searchQuery.length >= 2) {
+            Text(
+                text = "Keine Orte gefunden",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF888888),
+                modifier = Modifier.padding(start = 4.dp)
+            )
         }
 
         // Button: Echtzeit-Standort verwenden
@@ -1033,6 +1065,100 @@ private fun PillValueModeSelector(selected: String, onSelect: (String) -> Unit) 
                 )
             ) {
                 Text(label, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+/**
+ * Dropdown-Auswahl für ioBroker-Datenpunkte.
+ * Zeigt die auf der Startseite geladenen Datenpunkte als Auswahlmenü.
+ */
+@Composable
+private fun DatapointDropdown(
+    selectedId: String,
+    availableStates: List<SmartHomeState>,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayName = if (selectedId.isBlank()) {
+        ""
+    } else {
+        availableStates.firstOrNull { it.id == selectedId }?.name
+            ?: selectedId.substringAfterLast(".")
+    }
+
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = displayName,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Datenpunkt") },
+            placeholder = { Text("Tippen zum Auswählen") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = true },
+            singleLine = true,
+            enabled = false,
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+        // Unsichtbarer Klick-Overlay über dem disabled TextField
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { expanded = true }
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .fillMaxWidth(0.7f)
+                .background(Color(0xFF2A2A2A))
+        ) {
+            if (availableStates.isEmpty()) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "Keine Datenpunkte geladen",
+                            color = Color(0xFF888888),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    onClick = { expanded = false }
+                )
+            } else {
+                availableStates.forEach { state ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = state.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = state.id,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF888888),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        },
+                        onClick = {
+                            onSelect(state.id)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
     }

@@ -32,8 +32,8 @@ android {
         applicationId = "com.iosync.watchface"
         minSdk = 30  // Wear OS 3+ (API 30)
         targetSdk = 36
-        versionCode = 263
-        versionName = "2.6.3"
+        versionCode = 270
+        versionName = "2.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

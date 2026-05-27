@@ -3,6 +3,7 @@ package com.iosync.app.wear
 import android.content.Context
 import android.util.Log
 import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.NodeClient
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import com.iosync.app.data.model.SmartHomeState
@@ -87,6 +88,22 @@ class WearDataLayerService @Inject constructor(
 ) {
 
     private val dataClient: DataClient by lazy { Wearable.getDataClient(context) }
+    private val nodeClient: NodeClient by lazy { Wearable.getNodeClient(context) }
+
+    /**
+     * Prüft ob mindestens eine Wear OS Uhr per Bluetooth verbunden ist.
+     */
+    suspend fun isWatchConnected(): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val nodes = nodeClient.connectedNodes.await()
+                nodes.isNotEmpty()
+            } catch (e: Exception) {
+                Log.e(TAG, "isWatchConnected fehlgeschlagen", e)
+                false
+            }
+        }
+    }
 
     private val statesListAdapter by lazy {
         moshi.adapter<List<SmartHomeState>>(
