@@ -51,6 +51,7 @@ class WatchFaceTriggerListenerService : WearableListenerService() {
 
         val host        = prefs[MainViewModel.KEY_IOSYNC_HOST]          ?: ""
         val port        = prefs[MainViewModel.KEY_IOSYNC_PORT]          ?: 345
+        val useHttps    = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS]       ?: false
         val username    = prefs[MainViewModel.KEY_IOSYNC_USERNAME]       ?: ""
         val password    = prefs[MainViewModel.KEY_IOSYNC_PASSWORD]       ?: ""
         val ioBrokerId  = prefs[MainViewModel.KEY_ACTION_PILL_IOBROKER_ID] ?: ""
@@ -72,7 +73,7 @@ class WatchFaceTriggerListenerService : WearableListenerService() {
         }
 
         Log.d(TAG, "Sende '$valueToSend' an ioBroker-Datenpunkt '$ioBrokerId'")
-        ioSyncClient.setState(host, port, username, password, ioBrokerId, valueToSend)
+        ioSyncClient.setState(host, port, useHttps, username, password, ioBrokerId, valueToSend)
             .onSuccess {
                 Log.d(TAG, "ioBroker-Befehl erfolgreich")
                 // Bei Toggle: neuen Status speichern und ans Watchface senden
