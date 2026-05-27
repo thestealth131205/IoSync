@@ -29,6 +29,12 @@ private const val KEY_WF_SHOW_SECONDS_RING    = "wf_show_seconds_ring"
 private const val KEY_WF_SECONDS_RING_COLOR   = "wf_seconds_ring_color"
 private const val KEY_WF_SECONDS_RING_WIDTH   = "wf_seconds_ring_width"
 
+// ── Gesundheits-/Wetter-Anzeige-Keys ─────────────────────────────────────────
+private const val KEY_WF_SHOW_WEATHER     = "wf_show_weather"
+private const val KEY_WF_SHOW_HEART_RATE  = "wf_show_heart_rate"
+private const val KEY_WF_SHOW_OXYGEN      = "wf_show_oxygen"
+private const val KEY_WF_SHOW_CALORIES    = "wf_show_calories"
+
 // ── Aktions-Pille-Keys ────────────────────────────────────────────────────────
 private const val KEY_WF_ACTION_PILL_ENABLED      = "wf_action_pill_enabled"
 private const val KEY_WF_ACTION_PILL_COLOR_TRUE   = "wf_action_pill_color_true"
@@ -41,6 +47,11 @@ private const val KEY_WF_ACTION_PILL_STATE        = "wf_action_pill_state"
 // ── Akku-Keys ─────────────────────────────────────────────────────────────────
 private const val KEY_BATTERY_LEVEL = "battery_level"
 private const val KEY_IS_CHARGING   = "is_charging"
+
+// ── Wetter-Daten-Pfad ─────────────────────────────────────────────────────────
+private const val PATH_WEATHER            = "/iosync/watchface/weather"
+private const val KEY_WEATHER_TEMP        = "weather_temp"
+private const val KEY_WEATHER_CONDITION   = "weather_condition"
 
 // ── Aktions-Pille Status-Pfad (separater Pfad für schnelle State-Updates) ────
 private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
@@ -79,6 +90,12 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     WatchFaceConfigCache.phoneBatteryLevel = level
                     WatchFaceConfigCache.phoneBatteryCharging = charging
                 }
+                PATH_WEATHER -> {
+                    val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    WatchFaceConfigCache.weatherTemp = dataMap.getInt(KEY_WEATHER_TEMP, 0)
+                    dataMap.getString(KEY_WEATHER_CONDITION)?.let { WatchFaceConfigCache.weatherCondition = it }
+                    Log.d(TAG, "Wetterdaten empfangen: ${WatchFaceConfigCache.weatherTemp}°C, ${WatchFaceConfigCache.weatherCondition}")
+                }
                 PATH_ACTION_PILL_STATE -> {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
                     val state = dataMap.getBoolean(KEY_PILL_STATE, false)
@@ -111,6 +128,14 @@ object WatchFaceConfigCache {
     @Volatile var showSecondsRing: Boolean = false
     @Volatile var secondsRingColorId: String = "neon_yellow"
     @Volatile var secondsRingWidth: Int = 5
+    // Gesundheits- und Wetter-Anzeige
+    @Volatile var showWeather: Boolean = true
+    @Volatile var showHeartRate: Boolean = true
+    @Volatile var showOxygen: Boolean = false
+    @Volatile var showCalories: Boolean = true
+    // Wetterdaten (vom Handy empfangen)
+    @Volatile var weatherTemp: Int = 0
+    @Volatile var weatherCondition: String = "clear"
     // Aktions-Pille
     @Volatile var actionPillEnabled: Boolean = false
     @Volatile var actionPillColorTrue: String = "cyan"
@@ -131,6 +156,10 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_SHOW_SECONDS_RING))  showSecondsRing    = dataMap.getBoolean(KEY_WF_SHOW_SECONDS_RING)
         dataMap.getString(KEY_WF_SECONDS_RING_COLOR)?.let   { secondsRingColorId = it }
         if (dataMap.containsKey(KEY_WF_SECONDS_RING_WIDTH))  secondsRingWidth  = dataMap.getInt(KEY_WF_SECONDS_RING_WIDTH)
+        if (dataMap.containsKey(KEY_WF_SHOW_WEATHER))      showWeather    = dataMap.getBoolean(KEY_WF_SHOW_WEATHER)
+        if (dataMap.containsKey(KEY_WF_SHOW_HEART_RATE))   showHeartRate  = dataMap.getBoolean(KEY_WF_SHOW_HEART_RATE)
+        if (dataMap.containsKey(KEY_WF_SHOW_OXYGEN))       showOxygen     = dataMap.getBoolean(KEY_WF_SHOW_OXYGEN)
+        if (dataMap.containsKey(KEY_WF_SHOW_CALORIES))     showCalories   = dataMap.getBoolean(KEY_WF_SHOW_CALORIES)
         if (dataMap.containsKey(KEY_WF_ACTION_PILL_ENABLED))     actionPillEnabled    = dataMap.getBoolean(KEY_WF_ACTION_PILL_ENABLED)
         dataMap.getString(KEY_WF_ACTION_PILL_COLOR_TRUE)?.let  { actionPillColorTrue  = it }
         dataMap.getString(KEY_WF_ACTION_PILL_COLOR_FALSE)?.let { actionPillColorFalse = it }

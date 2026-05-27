@@ -21,6 +21,7 @@ wearComposeNavigation = "1.4.0"
 wearInput = "1.1.0"
 wearOngoingActivity = "1.0.0"
 playServicesWearable = "18.2.0"
+playServicesLocation = "21.3.0"
 watchface = "1.2.1"
 watchfaceComplications = "1.2.1"
 splashScreen = "1.0.1"
@@ -73,6 +74,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 
 # Wearable Data Layer
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 
 # Wear OS Compose
 androidx-wear-compose-material = { group = "androidx.wear.compose", name = "compose-material", version.ref = "wearCompose" }

@@ -79,6 +79,12 @@ fun SettingsScreen(
     var wfSecondsRingColor by remember(uiState.wfSecondsRingColor) { mutableStateOf(uiState.wfSecondsRingColor) }
     var wfSecondsRingWidth by remember(uiState.wfSecondsRingWidth) { mutableStateOf(uiState.wfSecondsRingWidth.toFloat()) }
 
+    // Wetter & Gesundheitsdaten
+    var wfShowWeather   by remember(uiState.wfShowWeather)   { mutableStateOf(uiState.wfShowWeather) }
+    var wfShowHeartRate by remember(uiState.wfShowHeartRate) { mutableStateOf(uiState.wfShowHeartRate) }
+    var wfShowOxygen    by remember(uiState.wfShowOxygen)    { mutableStateOf(uiState.wfShowOxygen) }
+    var wfShowCalories  by remember(uiState.wfShowCalories)  { mutableStateOf(uiState.wfShowCalories) }
+
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
     var pillColorTrue  by remember(uiState.actionPillColorTrue)  { mutableStateOf(uiState.actionPillColorTrue) }
@@ -332,6 +338,40 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(4.dp))
 
+            // ── Wetter & Gesundheitsdaten ─────────────────────────────────────
+            Text(
+                text = "Wetter & Gesundheitsdaten",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            WatchFaceToggleRow(
+                text = "Wetter anzeigen",
+                subText = "Kreis oben links mit Wettersymbol und Temperatur",
+                checked = wfShowWeather,
+                onCheckedChange = { wfShowWeather = it }
+            )
+            WatchFaceToggleRow(
+                text = "Puls anzeigen",
+                subText = "Herzfrequenz vom Sensor der Uhr",
+                checked = wfShowHeartRate,
+                onCheckedChange = { wfShowHeartRate = it }
+            )
+            WatchFaceToggleRow(
+                text = "Oxygen (SpO2) anzeigen",
+                subText = "Sauerstoffsättigung (falls Sensor vorhanden)",
+                checked = wfShowOxygen,
+                onCheckedChange = { wfShowOxygen = it }
+            )
+            WatchFaceToggleRow(
+                text = "Kalorien anzeigen",
+                subText = "Geschätzt aus Schrittzähler der Uhr",
+                checked = wfShowCalories,
+                onCheckedChange = { wfShowCalories = it }
+            )
+
+            Spacer(Modifier.height(4.dp))
+
             // ── Sekundenring ─────────────────────────────────────────────────
             Text(
                 text = "Sekundenring (äußerer Rand)",
@@ -404,7 +444,11 @@ fun SettingsScreen(
                         showIoBrokerData = wfShowIoBrokerData,
                         showSecondsRing  = wfShowSecondsRing,
                         secondsRingColor = wfSecondsRingColor,
-                        secondsRingWidth = wfSecondsRingWidth.toInt()
+                        secondsRingWidth = wfSecondsRingWidth.toInt(),
+                        showWeather      = wfShowWeather,
+                        showHeartRate    = wfShowHeartRate,
+                        showOxygen       = wfShowOxygen,
+                        showCalories     = wfShowCalories
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),

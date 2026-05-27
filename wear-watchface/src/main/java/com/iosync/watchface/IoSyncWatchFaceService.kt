@@ -20,6 +20,7 @@ import androidx.wear.watchface.complications.rendering.ComplicationDrawable
 import androidx.wear.watchface.style.CurrentUserStyleRepository
 import androidx.wear.watchface.style.UserStyleSchema
 import androidx.wear.watchface.style.UserStyleSetting
+import com.iosync.watchface.health.HealthSensorManager
 import com.iosync.watchface.renderer.IoSyncWatchFaceRenderer
 
 /**
@@ -49,13 +50,17 @@ class IoSyncWatchFaceService : WatchFaceService() {
         complicationSlotsManager: ComplicationSlotsManager,
         currentUserStyleRepository: CurrentUserStyleRepository
     ): WatchFace {
+        val healthSensorManager = HealthSensorManager(applicationContext)
+        healthSensorManager.start()
+
         val renderer = IoSyncWatchFaceRenderer(
             context = applicationContext,
             surfaceHolder = surfaceHolder,
             watchState = watchState,
             complicationSlotsManager = complicationSlotsManager,
             currentUserStyleRepository = currentUserStyleRepository,
-            canvasType = CanvasType.HARDWARE
+            canvasType = CanvasType.HARDWARE,
+            healthSensorManager = healthSensorManager
         )
 
         return WatchFace(

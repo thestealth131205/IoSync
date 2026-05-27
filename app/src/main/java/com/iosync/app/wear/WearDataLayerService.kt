@@ -44,6 +44,17 @@ private const val KEY_WF_SHOW_SECONDS_RING   = "wf_show_seconds_ring"
 private const val KEY_WF_SECONDS_RING_COLOR  = "wf_seconds_ring_color"
 private const val KEY_WF_SECONDS_RING_WIDTH  = "wf_seconds_ring_width"
 
+// ── Gesundheits-/Wetter-Konfigurationsschlüssel ──────────────────────────────
+private const val KEY_WF_SHOW_WEATHER     = "wf_show_weather"
+private const val KEY_WF_SHOW_HEART_RATE  = "wf_show_heart_rate"
+private const val KEY_WF_SHOW_OXYGEN      = "wf_show_oxygen"
+private const val KEY_WF_SHOW_CALORIES    = "wf_show_calories"
+
+// ── Wetter-Daten-Pfad ─────────────────────────────────────────────────────────
+private const val PATH_WEATHER            = "/iosync/watchface/weather"
+private const val KEY_WEATHER_TEMP        = "weather_temp"
+private const val KEY_WEATHER_CONDITION   = "weather_condition"
+
 // ── Aktions-Pille-Konfigurationsschlüssel ─────────────────────────────────────
 private const val KEY_WF_ACTION_PILL_ENABLED     = "wf_action_pill_enabled"
 private const val KEY_WF_ACTION_PILL_COLOR_TRUE  = "wf_action_pill_color_true"
@@ -160,7 +171,11 @@ class WearDataLayerService @Inject constructor(
         actionPillIoBrokerId: String = "",
         actionPillValueMode: String = "toggle",
         actionPillFixedValue: String = "",
-        actionPillState: Boolean = false
+        actionPillState: Boolean = false,
+        showWeather: Boolean = true,
+        showHeartRate: Boolean = true,
+        showOxygen: Boolean = false,
+        showCalories: Boolean = true
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -175,6 +190,10 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putBoolean(KEY_WF_SHOW_SECONDS_RING, showSecondsRing)
                     dataMap.putString(KEY_WF_SECONDS_RING_COLOR, secondsRingColor)
                     dataMap.putInt(KEY_WF_SECONDS_RING_WIDTH, secondsRingWidth)
+                    dataMap.putBoolean(KEY_WF_SHOW_WEATHER, showWeather)
+                    dataMap.putBoolean(KEY_WF_SHOW_HEART_RATE, showHeartRate)
+                    dataMap.putBoolean(KEY_WF_SHOW_OXYGEN, showOxygen)
+                    dataMap.putBoolean(KEY_WF_SHOW_CALORIES, showCalories)
                     dataMap.putBoolean(KEY_WF_ACTION_PILL_ENABLED, actionPillEnabled)
                     dataMap.putString(KEY_WF_ACTION_PILL_COLOR_TRUE, actionPillColorTrue)
                     dataMap.putString(KEY_WF_ACTION_PILL_COLOR_FALSE, actionPillColorFalse)
@@ -188,6 +207,25 @@ class WearDataLayerService @Inject constructor(
                 Log.d(TAG, "Watchface-Konfiguration an Wear OS übertragen")
             } catch (e: Exception) {
                 Log.e(TAG, "syncWatchFaceConfigToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt aktuelle Wetterdaten an das Watchface.
+     */
+    suspend fun syncWeatherToWear(temperature: Int, condition: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_WEATHER).apply {
+                    dataMap.putInt(KEY_WEATHER_TEMP, temperature)
+                    dataMap.putString(KEY_WEATHER_CONDITION, condition)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Wetter (${temperature}°C, $condition) an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncWeatherToWear fehlgeschlagen", e)
             }
         }
     }

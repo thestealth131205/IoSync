@@ -23,6 +23,7 @@ import androidx.wear.watchface.style.UserStyleSetting
 import com.google.android.gms.wearable.Wearable
 import com.iosync.watchface.datalayer.SmartHomeStateCache
 import com.iosync.watchface.datalayer.WatchFaceConfigCache
+import com.iosync.watchface.health.HealthSensorManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -54,7 +55,8 @@ class IoSyncWatchFaceRenderer(
     watchState: WatchState,
     private val complicationSlotsManager: ComplicationSlotsManager,
     currentUserStyleRepository: CurrentUserStyleRepository,
-    canvasType: Int
+    canvasType: Int,
+    val healthSensorManager: HealthSensorManager = HealthSensorManager(context)
 ) : Renderer.CanvasRenderer2<Renderer.SharedAssets>(
     surfaceHolder = surfaceHolder,
     currentUserStyleRepository = currentUserStyleRepository,
@@ -184,6 +186,43 @@ class IoSyncWatchFaceRenderer(
         color = Color.argb(160, 0, 0, 0)
         isAntiAlias = true
         style = Paint.Style.FILL
+    }
+
+    // ── Wetter-Kreis ──────────────────────────────────────────────────────────
+    private val weatherCircleBgPaint = Paint().apply {
+        color = Color.argb(140, 0, 0, 0)
+        isAntiAlias = true
+        style = Paint.Style.FILL
+    }
+    private val weatherCircleStrokePaint = Paint().apply {
+        color = Color.parseColor("#333333")
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f
+    }
+    private val weatherTempPaint = Paint().apply {
+        color = Color.WHITE
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
+    }
+    private val weatherIconPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.FILL
+    }
+
+    // ── Gesundheitsdaten ────────────────────────────────────────────────────
+    private val healthLabelPaint = Paint().apply {
+        color = Color.parseColor("#666666")
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
+    }
+    private val healthValuePaint = Paint().apply {
+        color = Color.parseColor("#EAFF00")
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
     }
 
     // ── Aktions-Pille ─────────────────────────────────────────────────────────
@@ -353,6 +392,14 @@ class IoSyncWatchFaceRenderer(
             if (config.showPhoneBattery && config.phoneBatteryLevel >= 0) {
                 drawPhoneBattery(canvas, cx, cy, radius, config.phoneBatteryLevel, config.phoneBatteryCharging)
             }
+
+            // Wetter-Kreis oben links
+            if (config.showWeather) {
+                drawWeatherCircle(canvas, cx, cy, radius)
+            }
+
+            // Gesundheitsdaten (Puls, SpO2, Kalorien)
+            drawHealthData(canvas, cx, cy, radius)
 
             // Aktions-Pille bei 6 Uhr (oberhalb des unteren Komplikations-Slots)
             if (config.actionPillEnabled) {
@@ -541,6 +588,185 @@ class IoSyncWatchFaceRenderer(
         }
     }
 
+    // ── Wetter-Kreis (oben links) ─────────────────────────────────────────────
+
+    /**
+     * Zeichnet einen kleinen Kreis oben links mit Wettersymbol und Temperatur.
+     * Layout ähnlich wie auf dem Referenz-Bild: Kreis mit Icon + "24°"
+     */
+    private fun drawWeatherCircle(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+        val circleRadius = radius * 0.18f
+        val circleCx = cx - radius * 0.52f
+        val circleCy = cy - radius * 0.42f
+
+        // Hintergrund-Kreis
+        canvas.drawCircle(circleCx, circleCy, circleRadius, weatherCircleBgPaint)
+        canvas.drawCircle(circleCx, circleCy, circleRadius, weatherCircleStrokePaint)
+
+        // Wettersymbol zeichnen
+        val iconSize = circleRadius * 0.50f
+        val iconCy = circleCy - circleRadius * 0.18f
+        drawWeatherIcon(canvas, circleCx, iconCy, iconSize, config.weatherCondition)
+
+        // Temperatur
+        weatherTempPaint.textSize = circleRadius * 0.55f
+        val tempText = "${config.weatherTemp}°"
+        canvas.drawText(tempText, circleCx, circleCy + circleRadius * 0.55f, weatherTempPaint)
+    }
+
+    /**
+     * Zeichnet ein einfaches Wettersymbol mit Canvas-Primitiven.
+     */
+    private fun drawWeatherIcon(canvas: Canvas, cx: Float, cy: Float, size: Float, condition: String) {
+        when (condition) {
+            "clear" -> {
+                // Sonne: gelber Kreis + Strahlen
+                weatherIconPaint.color = Color.parseColor("#FFD600")
+                weatherIconPaint.style = Paint.Style.FILL
+                canvas.drawCircle(cx, cy, size * 0.35f, weatherIconPaint)
+                weatherIconPaint.style = Paint.Style.STROKE
+                weatherIconPaint.strokeWidth = size * 0.08f
+                for (i in 0 until 8) {
+                    val angle = Math.toRadians((i * 45).toDouble())
+                    val cos = Math.cos(angle).toFloat()
+                    val sin = Math.sin(angle).toFloat()
+                    canvas.drawLine(
+                        cx + size * 0.50f * cos, cy + size * 0.50f * sin,
+                        cx + size * 0.75f * cos, cy + size * 0.75f * sin,
+                        weatherIconPaint
+                    )
+                }
+                weatherIconPaint.style = Paint.Style.FILL
+            }
+            "partly_cloudy" -> {
+                // Kleine Sonne + Wolke davor
+                weatherIconPaint.color = Color.parseColor("#FFD600")
+                weatherIconPaint.style = Paint.Style.FILL
+                canvas.drawCircle(cx - size * 0.15f, cy - size * 0.15f, size * 0.25f, weatherIconPaint)
+                drawCloudShape(canvas, cx + size * 0.1f, cy + size * 0.1f, size * 0.7f, Color.parseColor("#BBBBBB"))
+            }
+            "cloudy" -> {
+                drawCloudShape(canvas, cx, cy, size, Color.parseColor("#999999"))
+            }
+            "rain" -> {
+                drawCloudShape(canvas, cx, cy - size * 0.15f, size * 0.8f, Color.parseColor("#888888"))
+                // Regentropfen
+                weatherIconPaint.color = Color.parseColor("#42A5F5")
+                weatherIconPaint.style = Paint.Style.STROKE
+                weatherIconPaint.strokeWidth = size * 0.08f
+                weatherIconPaint.strokeCap = Paint.Cap.ROUND
+                for (i in -1..1) {
+                    val dx = i * size * 0.25f
+                    canvas.drawLine(cx + dx, cy + size * 0.25f, cx + dx - size * 0.05f, cy + size * 0.55f, weatherIconPaint)
+                }
+                weatherIconPaint.style = Paint.Style.FILL
+            }
+            "snow" -> {
+                drawCloudShape(canvas, cx, cy - size * 0.15f, size * 0.8f, Color.parseColor("#AAAAAA"))
+                // Schneepunkte
+                weatherIconPaint.color = Color.WHITE
+                weatherIconPaint.style = Paint.Style.FILL
+                val dotR = size * 0.06f
+                for (i in -1..1) {
+                    canvas.drawCircle(cx + i * size * 0.25f, cy + size * 0.35f, dotR, weatherIconPaint)
+                    canvas.drawCircle(cx + i * size * 0.20f + size * 0.10f, cy + size * 0.55f, dotR, weatherIconPaint)
+                }
+            }
+            "frost" -> {
+                // Eiskristall-Symbol
+                weatherIconPaint.color = Color.parseColor("#80D8FF")
+                weatherIconPaint.style = Paint.Style.STROKE
+                weatherIconPaint.strokeWidth = size * 0.08f
+                weatherIconPaint.strokeCap = Paint.Cap.ROUND
+                for (i in 0 until 6) {
+                    val angle = Math.toRadians((i * 60).toDouble())
+                    val cos = Math.cos(angle).toFloat()
+                    val sin = Math.sin(angle).toFloat()
+                    canvas.drawLine(cx, cy, cx + size * 0.55f * cos, cy + size * 0.55f * sin, weatherIconPaint)
+                }
+                weatherIconPaint.style = Paint.Style.FILL
+            }
+            "thunderstorm" -> {
+                drawCloudShape(canvas, cx, cy - size * 0.2f, size * 0.8f, Color.parseColor("#666666"))
+                // Blitz
+                weatherIconPaint.color = Color.parseColor("#FFD600")
+                weatherIconPaint.style = Paint.Style.STROKE
+                weatherIconPaint.strokeWidth = size * 0.10f
+                weatherIconPaint.strokeCap = Paint.Cap.ROUND
+                val path = android.graphics.Path()
+                path.moveTo(cx + size * 0.05f, cy + size * 0.05f)
+                path.lineTo(cx - size * 0.10f, cy + size * 0.35f)
+                path.lineTo(cx + size * 0.10f, cy + size * 0.35f)
+                path.lineTo(cx - size * 0.05f, cy + size * 0.65f)
+                canvas.drawPath(path, weatherIconPaint)
+                weatherIconPaint.style = Paint.Style.FILL
+            }
+            else -> {
+                drawCloudShape(canvas, cx, cy, size, Color.parseColor("#999999"))
+            }
+        }
+    }
+
+    /** Zeichnet eine einfache Wolkenform aus überlappenden Kreisen. */
+    private fun drawCloudShape(canvas: Canvas, cx: Float, cy: Float, size: Float, color: Int) {
+        weatherIconPaint.color = color
+        weatherIconPaint.style = Paint.Style.FILL
+        val r = size * 0.22f
+        canvas.drawCircle(cx - size * 0.20f, cy, r, weatherIconPaint)
+        canvas.drawCircle(cx + size * 0.15f, cy, r, weatherIconPaint)
+        canvas.drawCircle(cx - size * 0.05f, cy - r * 0.6f, r * 1.1f, weatherIconPaint)
+        canvas.drawCircle(cx + size * 0.05f, cy + r * 0.2f, r * 0.8f, weatherIconPaint)
+    }
+
+    // ── Gesundheitsdaten ────────────────────────────────────────────────────────
+
+    /**
+     * Zeichnet Gesundheitswerte (Puls, SpO2, Kalorien) unterhalb der Uhrzeit.
+     * Positioniert sich am unteren Rand des Zifferblatts.
+     */
+    private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+        val health = healthSensorManager
+        val items = mutableListOf<Triple<String, String, Int>>() // Label, Value, Color
+
+        if (config.showHeartRate) {
+            val hrText = if (health.heartRate > 0) "${health.heartRate}" else "--"
+            items.add(Triple("PULS", hrText, Color.parseColor("#F44336")))
+        }
+        if (config.showOxygen) {
+            val o2Text = if (health.spO2 > 0) "${health.spO2}%" else "--%"
+            items.add(Triple("OXYGEN", o2Text, Color.parseColor("#42A5F5")))
+        }
+        if (config.showCalories) {
+            val calText = if (health.calories > 0) "${health.calories}" else "0"
+            items.add(Triple("KCAL", calText, Color.parseColor("#FF9800")))
+        }
+
+        if (items.isEmpty()) return
+
+        val labelSize = radius * 0.070f
+        val valueSize = radius * 0.095f
+        val itemWidth = radius * 0.55f
+        val totalWidth = items.size * itemWidth
+        val startX = cx - totalWidth / 2f + itemWidth / 2f
+        val baseY = cy + radius * 0.72f
+
+        healthLabelPaint.textSize = labelSize
+        healthValuePaint.textSize = valueSize
+
+        for ((index, item) in items.withIndex()) {
+            val (label, value, color) = item
+            val x = startX + index * itemWidth
+
+            healthLabelPaint.color = Color.parseColor("#666666")
+            canvas.drawText(label, x, baseY, healthLabelPaint)
+
+            healthValuePaint.color = color
+            canvas.drawText(value, x, baseY + valueSize * 1.2f, healthValuePaint)
+        }
+    }
+
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
     private fun colorFromId(id: String): Int = when (id) {
@@ -683,6 +909,7 @@ class IoSyncWatchFaceRenderer(
     }
 
     override fun onDestroy() {
+        healthSensorManager.stop()
         scope.cancel()
         super.onDestroy()
     }

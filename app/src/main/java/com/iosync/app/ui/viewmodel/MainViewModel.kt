@@ -17,6 +17,7 @@ import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.network.DynamicBaseUrl
 import com.iosync.app.data.network.IoSyncClient
 import com.iosync.app.data.network.SmartHomeWebSocketService
+import com.iosync.app.data.network.WeatherService
 import com.iosync.app.data.network.WebSocketStatus
 import com.iosync.app.data.repository.RepoResult
 import com.iosync.app.data.repository.SmartHomeRepository
@@ -75,7 +76,12 @@ data class MainUiState(
     val actionPillIoBrokerId: String = "",
     val actionPillValueMode: String = "toggle",
     val actionPillFixedValue: String = "",
-    val actionPillState: Boolean = false
+    val actionPillState: Boolean = false,
+    // Watchface: Wetter & Gesundheitsanzeige
+    val wfShowWeather: Boolean = true,
+    val wfShowHeartRate: Boolean = true,
+    val wfShowOxygen: Boolean = false,
+    val wfShowCalories: Boolean = true
 )
 
 @HiltViewModel
@@ -85,7 +91,8 @@ class MainViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val wearDataLayerService: WearDataLayerService,
     private val ioSyncClient: IoSyncClient,
-    private val dynamicBaseUrl: DynamicBaseUrl
+    private val dynamicBaseUrl: DynamicBaseUrl,
+    private val weatherService: WeatherService
 ) : ViewModel() {
 
     companion object {
@@ -114,10 +121,18 @@ class MainViewModel @Inject constructor(
         val KEY_ACTION_PILL_FIXED_VALUE  = stringPreferencesKey("action_pill_fixed_value")
         val KEY_ACTION_PILL_STATE        = booleanPreferencesKey("action_pill_state")
 
+        // Wetter & Gesundheit
+        val KEY_WF_SHOW_WEATHER     = booleanPreferencesKey("wf_show_weather")
+        val KEY_WF_SHOW_HEART_RATE  = booleanPreferencesKey("wf_show_heart_rate")
+        val KEY_WF_SHOW_OXYGEN      = booleanPreferencesKey("wf_show_oxygen")
+        val KEY_WF_SHOW_CALORIES    = booleanPreferencesKey("wf_show_calories")
+
         // Polling-Intervall für IoSync Datenpunkte (30 Sekunden)
         private const val IOSYNC_POLL_INTERVAL_MS = 30_000L
         // Akku-Sync-Intervall (60 Sekunden)
         private const val BATTERY_SYNC_INTERVAL_MS = 60_000L
+        // Wetter-Sync-Intervall (15 Minuten)
+        private const val WEATHER_SYNC_INTERVAL_MS = 900_000L
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -128,6 +143,7 @@ class MainViewModel @Inject constructor(
 
     private var ioSyncPollingJob: Job? = null
     private var batteryPollingJob: Job? = null
+    private var weatherPollingJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -155,6 +171,10 @@ class MainViewModel @Inject constructor(
             val actionPillValueMode  = prefs[KEY_ACTION_PILL_VALUE_MODE]  ?: "toggle"
             val actionPillFixedValue = prefs[KEY_ACTION_PILL_FIXED_VALUE] ?: ""
             val actionPillState      = prefs[KEY_ACTION_PILL_STATE]       ?: false
+            val wfShowWeather     = prefs[KEY_WF_SHOW_WEATHER]     ?: true
+            val wfShowHeartRate   = prefs[KEY_WF_SHOW_HEART_RATE]  ?: true
+            val wfShowOxygen      = prefs[KEY_WF_SHOW_OXYGEN]      ?: false
+            val wfShowCalories    = prefs[KEY_WF_SHOW_CALORIES]    ?: true
 
             _uiState.update {
                 it.copy(
@@ -180,13 +200,18 @@ class MainViewModel @Inject constructor(
                     actionPillIoBrokerId = actionPillIoBrokerId,
                     actionPillValueMode  = actionPillValueMode,
                     actionPillFixedValue = actionPillFixedValue,
-                    actionPillState      = actionPillState
+                    actionPillState      = actionPillState,
+                    wfShowWeather     = wfShowWeather,
+                    wfShowHeartRate   = wfShowHeartRate,
+                    wfShowOxygen      = wfShowOxygen,
+                    wfShowCalories    = wfShowCalories
                 )
             }
 
             dynamicBaseUrl.update(host, port)
             if (ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUsername, ioSyncPassword)
             if (wfShowPhoneBattery) startBatteryPolling()
+            if (wfShowWeather) startWeatherPolling()
         }
 
         viewModelScope.launch {
@@ -340,7 +365,11 @@ class MainViewModel @Inject constructor(
         showIoBrokerData: Boolean,
         showSecondsRing: Boolean,
         secondsRingColor: String,
-        secondsRingWidth: Int
+        secondsRingWidth: Int,
+        showWeather: Boolean,
+        showHeartRate: Boolean,
+        showOxygen: Boolean,
+        showCalories: Boolean
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -354,6 +383,10 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_SHOW_SECONDS_RING]   = showSecondsRing
                 prefs[KEY_WF_SECONDS_RING_COLOR]  = secondsRingColor
                 prefs[KEY_WF_SECONDS_RING_WIDTH]  = secondsRingWidth
+                prefs[KEY_WF_SHOW_WEATHER]        = showWeather
+                prefs[KEY_WF_SHOW_HEART_RATE]     = showHeartRate
+                prefs[KEY_WF_SHOW_OXYGEN]         = showOxygen
+                prefs[KEY_WF_SHOW_CALORIES]       = showCalories
             }
             _uiState.update {
                 it.copy(
@@ -366,7 +399,11 @@ class MainViewModel @Inject constructor(
                     wfShowIoBrokerData = showIoBrokerData,
                     wfShowSecondsRing  = showSecondsRing,
                     wfSecondsRingColor = secondsRingColor,
-                    wfSecondsRingWidth = secondsRingWidth
+                    wfSecondsRingWidth = secondsRingWidth,
+                    wfShowWeather      = showWeather,
+                    wfShowHeartRate    = showHeartRate,
+                    wfShowOxygen       = showOxygen,
+                    wfShowCalories     = showCalories
                 )
             }
             val s = _uiState.value
@@ -374,7 +411,8 @@ class MainViewModel @Inject constructor(
                 timeColor, dateColor, showSeconds, showTicks, showWeekday, showPhoneBattery, showIoBrokerData,
                 showSecondsRing, secondsRingColor, secondsRingWidth,
                 s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
-                s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState
+                s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
+                showWeather, showHeartRate, showOxygen, showCalories
             )
 
             // Akku-Polling starten/stoppen je nach Konfiguration
@@ -387,6 +425,13 @@ class MainViewModel @Inject constructor(
             // IoSync-States sofort an Watchface senden wenn gerade aktiviert
             if (showIoBrokerData && _uiState.value.ioSyncStates.isNotEmpty()) {
                 wearDataLayerService.syncStatesToWear(_uiState.value.ioSyncStates)
+            }
+
+            // Wetter-Polling starten/stoppen
+            if (showWeather && weatherPollingJob?.isActive != true) {
+                startWeatherPolling()
+            } else if (!showWeather) {
+                weatherPollingJob?.cancel()
             }
         }
     }
@@ -429,7 +474,8 @@ class MainViewModel @Inject constructor(
                 s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
                 s.wfShowPhoneBattery, s.wfShowIoBrokerData, s.wfShowSecondsRing,
                 s.wfSecondsRingColor, s.wfSecondsRingWidth,
-                enabled, colorTrue, colorFalse, ioBrokerId, valueMode, fixedValue, currentState
+                enabled, colorTrue, colorFalse, ioBrokerId, valueMode, fixedValue, currentState,
+                s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories
             )
         }
     }
@@ -474,6 +520,22 @@ class MainViewModel @Inject constructor(
                     _uiState.update { it.copy(phoneBatteryLevel = percent) }
                     wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging)
                 }
+            }
+        }
+    }
+
+    // ── Wetter ─────────────────────────────────────────────────────────────────
+
+    /** Startet das periodische Abrufen und Übertragen der Wetterdaten an die Uhr. */
+    private fun startWeatherPolling() {
+        weatherPollingJob?.cancel()
+        weatherPollingJob = viewModelScope.launch {
+            while (true) {
+                weatherService.fetchWeather()
+                    .onSuccess { weather ->
+                        wearDataLayerService.syncWeatherToWear(weather.temperature, weather.condition)
+                    }
+                delay(WEATHER_SYNC_INTERVAL_MS)
             }
         }
     }

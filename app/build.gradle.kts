@@ -39,6 +39,18 @@ android {
         buildConfigField("String", "IOBROKER_DEFAULT_HOST", "\"192.168.1.100\"")
         buildConfigField("int", "IOBROKER_DEFAULT_PORT", "8082")
         buildConfigField("String", "WEARABLE_DATA_PATH", "\"/iosync/smarthome\"")
+
+        // OpenWeatherMap API Key aus local.properties oder Umgebungsvariable
+        val localProps = rootProject.file("local.properties")
+        val owmKey = if (localProps.exists()) {
+            val props = java.util.Properties()
+            props.load(localProps.inputStream())
+            props.getProperty("OPENWEATHER_API_KEY", "")
+        } else {
+            ""
+        }
+        val apiKey = System.getenv("OPENWEATHER_API_KEY") ?: owmKey
+        buildConfigField("String", "OPENWEATHER_API_KEY", "\"$apiKey\"")
     }
 
     buildTypes {
@@ -121,6 +133,9 @@ dependencies {
 
     // Wearable Data Layer
     implementation(libs.play.services.wearable)
+
+    // Location (für Wetter-Standortabfrage)
+    implementation(libs.play.services.location)
 
     // Test
     testImplementation(libs.junit)
