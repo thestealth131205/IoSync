@@ -29,6 +29,15 @@ jobs:
       - name: Gradle Wrapper ausführbar machen
         run: chmod +x gradlew
 
+      - name: Keystore einrichten
+        run: |
+          mkdir -p keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/iosync-release.jks
+          echo "storeFile=keystore/iosync-release.jks" > keystore.properties
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> keystore.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
+
       - name: Version auslesen
         id: version
         run: |
@@ -42,8 +51,11 @@ jobs:
       - name: APKs umbenennen
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          cp app/build/outputs/apk/release/app-release-unsigned.apk IoSync-app-$VERSION.apk
-          cp wear-watchface/build/outputs/apk/release/wear-watchface-release-unsigned.apk IoSync-watchface-$VERSION.apk
+          # Signiert wenn Keystore vorhanden, sonst unsigned
+          APP_APK=$(find app/build/outputs/apk/release/ -name "*.apk" | head -1)
+          WF_APK=$(find wear-watchface/build/outputs/apk/release/ -name "*.apk" | head -1)
+          cp "$APP_APK" IoSync-app-$VERSION.apk
+          cp "$WF_APK" IoSync-watchface-$VERSION.apk
 
       - name: GitHub Release erstellen
         uses: softprops/action-gh-release@v2
@@ -59,7 +71,7 @@ jobs:
             | `IoSync-app-*.apk` | Smartphone App (Android 8+) |
             | `IoSync-watchface-*.apk` | Wear OS Watchface (Wear OS 4) |
 
-            > APKs sind unsigniert. Fuer Produktion mit eigenem Keystore signieren.
+            > Signierte Release-APKs.
           files: |
             IoSync-app-${{ steps.version.outputs.version }}.apk
             IoSync-watchface-${{ steps.version.outputs.version }}.apk
