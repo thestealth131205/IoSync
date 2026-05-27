@@ -1139,6 +1139,10 @@ class IoSyncWatchFaceRenderer(
         "white"       -> Color.WHITE
         "neon_yellow" -> Color.parseColor("#EAFF00")
         "cyan"        -> Color.parseColor("#00BCD4")
+        "red"         -> Color.parseColor("#F44336")
+        "orange"      -> Color.parseColor("#FF9800")
+        "purple"      -> Color.parseColor("#9C27B0")
+        "green"       -> Color.parseColor("#4CAF50")
         else          -> Color.parseColor("#E8E8E8")
     }
 

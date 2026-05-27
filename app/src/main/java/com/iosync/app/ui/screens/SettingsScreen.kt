@@ -383,6 +383,18 @@ fun SettingsScreen(
                     color = Color(0xFF00BCD4), label = "Cyan",
                     selected = wfTimeColor == "cyan", onClick = { wfTimeColor = "cyan" }
                 )
+                WatchFaceColorChip(
+                    color = Color(0xFFF44336), label = "Rot",
+                    selected = wfTimeColor == "red", onClick = { wfTimeColor = "red" }
+                )
+                WatchFaceColorChip(
+                    color = Color(0xFFFF9800), label = "Orange",
+                    selected = wfTimeColor == "orange", onClick = { wfTimeColor = "orange" }
+                )
+                WatchFaceColorChip(
+                    color = Color(0xFF9C27B0), label = "Lila",
+                    selected = wfTimeColor == "purple", onClick = { wfTimeColor = "purple" }
+                )
             }
 
             Text(
@@ -410,6 +422,18 @@ fun SettingsScreen(
                 WatchFaceColorChip(
                     color = Color(0xFF00BCD4), label = "Cyan",
                     selected = wfDateColor == "cyan", onClick = { wfDateColor = "cyan" }
+                )
+                WatchFaceColorChip(
+                    color = Color(0xFFF44336), label = "Rot",
+                    selected = wfDateColor == "red", onClick = { wfDateColor = "red" }
+                )
+                WatchFaceColorChip(
+                    color = Color(0xFFFF9800), label = "Orange",
+                    selected = wfDateColor == "orange", onClick = { wfDateColor = "orange" }
+                )
+                WatchFaceColorChip(
+                    color = Color(0xFF9C27B0), label = "Lila",
+                    selected = wfDateColor == "purple", onClick = { wfDateColor = "purple" }
                 )
             }
 
@@ -442,6 +466,21 @@ fun SettingsScreen(
                         color = Color(0xFF00BCD4), label = "Cyan",
                         selected = wfSecondsNumberColor == "cyan",
                         onClick = { wfSecondsNumberColor = "cyan" }
+                    )
+                    WatchFaceColorChip(
+                        color = Color(0xFFF44336), label = "Rot",
+                        selected = wfSecondsNumberColor == "red",
+                        onClick = { wfSecondsNumberColor = "red" }
+                    )
+                    WatchFaceColorChip(
+                        color = Color(0xFFFF9800), label = "Orange",
+                        selected = wfSecondsNumberColor == "orange",
+                        onClick = { wfSecondsNumberColor = "orange" }
+                    )
+                    WatchFaceColorChip(
+                        color = Color(0xFF9C27B0), label = "Lila",
+                        selected = wfSecondsNumberColor == "purple",
+                        onClick = { wfSecondsNumberColor = "purple" }
                     )
                 }
             }
@@ -636,6 +675,7 @@ fun SettingsScreen(
                     PillColorChip(color = Color(0xFF4CAF50), label = "Grün",   selected = customSlot4BarColor == "green",       onClick = { customSlot4BarColor = "green" })
                     PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = customSlot4BarColor == "red",         onClick = { customSlot4BarColor = "red" })
                     PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = customSlot4BarColor == "orange",      onClick = { customSlot4BarColor = "orange" })
+                    PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = customSlot4BarColor == "purple",      onClick = { customSlot4BarColor = "purple" })
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -731,6 +771,21 @@ fun SettingsScreen(
                         color = Color(0xFF00BCD4), label = "Cyan",
                         selected = wfSecondsRingColor == "cyan",
                         onClick = { wfSecondsRingColor = "cyan" }
+                    )
+                    WatchFaceColorChip(
+                        color = Color(0xFFF44336), label = "Rot",
+                        selected = wfSecondsRingColor == "red",
+                        onClick = { wfSecondsRingColor = "red" }
+                    )
+                    WatchFaceColorChip(
+                        color = Color(0xFFFF9800), label = "Orange",
+                        selected = wfSecondsRingColor == "orange",
+                        onClick = { wfSecondsRingColor = "orange" }
+                    )
+                    WatchFaceColorChip(
+                        color = Color(0xFF9C27B0), label = "Lila",
+                        selected = wfSecondsRingColor == "purple",
+                        onClick = { wfSecondsRingColor = "purple" }
                     )
                 }
 
@@ -874,6 +929,12 @@ fun SettingsScreen(
                         selected = pillColorTrue == "neon_yellow", onClick = { pillColorTrue = "neon_yellow" })
                     PillColorChip(color = Color.White, label = "Weiß",
                         selected = pillColorTrue == "white", onClick = { pillColorTrue = "white" })
+                    PillColorChip(color = Color(0xFFF44336), label = "Rot",
+                        selected = pillColorTrue == "red", onClick = { pillColorTrue = "red" })
+                    PillColorChip(color = Color(0xFFFF9800), label = "Orange",
+                        selected = pillColorTrue == "orange", onClick = { pillColorTrue = "orange" })
+                    PillColorChip(color = Color(0xFF9C27B0), label = "Lila",
+                        selected = pillColorTrue == "purple", onClick = { pillColorTrue = "purple" })
                 }
 
                 Text(
