@@ -55,11 +55,18 @@ private const val PATH_WEATHER            = "/iosync/watchface/weather"
 private const val KEY_WEATHER_TEMP        = "weather_temp"
 private const val KEY_WEATHER_CONDITION   = "weather_condition"
 
-// ── Custom ioBroker-Slots (2 Datenpunkte unter der Uhrzeit) ─────────────────
+// ── Custom ioBroker-Slots (4 Datenpunkte unter der Uhrzeit) ─────────────────
 private const val KEY_WF_CUSTOM_SLOT1_LABEL = "wf_custom_slot1_label"
 private const val KEY_WF_CUSTOM_SLOT1_VALUE = "wf_custom_slot1_value"
 private const val KEY_WF_CUSTOM_SLOT2_LABEL = "wf_custom_slot2_label"
 private const val KEY_WF_CUSTOM_SLOT2_VALUE = "wf_custom_slot2_value"
+private const val KEY_WF_CUSTOM_SLOT3_LABEL = "wf_custom_slot3_label"
+private const val KEY_WF_CUSTOM_SLOT3_VALUE = "wf_custom_slot3_value"
+private const val KEY_WF_CUSTOM_SLOT4_LABEL = "wf_custom_slot4_label"
+private const val KEY_WF_CUSTOM_SLOT4_VALUE = "wf_custom_slot4_value"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_COLOR = "wf_custom_slot4_bar_color"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN   = "wf_custom_slot4_bar_min"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX   = "wf_custom_slot4_bar_max"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
 
 // ── Custom-Slot-Daten (Echtzeit-Updates der Werte) ──────────────────────────
@@ -114,7 +121,14 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     dataMap.getString(KEY_WF_CUSTOM_SLOT1_VALUE)?.let { WatchFaceConfigCache.customSlot1Value = it }
                     dataMap.getString(KEY_WF_CUSTOM_SLOT2_LABEL)?.let { WatchFaceConfigCache.customSlot2Label = it }
                     dataMap.getString(KEY_WF_CUSTOM_SLOT2_VALUE)?.let { WatchFaceConfigCache.customSlot2Value = it }
-                    Log.d(TAG, "Custom-Slot-Daten empfangen: ${WatchFaceConfigCache.customSlot1Label}=${WatchFaceConfigCache.customSlot1Value}, ${WatchFaceConfigCache.customSlot2Label}=${WatchFaceConfigCache.customSlot2Value}")
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT3_LABEL)?.let { WatchFaceConfigCache.customSlot3Label = it }
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT3_VALUE)?.let { WatchFaceConfigCache.customSlot3Value = it }
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT4_LABEL)?.let { WatchFaceConfigCache.customSlot4Label = it }
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT4_VALUE)?.let { WatchFaceConfigCache.customSlot4Value = it }
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT4_BAR_COLOR)?.let { WatchFaceConfigCache.customSlot4BarColor = it }
+                    if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MIN)) WatchFaceConfigCache.customSlot4BarMin = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN)
+                    if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX)) WatchFaceConfigCache.customSlot4BarMax = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
+                    Log.d(TAG, "Custom-Slot-Daten empfangen")
                 }
                 PATH_ACTION_PILL_STATE -> {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -167,12 +181,20 @@ object WatchFaceConfigCache {
     @Volatile var actionPillFixedValue: String = ""
     @Volatile var actionPillState: Boolean = false
     @Volatile var lastConfigReceivedAt: Long = 0L
-    // Custom ioBroker-Slots (2 Datenpunkte unter der Uhrzeit)
+    // Custom ioBroker-Slots (4 Datenpunkte unter der Uhrzeit)
     @Volatile var showCustomSlots: Boolean = false
     @Volatile var customSlot1Label: String = ""
     @Volatile var customSlot1Value: String = "--"
     @Volatile var customSlot2Label: String = ""
     @Volatile var customSlot2Value: String = "--"
+    @Volatile var customSlot3Label: String = ""
+    @Volatile var customSlot3Value: String = "--"
+    // Slot 4: Balken-Graph
+    @Volatile var customSlot4Label: String = ""
+    @Volatile var customSlot4Value: String = "--"
+    @Volatile var customSlot4BarColor: String = "neon_yellow"
+    @Volatile var customSlot4BarMin: Float = 0f
+    @Volatile var customSlot4BarMax: Float = 100f
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
@@ -202,6 +224,11 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_SHOW_CUSTOM_SLOTS))      showCustomSlots       = dataMap.getBoolean(KEY_WF_SHOW_CUSTOM_SLOTS)
         dataMap.getString(KEY_WF_CUSTOM_SLOT1_LABEL)?.let { customSlot1Label = it }
         dataMap.getString(KEY_WF_CUSTOM_SLOT2_LABEL)?.let { customSlot2Label = it }
+        dataMap.getString(KEY_WF_CUSTOM_SLOT3_LABEL)?.let { customSlot3Label = it }
+        dataMap.getString(KEY_WF_CUSTOM_SLOT4_LABEL)?.let { customSlot4Label = it }
+        dataMap.getString(KEY_WF_CUSTOM_SLOT4_BAR_COLOR)?.let { customSlot4BarColor = it }
+        if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MIN)) customSlot4BarMin = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN)
+        if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX)) customSlot4BarMax = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
     }
 }
 

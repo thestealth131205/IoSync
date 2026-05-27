@@ -357,6 +357,13 @@ class IoSyncWatchFaceRenderer(
                             dataMap.getString("wf_custom_slot1_value")?.let { WatchFaceConfigCache.customSlot1Value = it }
                             dataMap.getString("wf_custom_slot2_label")?.let { WatchFaceConfigCache.customSlot2Label = it }
                             dataMap.getString("wf_custom_slot2_value")?.let { WatchFaceConfigCache.customSlot2Value = it }
+                            dataMap.getString("wf_custom_slot3_label")?.let { WatchFaceConfigCache.customSlot3Label = it }
+                            dataMap.getString("wf_custom_slot3_value")?.let { WatchFaceConfigCache.customSlot3Value = it }
+                            dataMap.getString("wf_custom_slot4_label")?.let { WatchFaceConfigCache.customSlot4Label = it }
+                            dataMap.getString("wf_custom_slot4_value")?.let { WatchFaceConfigCache.customSlot4Value = it }
+                            dataMap.getString("wf_custom_slot4_bar_color")?.let { WatchFaceConfigCache.customSlot4BarColor = it }
+                            if (dataMap.containsKey("wf_custom_slot4_bar_min")) WatchFaceConfigCache.customSlot4BarMin = dataMap.getFloat("wf_custom_slot4_bar_min")
+                            if (dataMap.containsKey("wf_custom_slot4_bar_max")) WatchFaceConfigCache.customSlot4BarMax = dataMap.getFloat("wf_custom_slot4_bar_max")
                         }
                         PATH_ACTION_PILL_STATE -> {
                             val dataMap = DataMapItem.fromDataItem(item).dataMap
@@ -397,6 +404,13 @@ class IoSyncWatchFaceRenderer(
                     dataMap.getString("wf_custom_slot1_value")?.let { WatchFaceConfigCache.customSlot1Value = it }
                     dataMap.getString("wf_custom_slot2_label")?.let { WatchFaceConfigCache.customSlot2Label = it }
                     dataMap.getString("wf_custom_slot2_value")?.let { WatchFaceConfigCache.customSlot2Value = it }
+                    dataMap.getString("wf_custom_slot3_label")?.let { WatchFaceConfigCache.customSlot3Label = it }
+                    dataMap.getString("wf_custom_slot3_value")?.let { WatchFaceConfigCache.customSlot3Value = it }
+                    dataMap.getString("wf_custom_slot4_label")?.let { WatchFaceConfigCache.customSlot4Label = it }
+                    dataMap.getString("wf_custom_slot4_value")?.let { WatchFaceConfigCache.customSlot4Value = it }
+                    dataMap.getString("wf_custom_slot4_bar_color")?.let { WatchFaceConfigCache.customSlot4BarColor = it }
+                    if (dataMap.containsKey("wf_custom_slot4_bar_min")) WatchFaceConfigCache.customSlot4BarMin = dataMap.getFloat("wf_custom_slot4_bar_min")
+                    if (dataMap.containsKey("wf_custom_slot4_bar_max")) WatchFaceConfigCache.customSlot4BarMax = dataMap.getFloat("wf_custom_slot4_bar_max")
                 }
                 PATH_ACTION_PILL_STATE -> {
                     WatchFaceConfigCache.actionPillState = dataMap.getBoolean("pill_state", false)
@@ -1023,39 +1037,99 @@ class IoSyncWatchFaceRenderer(
     }
 
     /**
-     * Zeichnet zwei ioBroker-Werte-Slots unterhalb der Uhrzeit, nebeneinander.
-     * Format: "LBL 12.3" — Label in Grau, Wert in Neon-Gelb.
+     * Zeichnet bis zu 4 ioBroker-Werte-Slots:
+     * - Slot 4: horizontaler Balken direkt unter der Uhrzeit (wenn Label gesetzt)
+     * - Slots 1/2/3: nebeneinander unterhalb des Balkens (Label grau, Wert Neon-Gelb)
      */
     private fun drawCustomSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float, clockBottomY: Float) {
         val config = WatchFaceConfigCache
-        val fontSize = radius * 0.11f
+        val fontSize = radius * 0.10f
         customSlotLabelPaint.textSize = fontSize
         customSlotValuePaint.textSize = fontSize
 
-        val dp5 = 5f * context.resources.displayMetrics.density
+        val dp4 = 4f * context.resources.displayMetrics.density
+        val gap = radius * 0.035f
         val fm = customSlotValuePaint.fontMetrics
-        val slotY = clockBottomY + dp5 - fm.ascent
-        val gap = radius * 0.04f
-        val slotSpacing = radius * 0.48f
 
-        // Slot 1 (links)
-        if (config.customSlot1Label.isNotBlank()) {
-            val slotCx = cx - slotSpacing / 2f
-            val labelText = config.customSlot1Label.take(3).uppercase()
-            customSlotLabelPaint.textAlign = Paint.Align.RIGHT
-            canvas.drawText(labelText, slotCx - gap / 2f, slotY, customSlotLabelPaint)
-            customSlotValuePaint.textAlign = Paint.Align.LEFT
-            canvas.drawText(config.customSlot1Value, slotCx + gap / 2f, slotY, customSlotValuePaint)
+        var nextY = clockBottomY + dp4
+
+        // ── Slot 4: Balken-Graph ───────────────────────────────────────────
+        if (config.customSlot4Label.isNotBlank()) {
+            val barW     = radius * 0.72f
+            val barH     = radius * 0.055f
+            val barLeft  = cx - barW / 2f
+            val barRight = cx + barW / 2f
+            val barCorner = barH / 2f
+
+            val minVal = config.customSlot4BarMin
+            val maxVal = config.customSlot4BarMax
+            val curVal = config.customSlot4Value.toFloatOrNull() ?: minVal
+            val fraction = if (maxVal > minVal) ((curVal - minVal) / (maxVal - minVal)).coerceIn(0f, 1f) else 0f
+
+            val barColor = colorFromPillId(config.customSlot4BarColor)
+
+            // Hintergrund
+            canvas.drawRoundRect(
+                RectF(barLeft, nextY, barRight, nextY + barH),
+                barCorner, barCorner, progressBgPaint
+            )
+            // Füllung
+            if (fraction > 0f) {
+                val fillPaint = Paint().apply {
+                    color = barColor
+                    isAntiAlias = true
+                    style = Paint.Style.FILL
+                }
+                val minFill = barLeft + barCorner * 2
+                canvas.drawRoundRect(
+                    RectF(barLeft, nextY, (barLeft + barW * fraction).coerceAtLeast(minFill), nextY + barH),
+                    barCorner, barCorner, fillPaint
+                )
+            }
+
+            // Label + Wert als kleine Überschrift
+            val labelSize = radius * 0.072f
+            customSlotLabelPaint.textSize = labelSize
+            customSlotLabelPaint.textAlign = Paint.Align.LEFT
+            canvas.drawText(config.customSlot4Label.take(3).uppercase(), barLeft, nextY - labelSize * 0.18f, customSlotLabelPaint)
+            customSlotValuePaint.textSize = labelSize
+            customSlotValuePaint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(config.customSlot4Value, barRight, nextY - labelSize * 0.18f, customSlotValuePaint)
+            customSlotLabelPaint.textSize = fontSize
+            customSlotValuePaint.textSize = fontSize
+
+            nextY += barH + dp4 * 1.5f
         }
 
-        // Slot 2 (rechts)
-        if (config.customSlot2Label.isNotBlank()) {
-            val slotCx = cx + slotSpacing / 2f
-            val labelText = config.customSlot2Label.take(3).uppercase()
+        // ── Slots 1 / 2 / 3 nebeneinander ────────────────────────────────
+        val slotY = nextY - fm.ascent
+        val slotSpacing = radius * 0.33f   // Abstand zwischen Slot-Mittelpunkten
+
+        fun drawSlot(label: String, value: String, slotCx: Float) {
+            if (label.isBlank()) return
+            val labelText = label.take(3).uppercase()
             customSlotLabelPaint.textAlign = Paint.Align.RIGHT
             canvas.drawText(labelText, slotCx - gap / 2f, slotY, customSlotLabelPaint)
             customSlotValuePaint.textAlign = Paint.Align.LEFT
-            canvas.drawText(config.customSlot2Value, slotCx + gap / 2f, slotY, customSlotValuePaint)
+            canvas.drawText(value, slotCx + gap / 2f, slotY, customSlotValuePaint)
+        }
+
+        val hasSlot3 = config.customSlot3Label.isNotBlank()
+        val hasSlot2 = config.customSlot2Label.isNotBlank()
+        val hasSlot1 = config.customSlot1Label.isNotBlank()
+
+        if (hasSlot3) {
+            // 3 Slots: links, mitte, rechts
+            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing)
+            drawSlot(config.customSlot2Label, config.customSlot2Value, cx)
+            drawSlot(config.customSlot3Label, config.customSlot3Value, cx + slotSpacing)
+        } else if (hasSlot2) {
+            // 2 Slots: links und rechts
+            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing / 2f)
+            drawSlot(config.customSlot2Label, config.customSlot2Value, cx + slotSpacing / 2f)
+        } else if (hasSlot1) {
+            // 1 Slot: zentriert
+            drawSlot(config.customSlot1Label, config.customSlot1Value, cx)
         }
     }
 

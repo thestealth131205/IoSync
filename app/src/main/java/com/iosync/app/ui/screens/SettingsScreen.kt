@@ -110,6 +110,13 @@ fun SettingsScreen(
     var customSlot1Label by remember(uiState.customSlot1Label) { mutableStateOf(uiState.customSlot1Label) }
     var customSlot2Id    by remember(uiState.customSlot2Id)    { mutableStateOf(uiState.customSlot2Id) }
     var customSlot2Label by remember(uiState.customSlot2Label) { mutableStateOf(uiState.customSlot2Label) }
+    var customSlot3Id    by remember(uiState.customSlot3Id)    { mutableStateOf(uiState.customSlot3Id) }
+    var customSlot3Label by remember(uiState.customSlot3Label) { mutableStateOf(uiState.customSlot3Label) }
+    var customSlot4Id    by remember(uiState.customSlot4Id)    { mutableStateOf(uiState.customSlot4Id) }
+    var customSlot4Label by remember(uiState.customSlot4Label) { mutableStateOf(uiState.customSlot4Label) }
+    var customSlot4BarColor by remember(uiState.customSlot4BarColor) { mutableStateOf(uiState.customSlot4BarColor) }
+    var customSlot4BarMin by remember(uiState.customSlot4BarMin) { mutableStateOf(uiState.customSlot4BarMin.toString()) }
+    var customSlot4BarMax by remember(uiState.customSlot4BarMax) { mutableStateOf(uiState.customSlot4BarMax.toString()) }
 
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
@@ -537,17 +544,13 @@ fun SettingsScreen(
                 val availableStates = uiState.states
 
                 // Slot 1
-                Text(
-                    text = "Slot 1",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Slot 1", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = customSlot1Label,
                         onValueChange = { if (it.length <= 3) customSlot1Label = it },
                         label = { Text("Name") },
-                        placeholder = { Text("z.B. TMP") },
+                        placeholder = { Text("TMP") },
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -560,17 +563,13 @@ fun SettingsScreen(
                 }
 
                 // Slot 2
-                Text(
-                    text = "Slot 2",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Slot 2", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = customSlot2Label,
                         onValueChange = { if (it.length <= 3) customSlot2Label = it },
                         label = { Text("Name") },
-                        placeholder = { Text("z.B. HUM") },
+                        placeholder = { Text("HUM") },
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -582,6 +581,84 @@ fun SettingsScreen(
                     )
                 }
 
+                // Slot 3 (rechts neben Slot 2 auf der Uhr)
+                Text("Slot 3", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = customSlot3Label,
+                        onValueChange = { if (it.length <= 3) customSlot3Label = it },
+                        label = { Text("Name") },
+                        placeholder = { Text("CO2") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    DatapointDropdown(
+                        selectedId = customSlot3Id,
+                        availableStates = availableStates,
+                        onSelect = { customSlot3Id = it },
+                        modifier = Modifier.weight(3f)
+                    )
+                }
+
+                // Slot 4: Balken-Graph (direkt unter der Uhrzeit)
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text(
+                    text = "Slot 4 – Balken-Graph (unter Uhrzeit)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Füllt sich mit der eingestellten Farbe wenn der Wert dem Maximum nähert",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = customSlot4Label,
+                        onValueChange = { if (it.length <= 3) customSlot4Label = it },
+                        label = { Text("Name") },
+                        placeholder = { Text("PWR") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    DatapointDropdown(
+                        selectedId = customSlot4Id,
+                        availableStates = availableStates,
+                        onSelect = { customSlot4Id = it },
+                        modifier = Modifier.weight(3f)
+                    )
+                }
+
+                Text("Balken-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",   selected = customSlot4BarColor == "neon_yellow", onClick = { customSlot4BarColor = "neon_yellow" })
+                    PillColorChip(color = Color(0xFF00BCD4), label = "Cyan",   selected = customSlot4BarColor == "cyan",        onClick = { customSlot4BarColor = "cyan" })
+                    PillColorChip(color = Color(0xFF4CAF50), label = "Grün",   selected = customSlot4BarColor == "green",       onClick = { customSlot4BarColor = "green" })
+                    PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = customSlot4BarColor == "red",         onClick = { customSlot4BarColor = "red" })
+                    PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = customSlot4BarColor == "orange",      onClick = { customSlot4BarColor = "orange" })
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = customSlot4BarMin,
+                        onValueChange = { customSlot4BarMin = it },
+                        label = { Text("Min-Wert") },
+                        placeholder = { Text("0") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    OutlinedTextField(
+                        value = customSlot4BarMax,
+                        onValueChange = { customSlot4BarMax = it },
+                        label = { Text("Max-Wert") },
+                        placeholder = { Text("100") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                }
+
                 Button(
                     onClick = {
                         viewModel.updateCustomSlotsConfig(
@@ -589,7 +666,14 @@ fun SettingsScreen(
                             slot1Id    = customSlot1Id.trim(),
                             slot1Label = customSlot1Label.trim(),
                             slot2Id    = customSlot2Id.trim(),
-                            slot2Label = customSlot2Label.trim()
+                            slot2Label = customSlot2Label.trim(),
+                            slot3Id    = customSlot3Id.trim(),
+                            slot3Label = customSlot3Label.trim(),
+                            slot4Id    = customSlot4Id.trim(),
+                            slot4Label = customSlot4Label.trim(),
+                            slot4BarColor = customSlot4BarColor,
+                            slot4BarMin   = customSlot4BarMin.toFloatOrNull() ?: 0f,
+                            slot4BarMax   = customSlot4BarMax.toFloatOrNull() ?: 100f
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -744,13 +828,12 @@ fun SettingsScreen(
             )
 
             if (pillEnabled) {
-                OutlinedTextField(
-                    value = pillIoBrokerId,
-                    onValueChange = { pillIoBrokerId = it },
-                    label = { Text("ioBroker Datenpunkt-ID") },
-                    placeholder = { Text("hm-rpc.0.ABC123.1.STATE") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                val availableStates = uiState.states
+                DatapointDropdown(
+                    selectedId = pillIoBrokerId,
+                    availableStates = availableStates,
+                    onSelect = { pillIoBrokerId = it },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Text(

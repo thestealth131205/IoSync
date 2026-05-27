@@ -63,6 +63,13 @@ private const val KEY_WF_CUSTOM_SLOT1_LABEL = "wf_custom_slot1_label"
 private const val KEY_WF_CUSTOM_SLOT1_VALUE = "wf_custom_slot1_value"
 private const val KEY_WF_CUSTOM_SLOT2_LABEL = "wf_custom_slot2_label"
 private const val KEY_WF_CUSTOM_SLOT2_VALUE = "wf_custom_slot2_value"
+private const val KEY_WF_CUSTOM_SLOT3_LABEL = "wf_custom_slot3_label"
+private const val KEY_WF_CUSTOM_SLOT3_VALUE = "wf_custom_slot3_value"
+private const val KEY_WF_CUSTOM_SLOT4_LABEL = "wf_custom_slot4_label"
+private const val KEY_WF_CUSTOM_SLOT4_VALUE = "wf_custom_slot4_value"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_COLOR = "wf_custom_slot4_bar_color"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN   = "wf_custom_slot4_bar_min"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX   = "wf_custom_slot4_bar_max"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
 
@@ -207,7 +214,12 @@ class WearDataLayerService @Inject constructor(
         showCalories: Boolean = true,
         showCustomSlots: Boolean = false,
         customSlot1Label: String = "",
-        customSlot2Label: String = ""
+        customSlot2Label: String = "",
+        customSlot3Label: String = "",
+        customSlot4Label: String = "",
+        customSlot4BarColor: String = "neon_yellow",
+        customSlot4BarMin: Float = 0f,
+        customSlot4BarMax: Float = 100f
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -238,6 +250,11 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putBoolean(KEY_WF_SHOW_CUSTOM_SLOTS, showCustomSlots)
                     dataMap.putString(KEY_WF_CUSTOM_SLOT1_LABEL, customSlot1Label)
                     dataMap.putString(KEY_WF_CUSTOM_SLOT2_LABEL, customSlot2Label)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT3_LABEL, customSlot3Label)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT4_LABEL, customSlot4Label)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT4_BAR_COLOR, customSlot4BarColor)
+                    dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN, customSlot4BarMin)
+                    dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX, customSlot4BarMax)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
@@ -292,7 +309,11 @@ class WearDataLayerService @Inject constructor(
      */
     suspend fun syncCustomSlotsToWear(
         slot1Label: String, slot1Value: String,
-        slot2Label: String, slot2Value: String
+        slot2Label: String, slot2Value: String,
+        slot3Label: String = "", slot3Value: String = "--",
+        slot4Label: String = "", slot4Value: String = "--",
+        slot4BarColor: String = "neon_yellow",
+        slot4BarMin: Float = 0f, slot4BarMax: Float = 100f
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -301,10 +322,17 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_CUSTOM_SLOT1_VALUE, slot1Value)
                     dataMap.putString(KEY_WF_CUSTOM_SLOT2_LABEL, slot2Label)
                     dataMap.putString(KEY_WF_CUSTOM_SLOT2_VALUE, slot2Value)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT3_LABEL, slot3Label)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT3_VALUE, slot3Value)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT4_LABEL, slot4Label)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT4_VALUE, slot4Value)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT4_BAR_COLOR, slot4BarColor)
+                    dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN, slot4BarMin)
+                    dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX, slot4BarMax)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
-                Log.d(TAG, "Custom-Slot-Daten an Wear OS übertragen: $slot1Label=$slot1Value, $slot2Label=$slot2Value")
+                Log.d(TAG, "Custom-Slot-Daten an Wear OS übertragen")
             } catch (e: Exception) {
                 Log.e(TAG, "syncCustomSlotsToWear fehlgeschlagen", e)
             }
