@@ -1105,12 +1105,14 @@ class IoSyncWatchFaceRenderer(
             // Schein startet am inneren Rand des Rings und strahlt ~18 % des
             // Radius nach innen. Jede Schicht wird mit BUTT-Cap gezeichnet
             // damit der Schein exakt am selben Winkel endet wie der Ring.
+            // glowFactor 0.0 = kein Schein, 1.0 = maximale Breite
+            val glowFactor = config.secondsGlowWidth / 100f
             val glowSteps = 10
-            val glowDepth = minOf(bounds.width(), bounds.height()) * 0.09f
+            val glowDepth = minOf(bounds.width(), bounds.height()) * 0.09f * glowFactor
             val layerWidth = (glowDepth / glowSteps) * 2.2f
             secondsGlowPaint.strokeWidth = layerWidth
 
-            for (step in 0 until glowSteps) {
+            if (glowFactor > 0f) for (step in 0 until glowSteps) {
                 val t = step.toFloat() / glowSteps   // 0 = dicht am Ring, 1 = weiter innen
                 // Quadratische Abschwächung: hell am Ring, schnell transparent nach innen
                 val alpha = ((1f - t) * (1f - t) * 140).toInt()

@@ -93,6 +93,7 @@ fun SettingsScreen(
     var wfShowSecondsRing  by remember(uiState.wfShowSecondsRing)  { mutableStateOf(uiState.wfShowSecondsRing) }
     var wfSecondsRingColor by remember(uiState.wfSecondsRingColor) { mutableStateOf(uiState.wfSecondsRingColor) }
     var wfSecondsRingWidth by remember(uiState.wfSecondsRingWidth) { mutableStateOf(uiState.wfSecondsRingWidth.toFloat()) }
+    var wfSecondsGlowWidth by remember(uiState.wfSecondsGlowWidth) { mutableStateOf(uiState.wfSecondsGlowWidth.toFloat()) }
 
     // Wetter & Gesundheitsdaten
     var wfShowWeather   by remember(uiState.wfShowWeather)   { mutableStateOf(uiState.wfShowWeather) }
@@ -592,6 +593,19 @@ fun SettingsScreen(
                     steps = 7,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                Text(
+                    text = "Schein-Breite: ${wfSecondsGlowWidth.toInt()} %",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Slider(
+                    value = wfSecondsGlowWidth,
+                    onValueChange = { wfSecondsGlowWidth = it },
+                    valueRange = 0f..100f,
+                    steps = 9,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             Button(
@@ -607,6 +621,7 @@ fun SettingsScreen(
                         showSecondsRing  = wfShowSecondsRing,
                         secondsRingColor = wfSecondsRingColor,
                         secondsRingWidth = wfSecondsRingWidth.toInt(),
+                        secondsGlowWidth = wfSecondsGlowWidth.toInt(),
                         showWeather      = wfShowWeather,
                         showHeartRate    = wfShowHeartRate,
                         showOxygen       = wfShowOxygen,
@@ -883,9 +898,9 @@ private fun WeatherLocationSection(
             }
         } else if (!uiState.weatherSearching && searchQuery.length >= 2) {
             Text(
-                text = "Keine Orte gefunden",
+                text = if (uiState.weatherSearchError != null) "Fehler: ${uiState.weatherSearchError}" else "Keine Orte gefunden",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF888888),
+                color = if (uiState.weatherSearchError != null) Color(0xFFF44336) else Color(0xFF888888),
                 modifier = Modifier.padding(start = 4.dp)
             )
         }

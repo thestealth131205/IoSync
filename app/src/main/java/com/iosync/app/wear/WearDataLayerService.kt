@@ -44,6 +44,7 @@ private const val KEY_WF_SHOW_IOBROKER_DATA  = "wf_show_iobroker_data"
 private const val KEY_WF_SHOW_SECONDS_RING   = "wf_show_seconds_ring"
 private const val KEY_WF_SECONDS_RING_COLOR  = "wf_seconds_ring_color"
 private const val KEY_WF_SECONDS_RING_WIDTH  = "wf_seconds_ring_width"
+private const val KEY_WF_SECONDS_GLOW_WIDTH  = "wf_seconds_glow_width"
 
 // ── Gesundheits-/Wetter-Konfigurationsschlüssel ──────────────────────────────
 private const val KEY_WF_SHOW_WEATHER     = "wf_show_weather"
@@ -190,6 +191,7 @@ class WearDataLayerService @Inject constructor(
         showSecondsRing: Boolean = false,
         secondsRingColor: String = "neon_yellow",
         secondsRingWidth: Int = 5,
+        secondsGlowWidth: Int = 100,
         actionPillEnabled: Boolean = false,
         actionPillColorTrue: String = "cyan",
         actionPillColorFalse: String = "red",
@@ -218,6 +220,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putBoolean(KEY_WF_SHOW_SECONDS_RING, showSecondsRing)
                     dataMap.putString(KEY_WF_SECONDS_RING_COLOR, secondsRingColor)
                     dataMap.putInt(KEY_WF_SECONDS_RING_WIDTH, secondsRingWidth)
+                    dataMap.putInt(KEY_WF_SECONDS_GLOW_WIDTH, secondsGlowWidth)
                     dataMap.putBoolean(KEY_WF_SHOW_WEATHER, showWeather)
                     dataMap.putBoolean(KEY_WF_SHOW_HEART_RATE, showHeartRate)
                     dataMap.putBoolean(KEY_WF_SHOW_OXYGEN, showOxygen)

@@ -61,6 +61,7 @@ data class MainUiState(
     val wfShowSecondsRing: Boolean = false,
     val wfSecondsRingColor: String = "neon_yellow",
     val wfSecondsRingWidth: Int = 5,
+    val wfSecondsGlowWidth: Int = 100,
     // Datenquelle: true = IoSync Adapter, false = Simple-API
     val useIoSyncAdapter: Boolean = true,
     // IoSync Adapter Verbindung
@@ -92,6 +93,7 @@ data class MainUiState(
     val weatherFixedCity: String = "",
     val weatherSearchResults: List<com.iosync.app.data.network.GeocodingResult> = emptyList(),
     val weatherSearching: Boolean = false,
+    val weatherSearchError: String? = null,
     // Custom ioBroker-Slots (2 Datenpunkte auf dem Watchface)
     val showCustomSlots: Boolean = false,
     val customSlot1Id: String = "",
@@ -126,6 +128,7 @@ class MainViewModel @Inject constructor(
         val KEY_WF_SHOW_SECONDS_RING   = booleanPreferencesKey("wf_show_seconds_ring")
         val KEY_WF_SECONDS_RING_COLOR  = stringPreferencesKey("wf_seconds_ring_color")
         val KEY_WF_SECONDS_RING_WIDTH  = intPreferencesKey("wf_seconds_ring_width")
+        val KEY_WF_SECONDS_GLOW_WIDTH  = intPreferencesKey("wf_seconds_glow_width")
         val KEY_USE_IOSYNC_ADAPTER   = booleanPreferencesKey("use_iosync_adapter")
         val KEY_IOSYNC_HOST          = stringPreferencesKey("iosync_host")
         val KEY_IOSYNC_PORT          = intPreferencesKey("iosync_port")
@@ -191,6 +194,7 @@ class MainViewModel @Inject constructor(
             val wfShowSecondsRing   = prefs[KEY_WF_SHOW_SECONDS_RING]   ?: false
             val wfSecondsRingColor  = prefs[KEY_WF_SECONDS_RING_COLOR]  ?: "neon_yellow"
             val wfSecondsRingWidth  = prefs[KEY_WF_SECONDS_RING_WIDTH]  ?: 5
+            val wfSecondsGlowWidth  = prefs[KEY_WF_SECONDS_GLOW_WIDTH]  ?: 100
             val useIoSyncAdapter  = prefs[KEY_USE_IOSYNC_ADAPTER]   ?: true
             val ioSyncHost        = prefs[KEY_IOSYNC_HOST]          ?: ""
             val ioSyncPort        = prefs[KEY_IOSYNC_PORT]          ?: 7443
@@ -237,6 +241,7 @@ class MainViewModel @Inject constructor(
                     wfShowSecondsRing   = wfShowSecondsRing,
                     wfSecondsRingColor  = wfSecondsRingColor,
                     wfSecondsRingWidth  = wfSecondsRingWidth,
+                    wfSecondsGlowWidth  = wfSecondsGlowWidth,
                     useIoSyncAdapter   = useIoSyncAdapter,
                     ioSyncHost         = ioSyncHost,
                     ioSyncPort         = ioSyncPort,
@@ -475,6 +480,7 @@ class MainViewModel @Inject constructor(
         showSecondsRing: Boolean,
         secondsRingColor: String,
         secondsRingWidth: Int,
+        secondsGlowWidth: Int = 100,
         showWeather: Boolean,
         showHeartRate: Boolean,
         showOxygen: Boolean,
@@ -496,6 +502,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_SHOW_SECONDS_RING]   = showSecondsRing
                 prefs[KEY_WF_SECONDS_RING_COLOR]  = secondsRingColor
                 prefs[KEY_WF_SECONDS_RING_WIDTH]  = secondsRingWidth
+                prefs[KEY_WF_SECONDS_GLOW_WIDTH]  = secondsGlowWidth
                 prefs[KEY_WF_SHOW_WEATHER]        = showWeather
                 prefs[KEY_WF_SHOW_HEART_RATE]     = showHeartRate
                 prefs[KEY_WF_SHOW_OXYGEN]         = showOxygen
@@ -513,6 +520,7 @@ class MainViewModel @Inject constructor(
                     wfShowSecondsRing  = showSecondsRing,
                     wfSecondsRingColor = secondsRingColor,
                     wfSecondsRingWidth = secondsRingWidth,
+                    wfSecondsGlowWidth = secondsGlowWidth,
                     wfShowWeather      = showWeather,
                     wfShowHeartRate    = showHeartRate,
                     wfShowOxygen       = showOxygen,
@@ -527,7 +535,7 @@ class MainViewModel @Inject constructor(
                 val s = _uiState.value
                 wearDataLayerService.syncWatchFaceConfigToWear(
                     timeColor, dateColor, showSeconds, showTicks, showWeekday, showPhoneBattery, showIoBrokerData,
-                    showSecondsRing, secondsRingColor, secondsRingWidth,
+                    showSecondsRing, secondsRingColor, secondsRingWidth, secondsGlowWidth,
                     s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
                     s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
                     showWeather, showHeartRate, showOxygen, showCalories,
@@ -602,7 +610,7 @@ class MainViewModel @Inject constructor(
                 wearDataLayerService.syncWatchFaceConfigToWear(
                     s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
                     s.wfShowPhoneBattery, s.wfShowIoBrokerData, s.wfShowSecondsRing,
-                    s.wfSecondsRingColor, s.wfSecondsRingWidth,
+                    s.wfSecondsRingColor, s.wfSecondsRingWidth, s.wfSecondsGlowWidth,
                     enabled, colorTrue, colorFalse, ioBrokerId, valueMode, fixedValue, currentState,
                     s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories,
                     s.showCustomSlots, s.customSlot1Label, s.customSlot2Label
@@ -749,18 +757,18 @@ class MainViewModel @Inject constructor(
     fun searchWeatherLocations(query: String) {
         weatherSearchJob?.cancel()
         if (query.length < 2) {
-            _uiState.update { it.copy(weatherSearchResults = emptyList(), weatherSearching = false) }
+            _uiState.update { it.copy(weatherSearchResults = emptyList(), weatherSearching = false, weatherSearchError = null) }
             return
         }
-        _uiState.update { it.copy(weatherSearching = true) }
+        _uiState.update { it.copy(weatherSearching = true, weatherSearchError = null) }
         weatherSearchJob = viewModelScope.launch {
             delay(300) // Debounce
             weatherService.searchLocations(query)
                 .onSuccess { results ->
-                    _uiState.update { it.copy(weatherSearchResults = results, weatherSearching = false) }
+                    _uiState.update { it.copy(weatherSearchResults = results, weatherSearching = false, weatherSearchError = null) }
                 }
-                .onFailure {
-                    _uiState.update { it.copy(weatherSearchResults = emptyList(), weatherSearching = false) }
+                .onFailure { e ->
+                    _uiState.update { it.copy(weatherSearchResults = emptyList(), weatherSearching = false, weatherSearchError = e.message ?: "Unbekannter Fehler") }
                 }
         }
     }
