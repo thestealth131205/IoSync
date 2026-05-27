@@ -53,6 +53,10 @@
             <meta-data
                 android:name="com.google.android.wearable.watchface.companionBuiltinConfigurationEnabled"
                 android:value="true" />
+
+            <property
+                android:name="androidx.wear.watchface.XmlSchemaAndComplicationSlotsDefinition"
+                android:resource="@xml/watch_face_info" />
         </service>
 
         <!-- Watch Face Editor / Configuration Activity -->
