@@ -939,7 +939,12 @@ class IoSyncWatchFaceRenderer(
         healthValuePaint.textSize = valueSize
 
         for ((index, item) in items.withIndex()) {
-            val x = startX + index * itemWidth
+            val xOffset = when (item.icon) {
+                "heart" -> -radius * 0.06f
+                "flame" -> radius * 0.06f
+                else -> 0f
+            }
+            val x = startX + index * itemWidth + xOffset
 
             // Symbol links vom Label
             val labelWidth = healthLabelPaint.measureText(item.label)
