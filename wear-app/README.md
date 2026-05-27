@@ -1,1 +1,0 @@
-# IoSync Wear OS App

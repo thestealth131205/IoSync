@@ -37,13 +37,12 @@ jobs:
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Alle APKs bauen
-        run: ./gradlew :app:assembleRelease :wear-app:assembleRelease :wear-watchface:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease :wear-watchface:assembleRelease --no-daemon
 
       - name: APKs umbenennen
         run: |
           VERSION=${{ steps.version.outputs.version }}
           cp app/build/outputs/apk/release/app-release-unsigned.apk IoSync-app-$VERSION.apk
-          cp wear-app/build/outputs/apk/release/wear-app-release-unsigned.apk IoSync-wear-$VERSION.apk
           cp wear-watchface/build/outputs/apk/release/wear-watchface-release-unsigned.apk IoSync-watchface-$VERSION.apk
 
       - name: GitHub Release erstellen
@@ -58,13 +57,11 @@ jobs:
             | APK | Beschreibung |
             |-----|-------------|
             | `IoSync-app-*.apk` | Smartphone App (Android 8+) |
-            | `IoSync-wear-*.apk` | Wear OS App (Wear OS 3+) |
             | `IoSync-watchface-*.apk` | Wear OS Watchface (Wear OS 4) |
 
             > APKs sind unsigniert. Fuer Produktion mit eigenem Keystore signieren.
           files: |
             IoSync-app-${{ steps.version.outputs.version }}.apk
-            IoSync-wear-${{ steps.version.outputs.version }}.apk
             IoSync-watchface-${{ steps.version.outputs.version }}.apk
           draft: false
           prerelease: false

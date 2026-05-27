@@ -23,5 +23,4 @@ dependencyResolutionManagement {
 rootProject.name = "IoSync"
 
 include(":app")
-include(":wear-app")
 include(":wear-watchface")

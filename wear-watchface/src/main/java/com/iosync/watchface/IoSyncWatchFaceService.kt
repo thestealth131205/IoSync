@@ -183,20 +183,20 @@ class IoSyncWatchFaceService : WatchFaceService() {
     ): ComplicationSlot {
         val drawable = ComplicationDrawable(context).apply {
             activeStyle.apply {
-                textColorActive = android.graphics.Color.parseColor("#EAFF00")
-                titleColorActive = android.graphics.Color.parseColor("#999999")
-                iconColorActive = android.graphics.Color.parseColor("#EAFF00")
-                borderColorActive = android.graphics.Color.parseColor("#2E2E2E")
-                borderWidthActive = 1
-                backgroundColorActive = android.graphics.Color.parseColor("#111111")
-                rangedValuePrimaryColorActive = android.graphics.Color.parseColor("#EAFF00")
-                rangedValueSecondaryColorActive = android.graphics.Color.parseColor("#2E2E2E")
+                textColor = android.graphics.Color.parseColor("#EAFF00")
+                titleColor = android.graphics.Color.parseColor("#999999")
+                iconColor = android.graphics.Color.parseColor("#EAFF00")
+                borderColor = android.graphics.Color.parseColor("#2E2E2E")
+                borderWidth = 1
+                backgroundColor = android.graphics.Color.parseColor("#111111")
+                rangedValuePrimaryColor = android.graphics.Color.parseColor("#EAFF00")
+                rangedValueSecondaryColor = android.graphics.Color.parseColor("#2E2E2E")
             }
             ambientStyle.apply {
-                textColorAmbient = android.graphics.Color.parseColor("#888888")
-                borderColorAmbient = android.graphics.Color.parseColor("#333333")
-                backgroundColorAmbient = android.graphics.Color.TRANSPARENT
-                iconColorAmbient = android.graphics.Color.parseColor("#888888")
+                textColor = android.graphics.Color.parseColor("#888888")
+                borderColor = android.graphics.Color.parseColor("#333333")
+                backgroundColor = android.graphics.Color.TRANSPARENT
+                iconColor = android.graphics.Color.parseColor("#888888")
             }
         }
 

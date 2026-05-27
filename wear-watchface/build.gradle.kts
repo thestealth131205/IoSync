@@ -62,6 +62,7 @@ dependencies {
     implementation(libs.androidx.watchface.complications.rendering)
 
     // Compose for Wear OS (used for WatchFaceEditor activity)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.wear.compose.material)
     implementation(libs.androidx.wear.compose.foundation)
     debugImplementation(libs.androidx.wear.compose.ui.tooling)

@@ -1,4 +1,0 @@
--keep class com.iosync.wear.data.model.** { *; }
--keep class com.google.android.gms.wearable.** { *; }
--keepclasseswithmembers class * { @com.squareup.moshi.* <methods>; }
--dontwarn okio.**

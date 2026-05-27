@@ -61,7 +61,7 @@ class IoSyncWatchFaceRenderer(
     watchState = watchState,
     canvasType = canvasType,
     interactiveDrawModeUpdateDelayMillis = FRAME_PERIOD_MS_DEFAULT,
-    clearWithBackgroundTintBeforeEachFrame = false
+    clearWithBackgroundTintBeforeRenderingHighlightLayer = false
 ), WatchFace.TapListener {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -233,7 +233,7 @@ class IoSyncWatchFaceRenderer(
         scope.launch {
             currentUserStyleRepository.userStyle.collect { userStyle ->
                 userStyle[UserStyleSetting.Id("color_style")]?.let { option ->
-                    accentColor = when (option.id.value) {
+                    accentColor = when (String(option.id.value)) {
                         "white" -> Color.WHITE
                         "cyan"  -> Color.parseColor("#00BCD4")
                         else    -> Color.parseColor("#EAFF00")
