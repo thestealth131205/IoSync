@@ -2,6 +2,7 @@ package com.iosync.app.di
 
 import com.iosync.app.BuildConfig
 import com.iosync.app.data.network.ApiService
+import com.iosync.app.data.network.DynamicBaseUrl
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
@@ -13,7 +14,6 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
-import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -28,7 +28,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(dynamicBaseUrl: DynamicBaseUrl): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
@@ -38,6 +38,15 @@ object NetworkModule {
         }
         return OkHttpClient.Builder()
             .addInterceptor(logging)
+            // Schreibt Host und Port bei jedem Request dynamisch aus den aktuellen Einstellungen
+            .addInterceptor { chain ->
+                val original = chain.request()
+                val newUrl = original.url.newBuilder()
+                    .host(dynamicBaseUrl.host)
+                    .port(dynamicBaseUrl.port)
+                    .build()
+                chain.proceed(original.newBuilder().url(newUrl).build())
+            }
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
@@ -48,18 +57,11 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @Named("baseUrl")
-    fun provideBaseUrl(): String =
-        "http://${BuildConfig.IOBROKER_DEFAULT_HOST}:${BuildConfig.IOBROKER_DEFAULT_PORT}/"
-
-    @Provides
-    @Singleton
     fun provideRetrofit(
         okHttpClient: OkHttpClient,
-        moshi: Moshi,
-        @Named("baseUrl") baseUrl: String
+        moshi: Moshi
     ): Retrofit = Retrofit.Builder()
-        .baseUrl(baseUrl)
+        .baseUrl("http://${BuildConfig.IOBROKER_DEFAULT_HOST}:${BuildConfig.IOBROKER_DEFAULT_PORT}/")
         .client(okHttpClient)
         .addConverterFactory(MoshiConverterFactory.create(moshi))
         .build()

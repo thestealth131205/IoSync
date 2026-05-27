@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iosync.app.BuildConfig
 import com.iosync.app.data.model.SmartHomeState
+import com.iosync.app.data.network.DynamicBaseUrl
 import com.iosync.app.data.network.IoSyncClient
 import com.iosync.app.data.network.SmartHomeWebSocketService
 import com.iosync.app.data.network.WebSocketStatus
@@ -83,7 +84,8 @@ class MainViewModel @Inject constructor(
     private val repository: SmartHomeRepository,
     private val dataStore: DataStore<Preferences>,
     private val wearDataLayerService: WearDataLayerService,
-    private val ioSyncClient: IoSyncClient
+    private val ioSyncClient: IoSyncClient,
+    private val dynamicBaseUrl: DynamicBaseUrl
 ) : ViewModel() {
 
     companion object {
@@ -182,6 +184,7 @@ class MainViewModel @Inject constructor(
                 )
             }
 
+            dynamicBaseUrl.update(host, port)
             if (ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUsername, ioSyncPassword)
             if (wfShowPhoneBattery) startBatteryPolling()
         }
@@ -281,6 +284,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_HOST] = host
                 prefs[KEY_PORT] = port
             }
+            dynamicBaseUrl.update(host, port)
             _uiState.update { it.copy(host = host, port = port) }
         }
     }
