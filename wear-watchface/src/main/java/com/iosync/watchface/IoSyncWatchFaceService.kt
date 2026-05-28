@@ -39,7 +39,6 @@ class IoSyncWatchFaceService : WatchFaceService() {
 
     companion object {
         const val COMPLICATION_TOP_ID = 0
-        const val COMPLICATION_BOTTOM_ID = 1
         const val COMPLICATION_LEFT_ID = 2
         const val COMPLICATION_RIGHT_ID = 3
         const val COMPLICATION_HEART_RATE_ID = 4
@@ -140,20 +139,6 @@ class IoSyncWatchFaceService : WatchFaceService() {
             textSizeSp = 20
         )
 
-        val bottomComplication = buildComplicationSlot(
-            context = context,
-            id = COMPLICATION_BOTTOM_ID,
-            bounds = RectF(0.34f, 0.60f, 0.66f, 0.72f),
-            defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
-            supportedTypes = listOf(
-                ComplicationType.RANGED_VALUE,
-                ComplicationType.SHORT_TEXT,
-                ComplicationType.SMALL_IMAGE
-            ),
-            textSizeSp = 20,
-            defaultType = ComplicationType.RANGED_VALUE
-        )
-
         val leftComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_LEFT_ID,
@@ -193,11 +178,11 @@ class IoSyncWatchFaceService : WatchFaceService() {
             textSizeSp = 18
         )
 
-        // Native Komplikation: Schritte (Mitte unten)
+        // Native Komplikation: Schritte (mittig zwischen Slots und Pille)
         val stepsComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_STEPS_ID,
-            bounds = RectF(0.30f, 0.88f, 0.70f, 0.98f),
+            bounds = RectF(0.25f, 0.72f, 0.75f, 0.82f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
             supportedTypes = listOf(
                 ComplicationType.SHORT_TEXT,
@@ -211,7 +196,6 @@ class IoSyncWatchFaceService : WatchFaceService() {
         return ComplicationSlotsManager(
             complicationSlotCollection = listOf(
                 topComplication,
-                bottomComplication,
                 leftComplication,
                 heartRateComplication,
                 caloriesComplication,

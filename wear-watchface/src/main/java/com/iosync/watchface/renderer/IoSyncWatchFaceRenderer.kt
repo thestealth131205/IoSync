@@ -1152,10 +1152,10 @@ class IoSyncWatchFaceRenderer(
     private fun drawCustomSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float, clockBottomY: Float) {
         val config = WatchFaceConfigCache
 
-        val dp4 = 4f * context.resources.displayMetrics.density
+        val dp7 = 7f * context.resources.displayMetrics.density
         val gap = radius * 0.035f
 
-        var nextY = clockBottomY + dp4
+        var nextY = clockBottomY + dp7
 
         // ── Slot 4: Balken-Graph ───────────────────────────────────────────
         if (config.customSlot4Label.isNotBlank()) {

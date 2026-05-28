@@ -11,35 +11,54 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
+import androidx.wear.watchface.editor.EditorSession
+import kotlinx.coroutines.launch
 
 /**
- * Configuration / Editor activity for the IoSync Watch Face.
- * Launched when the user taps "Customize" in the watch face picker.
- *
- * For a full implementation, integrate with the Jetpack WatchFaceEditorSession
- * to allow live preview of style changes.
+ * Editor-Activity fuer das IoSync Watch Face.
+ * Wird angezeigt, wenn der Nutzer beim langen Druecken auf "Anpassen" tippt.
+ * Nutzt EditorSession fuer die Integration mit dem Wear OS Watch Face Editor.
  */
 class WatchFaceConfigActivity : ComponentActivity() {
 
+    private var editorSession: EditorSession? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        lifecycleScope.launch {
+            editorSession = EditorSession.createOnWatchEditorSession(this@WatchFaceConfigActivity)
+        }
+
         setContent {
             MaterialTheme {
                 WatchFaceConfigScreen(
-                    onClose = { finish() }
+                    onClose = {
+                        editorSession?.close()
+                        finish()
+                    }
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        editorSession?.close()
     }
 }
 
@@ -63,7 +82,7 @@ fun WatchFaceConfigScreen(onClose: () -> Unit) {
         )
 
         Text(
-            text = "Konfiguration\nüber Wear OS\nZiffernblatt-Editor",
+            text = "Konfiguration\nComplication-Slots\nkoennen angepasst werden",
             style = MaterialTheme.typography.body2,
             color = Color(0xFF999999),
             textAlign = TextAlign.Center
@@ -78,7 +97,7 @@ fun WatchFaceConfigScreen(onClose: () -> Unit) {
             shape = RoundedCornerShape(50)
         ) {
             Text(
-                text = "Schließen",
+                text = "Schliessen",
                 color = Color(0xFF1A1A00),
                 fontWeight = FontWeight.Bold
             )
