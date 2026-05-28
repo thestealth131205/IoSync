@@ -595,7 +595,7 @@ class IoSyncWatchFaceRenderer(
         val states = SmartHomeStateCache.states.take(2)
         if (states.isEmpty()) return
 
-        val scaleFactor = WatchFaceConfigCache.valueTextScale / 100f
+        val scaleFactor = 1.0f
         val labelSize   = radius * 0.085f * scaleFactor
         val valueSize   = radius * 0.115f * scaleFactor
         val barHeight   = radius * 0.042f
@@ -718,7 +718,7 @@ class IoSyncWatchFaceRenderer(
 
         // Prozentzahl unterhalb des Icons
         val levelText = if (level >= 0) "$level%" else "--"
-        paint.textSize = radius * 0.085f * (WatchFaceConfigCache.valueTextScale / 100f)
+        paint.textSize = radius * 0.085f
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText(levelText, iconCx, iconBottom + radius * 0.115f, paint)
     }
