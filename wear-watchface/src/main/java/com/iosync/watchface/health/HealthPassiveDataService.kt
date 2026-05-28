@@ -39,17 +39,7 @@ class HealthPassiveDataService : PassiveListenerService() {
             Log.d(TAG, "Schritte: $s")
         }
 
-        // SpO2 (Sauerstoffsättigung)
-        try {
-            dataPoints.getData(DataType.OXYGEN_SATURATION).lastOrNull()?.let { point ->
-                val o2 = point.value.toInt()
-                if (o2 > 0) {
-                    HealthDataCache.spO2 = o2
-                    Log.d(TAG, "SpO2: $o2%")
-                }
-            }
-        } catch (_: Exception) {
-            // SpO2 nicht über Passive API verfügbar auf diesem Gerät
-        }
+        // SpO2: nicht als passiver DataType verfügbar,
+        // erfordert On-Demand-Messung über MeasureClient
     }
 }
