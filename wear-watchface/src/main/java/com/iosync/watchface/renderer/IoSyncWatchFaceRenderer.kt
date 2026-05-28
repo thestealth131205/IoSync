@@ -483,6 +483,11 @@ class IoSyncWatchFaceRenderer(
         val cy     = bounds.exactCenterY()
         val radius = minOf(cx, cy)
 
+        val timeStr      = timeFormatter.format(zonedDateTime)
+        val timeFontSize = radius * 0.437f
+
+        try {
+
         if (!isAmbient && config.showSecondsRing) {
             drawSecondsRing(canvas, bounds, zonedDateTime.second)
         }
@@ -493,9 +498,6 @@ class IoSyncWatchFaceRenderer(
 
         val bx = if (isAmbient) burnInOffsetX else 0f
         val by = if (isAmbient) burnInOffsetY else 0f
-
-        val timeStr      = timeFormatter.format(zonedDateTime)
-        val timeFontSize = radius * 0.437f
 
         if (isAmbient) {
             ambientTimePaint.textSize  = timeFontSize
@@ -637,6 +639,16 @@ class IoSyncWatchFaceRenderer(
                 )
                 canvas.drawText(text, cx, textY, confirmPaint)
             }
+        }
+
+        } catch (e: Exception) {
+            // Fallback: Uhrzeit immer anzeigen, auch wenn andere Elemente crashen
+            Log.e("WatchFaceRenderer", "Render-Fehler: ${e.message}", e)
+            timePaint.color = Color.parseColor("#E8E8E8")
+            timePaint.textSize = timeFontSize
+            timePaint.textAlign = Paint.Align.CENTER
+            canvas.drawText(timeStr, cx, cy + timeFontSize * 0.15f, timePaint)
+            timePaint.textAlign = Paint.Align.LEFT
         }
     }
 
@@ -1061,45 +1073,43 @@ class IoSyncWatchFaceRenderer(
         }
     }
 
+    // Wiederverwendbarer Paint + Path für Health-Icons (keine Allocation pro Frame)
+    private val healthIconPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.FILL
+    }
+    private val healthIconPath = android.graphics.Path()
+
     /** Zeichnet ein kleines Icon (Herz, Flamme, O2-Tropfen) für die Gesundheitsanzeige. */
     private fun drawHealthIcon(canvas: Canvas, cx: Float, cy: Float, size: Float, type: String) {
-        val iconPaint = Paint().apply {
-            isAntiAlias = true
-            style = Paint.Style.FILL
-        }
+        healthIconPath.reset()
         when (type) {
             "heart" -> {
-                iconPaint.color = Color.parseColor("#AAAAAA")
-                val path = android.graphics.Path()
+                healthIconPaint.color = Color.parseColor("#AAAAAA")
                 val s = size * 0.55f
-                // Herz aus zwei Bögen + Spitze
-                path.moveTo(cx, cy + s * 0.6f) // Spitze unten
-                path.cubicTo(cx - s * 1.3f, cy - s * 0.2f, cx - s * 0.6f, cy - s * 1.2f, cx, cy - s * 0.5f)
-                path.cubicTo(cx + s * 0.6f, cy - s * 1.2f, cx + s * 1.3f, cy - s * 0.2f, cx, cy + s * 0.6f)
-                path.close()
-                canvas.drawPath(path, iconPaint)
+                healthIconPath.moveTo(cx, cy + s * 0.6f)
+                healthIconPath.cubicTo(cx - s * 1.3f, cy - s * 0.2f, cx - s * 0.6f, cy - s * 1.2f, cx, cy - s * 0.5f)
+                healthIconPath.cubicTo(cx + s * 0.6f, cy - s * 1.2f, cx + s * 1.3f, cy - s * 0.2f, cx, cy + s * 0.6f)
+                healthIconPath.close()
+                canvas.drawPath(healthIconPath, healthIconPaint)
             }
             "flame" -> {
-                iconPaint.color = Color.parseColor("#FF9800")
-                val path = android.graphics.Path()
+                healthIconPaint.color = Color.parseColor("#FF9800")
                 val s = size * 0.55f
-                // Flamme
-                path.moveTo(cx, cy + s * 0.7f) // Basis unten
-                path.cubicTo(cx - s * 0.8f, cy + s * 0.1f, cx - s * 0.5f, cy - s * 0.6f, cx, cy - s * 0.9f)
-                path.cubicTo(cx + s * 0.5f, cy - s * 0.6f, cx + s * 0.8f, cy + s * 0.1f, cx, cy + s * 0.7f)
-                path.close()
-                canvas.drawPath(path, iconPaint)
+                healthIconPath.moveTo(cx, cy + s * 0.7f)
+                healthIconPath.cubicTo(cx - s * 0.8f, cy + s * 0.1f, cx - s * 0.5f, cy - s * 0.6f, cx, cy - s * 0.9f)
+                healthIconPath.cubicTo(cx + s * 0.5f, cy - s * 0.6f, cx + s * 0.8f, cy + s * 0.1f, cx, cy + s * 0.7f)
+                healthIconPath.close()
+                canvas.drawPath(healthIconPath, healthIconPaint)
             }
             "oxygen" -> {
-                iconPaint.color = Color.parseColor("#AAAAAA")
-                val path = android.graphics.Path()
+                healthIconPaint.color = Color.parseColor("#AAAAAA")
                 val s = size * 0.50f
-                // Tropfen (O2)
-                path.moveTo(cx, cy - s * 0.9f) // Spitze oben
-                path.cubicTo(cx - s * 0.8f, cy + s * 0.1f, cx - s * 0.6f, cy + s * 0.8f, cx, cy + s * 0.8f)
-                path.cubicTo(cx + s * 0.6f, cy + s * 0.8f, cx + s * 0.8f, cy + s * 0.1f, cx, cy - s * 0.9f)
-                path.close()
-                canvas.drawPath(path, iconPaint)
+                healthIconPath.moveTo(cx, cy - s * 0.9f)
+                healthIconPath.cubicTo(cx - s * 0.8f, cy + s * 0.1f, cx - s * 0.6f, cy + s * 0.8f, cx, cy + s * 0.8f)
+                healthIconPath.cubicTo(cx + s * 0.6f, cy + s * 0.8f, cx + s * 0.8f, cy + s * 0.1f, cx, cy - s * 0.9f)
+                healthIconPath.close()
+                canvas.drawPath(healthIconPath, healthIconPaint)
             }
         }
     }

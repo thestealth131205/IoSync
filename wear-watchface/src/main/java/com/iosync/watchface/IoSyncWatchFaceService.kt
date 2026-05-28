@@ -59,7 +59,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
             watchState = watchState,
             complicationSlotsManager = complicationSlotsManager,
             currentUserStyleRepository = currentUserStyleRepository,
-            canvasType = CanvasType.HARDWARE,
+            canvasType = CanvasType.SOFTWARE,
             healthSensorManager = healthSensorManager
         )
 
