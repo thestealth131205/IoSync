@@ -127,6 +127,9 @@ data class MainUiState(
     val wfBatteryRingColor2: String = "neon_yellow",
     // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = Smartphone
     val wfHealthDataSource: String = "local",
+    // Aktualisierungsintervalle (in Minuten)
+    val batteryPollIntervalMin: Int = 1,
+    val slotPollIntervalMin: Int = 5,
     // Sync-Status-Log für die Konsolenanzeige
     val wearSyncLog: String = ""
 )
@@ -206,16 +209,15 @@ class MainViewModel @Inject constructor(
         val KEY_WF_BATTERY_RING_COLOR1 = stringPreferencesKey("wf_battery_ring_color1")
         val KEY_WF_BATTERY_RING_COLOR2 = stringPreferencesKey("wf_battery_ring_color2")
         val KEY_WF_HEALTH_DATA_SOURCE  = stringPreferencesKey("wf_health_data_source")
+        // Aktualisierungsintervalle (in Minuten)
+        val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_min")
+        val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_min")
         // Wetter-Standort
         val KEY_WEATHER_USE_FIXED   = booleanPreferencesKey("weather_use_fixed")
         val KEY_WEATHER_FIXED_LAT   = stringPreferencesKey("weather_fixed_lat")
         val KEY_WEATHER_FIXED_LON   = stringPreferencesKey("weather_fixed_lon")
         val KEY_WEATHER_FIXED_CITY  = stringPreferencesKey("weather_fixed_city")
 
-        // Polling-Intervall für IoSync Datenpunkte (30 Sekunden)
-        private const val IOSYNC_POLL_INTERVAL_MS = 30_000L
-        // Akku-Sync-Intervall (60 Sekunden)
-        private const val BATTERY_SYNC_INTERVAL_MS = 60_000L
         // Wetter-Sync-Intervall (15 Minuten)
         private const val WEATHER_SYNC_INTERVAL_MS = 900_000L
     }
@@ -295,6 +297,8 @@ class MainViewModel @Inject constructor(
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
             val weatherFixedCity  = prefs[KEY_WEATHER_FIXED_CITY]  ?: ""
+            val batteryPollInterval = prefs[KEY_BATTERY_POLL_INTERVAL] ?: 1
+            val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 5
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -364,7 +368,9 @@ class MainViewModel @Inject constructor(
                     weatherUseFixedLocation = weatherUseFixed,
                     weatherFixedLat   = weatherFixedLat,
                     weatherFixedLon   = weatherFixedLon,
-                    weatherFixedCity  = weatherFixedCity
+                    weatherFixedCity  = weatherFixedCity,
+                    batteryPollIntervalMin = batteryPollInterval,
+                    slotPollIntervalMin    = slotPollInterval
                 )
             }
 
@@ -559,7 +565,7 @@ class MainViewModel @Inject constructor(
                         if (_uiState.value.showCustomSlots) syncCustomSlotValues()
                     }
                     .onFailure { /* Fehler werden im IoSyncClient geloggt */ }
-                delay(IOSYNC_POLL_INTERVAL_MS)
+                delay(_uiState.value.slotPollIntervalMin * 60_000L)
             }
         }
     }
@@ -793,6 +799,25 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // ── Aktualisierungsintervalle ─────────────────────────────────────────────
+
+    /** Speichert die Polling-Intervalle und startet die Jobs mit neuem Intervall neu. */
+    fun updatePollIntervals(batteryMin: Int, slotMin: Int) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_BATTERY_POLL_INTERVAL] = batteryMin
+                prefs[KEY_SLOT_POLL_INTERVAL]    = slotMin
+            }
+            _uiState.update { it.copy(batteryPollIntervalMin = batteryMin, slotPollIntervalMin = slotMin) }
+            // Laufende Jobs mit neuem Intervall neu starten
+            if (batteryPollingJob?.isActive == true) startBatteryPolling()
+            if (ioSyncPollingJob?.isActive == true) {
+                val s = _uiState.value
+                if (s.ioSyncHost.isNotBlank()) startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
+            }
+        }
+    }
+
     // ── Custom ioBroker-Slots ────────────────────────────────────────────────
 
     /**
@@ -924,7 +949,7 @@ class MainViewModel @Inject constructor(
         batteryPollingJob = viewModelScope.launch {
             while (true) {
                 sendPhoneBattery()
-                delay(BATTERY_SYNC_INTERVAL_MS)
+                delay(_uiState.value.batteryPollIntervalMin * 60_000L)
             }
         }
     }

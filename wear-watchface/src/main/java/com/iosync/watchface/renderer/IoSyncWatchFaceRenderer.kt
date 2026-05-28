@@ -299,6 +299,11 @@ class IoSyncWatchFaceRenderer(
     private var pillBounds = RectF()
     private var pillTapBounds = RectF()
     private var lastTapTime = 0L
+    private var pillPressed = false
+    private var pillPressedAt = 0L
+    private val PILL_PRESS_DURATION_MS = 300L
+
+    private val PATH_HEART_RATE_REFRESH = "/iosync/watchface/hr_refresh"
 
     // ── Config-Bestätigung (2 s Overlay) ───────────────────────────────────────
     private val confirmPaint = Paint().apply {
@@ -805,11 +810,17 @@ class IoSyncWatchFaceRenderer(
             pillBounds.bottom + tapPad
         )
 
-        val activeColor = colorFromPillId(if (config.actionPillState) config.actionPillColorTrue else config.actionPillColorFalse)
+        // Gedrückt-Zustand nach PILL_PRESS_DURATION_MS automatisch zurücksetzen
+        val isPressedNow = pillPressed && (System.currentTimeMillis() - pillPressedAt < PILL_PRESS_DURATION_MS)
 
-        // Gefüllte Pille (leicht transparent)
+        val stateColor = colorFromPillId(if (config.actionPillState) config.actionPillColorTrue else config.actionPillColorFalse)
+        // Beim Drücken: Aktiv-Farbe (True-Farbe) aufleuchten, sonst Zustandsfarbe
+        val activeColor = if (isPressedNow) colorFromPillId(config.actionPillColorTrue) else stateColor
+
+        // Gefüllte Pille (beim Drücken voller, sonst leicht transparent)
+        val fillAlpha = if (isPressedNow) 240 else 180
         pillFillPaint.color = Color.argb(
-            180,
+            fillAlpha,
             Color.red(activeColor), Color.green(activeColor), Color.blue(activeColor)
         )
         canvas.drawRoundRect(pillBounds, halfH, halfH, pillFillPaint)
@@ -829,6 +840,7 @@ class IoSyncWatchFaceRenderer(
         "purple"      -> Color.parseColor("#9C27B0")
         else          -> Color.parseColor("#00BCD4")
     }
+
 
     /** Sendet einen Trigger an die verbundene Android App via Wearable MessageClient. */
     private fun triggerPillAction() {
@@ -997,11 +1009,7 @@ class IoSyncWatchFaceRenderer(
         val usePhone = config.healthDataSource == "phone"
         val items = mutableListOf<HealthItem>()
 
-        if (config.showHeartRate) {
-            val hr = if (usePhone) config.phoneHeartRate else healthSensorManager.heartRate
-            val hrText = if (hr > 0) "$hr" else "--"
-            items.add(HealthItem("PULS", hrText, Color.parseColor("#F44336"), "heart"))
-        }
+        // Puls und Kcal werden jetzt als native Complications gerendert (Slots 4 & 5)
         if (config.showSteps) {
             val steps = healthSensorManager.steps
             val stepsText = if (steps > 0) "$steps" else "0"
@@ -1012,19 +1020,11 @@ class IoSyncWatchFaceRenderer(
             val o2Text = if (o2 > 0) "$o2%" else "--%"
             items.add(HealthItem("OXYGEN", o2Text, Color.parseColor("#42A5F5"), "oxygen"))
         }
-        if (config.showCalories) {
-            val cal = if (usePhone) config.phoneCalories else healthSensorManager.calories
-            val calText = if (cal > 0) "$cal" else "0"
-            items.add(HealthItem("KCAL", calText, Color.parseColor("#FF9800"), "flame"))
-        }
 
         if (items.isEmpty()) return
 
-        val hrScale    = config.hrTextScale    / 100f
-        val kcalScale  = config.kcalTextScale  / 100f
         val stepsScale = config.stepsTextScale / 100f
 
-        // Größerer Abstand: PULS weiter links, KCAL weiter rechts
         val itemWidth  = radius * 0.80f
         val totalWidth = items.size * itemWidth
         val startX     = cx - totalWidth / 2f + itemWidth / 2f
@@ -1032,36 +1032,37 @@ class IoSyncWatchFaceRenderer(
 
         for ((index, item) in items.withIndex()) {
             val scaleFactor = when (item.icon) {
-                "heart" -> hrScale
-                "flame" -> kcalScale
                 "steps" -> stepsScale
-                else    -> hrScale
+                else    -> stepsScale
             }
             val isSteps   = item.icon == "steps"
             val labelSize = radius * 0.070f * scaleFactor
             val valueSize = radius * 0.130f * scaleFactor
             val iconSize  = radius * 0.065f * scaleFactor
 
+            val dp = context.resources.displayMetrics.density
             val x = startX + index * itemWidth
 
             healthLabelPaint.textSize = labelSize
             healthValuePaint.textSize = valueSize
 
             if (isSteps) {
-                // Schritte: Label auf Höhe der PULS/KCAL-Beschriftungen (baseY),
-                // Zahl darunter auf gleicher Höhe wie Puls/kcal-Werte
+                // Schritte: Symbol + Zahl inline, 15dp nach unten versetzt
                 val stepsValueSize = radius * 0.105f * scaleFactor
-                val stepsLabelSize = radius * 0.055f * scaleFactor
-
-                healthLabelPaint.textSize  = stepsLabelSize
-                healthLabelPaint.color     = Color.parseColor("#AAAAAA")
-                healthLabelPaint.textAlign = Paint.Align.CENTER
-                canvas.drawText("SCHR", x, baseY, healthLabelPaint)
+                val stepsOffsetY = 15f * dp
 
                 healthValuePaint.textSize = stepsValueSize
                 healthValuePaint.color    = item.color
-                canvas.drawText(item.value, x, baseY + valueSize * 1.2f, healthValuePaint)
-                healthLabelPaint.textAlign = Paint.Align.CENTER
+
+                val valueWidth = healthValuePaint.measureText(item.value)
+                val totalW = iconSize + iconSize * 0.35f + valueWidth
+                val leftX = x - totalW / 2f
+
+                drawHealthIcon(canvas, leftX + iconSize / 2f, baseY + stepsOffsetY - iconSize * 0.15f, iconSize, "steps")
+
+                healthValuePaint.textAlign = Paint.Align.LEFT
+                canvas.drawText(item.value, leftX + iconSize + iconSize * 0.35f, baseY + stepsOffsetY + stepsValueSize * 0.35f, healthValuePaint)
+                healthValuePaint.textAlign = Paint.Align.CENTER
             } else {
                 val labelWidth      = healthLabelPaint.measureText(item.label)
                 val iconGap         = iconSize * 0.35f
@@ -1077,6 +1078,7 @@ class IoSyncWatchFaceRenderer(
 
                 healthValuePaint.color = item.color
                 canvas.drawText(item.value, x, baseY + valueSize * 1.2f, healthValuePaint)
+
             }
         }
     }
@@ -1210,7 +1212,13 @@ class IoSyncWatchFaceRenderer(
         }
 
         // ── Slots 1 / 2 / 3 nebeneinander (dynamisch zentriert) ─────────
-        val slotSpacing = radius * 0.33f   // Abstand zwischen Slot-Mittelpunkten
+        // Abstand zwischen Slot-Mittelpunkten skaliert mit max. Schriftgröße
+        val maxSlotScale = listOfNotNull(
+            if (config.customSlot1Label.isNotBlank()) config.slot1TextScale / 100f else null,
+            if (config.customSlot2Label.isNotBlank()) config.slot2TextScale / 100f else null,
+            if (config.customSlot3Label.isNotBlank()) config.slot3TextScale / 100f else null
+        ).maxOrNull() ?: 1f
+        val slotSpacing = radius * 0.33f * maxSlotScale
 
         fun drawSlot(label: String, value: String, slotCx: Float, slotScale: Float) {
             val fontSize = radius * 0.10f * slotScale
@@ -1415,13 +1423,26 @@ class IoSyncWatchFaceRenderer(
         tapEvent: TapEvent,
         complicationSlot: androidx.wear.watchface.ComplicationSlot?
     ) {
-        if (tapType != TapType.UP) return
-        val config = WatchFaceConfigCache
-        if (!config.actionPillEnabled) return
-
         val x = tapEvent.xPos.toFloat()
         val y = tapEvent.yPos.toFloat()
-        if (!pillTapBounds.contains(x, y)) return
+        val config = WatchFaceConfigCache
+
+        // ── Aktions-Pille ────────────────────────────────────────────────────
+        if (!config.actionPillEnabled) return
+
+        if (tapType == TapType.DOWN && pillTapBounds.contains(x, y)) {
+            // Visuelles Feedback: Pille leuchtet in Aktiv-Farbe auf
+            pillPressed = true
+            pillPressedAt = System.currentTimeMillis()
+            invalidate()
+            return
+        }
+
+        if (tapType != TapType.UP) return
+        if (!pillTapBounds.contains(x, y)) {
+            pillPressed = false
+            return
+        }
 
         val now = System.currentTimeMillis()
         if (now - lastTapTime <= DOUBLE_TAP_MS) {
@@ -1430,6 +1451,7 @@ class IoSyncWatchFaceRenderer(
         } else {
             lastTapTime = now
         }
+        pillPressed = false
     }
 
     override fun onDestroy() {

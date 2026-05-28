@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -139,6 +140,10 @@ fun SettingsScreen(
     var wfBatteryRingColor1 by remember(uiState.wfBatteryRingColor1) { mutableStateOf(uiState.wfBatteryRingColor1) }
     var wfBatteryRingColor2 by remember(uiState.wfBatteryRingColor2) { mutableStateOf(uiState.wfBatteryRingColor2) }
 
+    // Aktualisierungsintervalle
+    var batteryPollInterval by remember(uiState.batteryPollIntervalMin) { mutableStateOf(uiState.batteryPollIntervalMin) }
+    var slotPollInterval   by remember(uiState.slotPollIntervalMin)    { mutableStateOf(uiState.slotPollIntervalMin) }
+
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
     var pillColorTrue  by remember(uiState.actionPillColorTrue)  { mutableStateOf(uiState.actionPillColorTrue) }
@@ -191,6 +196,14 @@ fun SettingsScreen(
             batteryRingColor2  = wfBatteryRingColor2,
             healthDataSource   = wfHealthDataSource
         )
+    }
+
+    // ── Intervall-Änderungen speichern ───────────────────────────────────────
+    var intervalInitialized by remember { mutableStateOf(false) }
+    LaunchedEffect(batteryPollInterval, slotPollInterval) {
+        if (!intervalInitialized) { intervalInitialized = true; return@LaunchedEffect }
+        delay(400)
+        viewModel.updatePollIntervals(batteryPollInterval, slotPollInterval)
     }
 
     Scaffold(
@@ -593,6 +606,49 @@ fun SettingsScreen(
                 WatchFaceColorChip(color = Color(0xFF4CAF50), label = "Grün",       selected = wfBatteryRingColor2 == "green",       onClick = { wfBatteryRingColor2 = "green" })
                 WatchFaceColorChip(color = Color(0xFFFF9800), label = "Orange",     selected = wfBatteryRingColor2 == "orange",      onClick = { wfBatteryRingColor2 = "orange" })
                 WatchFaceColorChip(color = Color(0xFF9C27B0), label = "Lila",       selected = wfBatteryRingColor2 == "purple",      onClick = { wfBatteryRingColor2 = "purple" })
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // ── Aktualisierungsintervalle ──────────────────────────────────────
+            Text(
+                text = "Aktualisierungsintervalle",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "Akku-Sync",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+                IntervalDropdown(
+                    selected = batteryPollInterval,
+                    onSelect = { batteryPollInterval = it },
+                    modifier = Modifier.width(120.dp)
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "ioBroker-Slots",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+                IntervalDropdown(
+                    selected = slotPollInterval,
+                    onSelect = { slotPollInterval = it },
+                    modifier = Modifier.width(120.dp)
+                )
             }
 
             Spacer(Modifier.height(4.dp))
@@ -1599,6 +1655,49 @@ fun FontSizeDropdown(
                     },
                     onClick = {
                         onSelect(size)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+private val INTERVAL_OPTIONS = listOf(1, 3, 5, 10, 15, 30, 60)
+
+@Composable
+fun IntervalDropdown(
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFF444444))
+        ) {
+            Text("$selected min", style = MaterialTheme.typography.bodySmall)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color(0xFF1E1E1E))
+        ) {
+            INTERVAL_OPTIONS.forEach { min ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "$min min",
+                            color = if (min == selected) NeonYellow else Color.White,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    onClick = {
+                        onSelect(min)
                         expanded = false
                     }
                 )

@@ -42,6 +42,8 @@ class IoSyncWatchFaceService : WatchFaceService() {
         const val COMPLICATION_BOTTOM_ID = 1
         const val COMPLICATION_LEFT_ID = 2
         const val COMPLICATION_RIGHT_ID = 3
+        const val COMPLICATION_HEART_RATE_ID = 4
+        const val COMPLICATION_CALORIES_ID = 5
     }
 
     override suspend fun createWatchFace(
@@ -164,11 +166,39 @@ class IoSyncWatchFaceService : WatchFaceService() {
             textSizeSp = 20
         )
 
+        // Native Komplikation: Puls (links unten)
+        val heartRateComplication = buildComplicationSlot(
+            context = context,
+            id = COMPLICATION_HEART_RATE_ID,
+            bounds = RectF(0.05f, 0.68f, 0.40f, 0.88f),
+            supportedTypes = listOf(
+                ComplicationType.SHORT_TEXT,
+                ComplicationType.RANGED_VALUE,
+                ComplicationType.SMALL_IMAGE
+            ),
+            textSizeSp = 18
+        )
+
+        // Native Komplikation: Kalorien (rechts unten)
+        val caloriesComplication = buildComplicationSlot(
+            context = context,
+            id = COMPLICATION_CALORIES_ID,
+            bounds = RectF(0.60f, 0.68f, 0.95f, 0.88f),
+            supportedTypes = listOf(
+                ComplicationType.SHORT_TEXT,
+                ComplicationType.RANGED_VALUE,
+                ComplicationType.SMALL_IMAGE
+            ),
+            textSizeSp = 18
+        )
+
         return ComplicationSlotsManager(
             complicationSlotCollection = listOf(
                 topComplication,
                 bottomComplication,
-                leftComplication
+                leftComplication,
+                heartRateComplication,
+                caloriesComplication
             ),
             currentUserStyleRepository = currentUserStyleRepository
         )
@@ -178,7 +208,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
         context: Context,
         id: Int,
         bounds: RectF,
-        defaultDataSource: Int,
+        defaultDataSource: Int? = null,
         supportedTypes: List<ComplicationType>,
         textSizeSp: Int = 14,
         defaultType: ComplicationType = supportedTypes.first()
@@ -208,14 +238,23 @@ class IoSyncWatchFaceService : WatchFaceService() {
             CanvasComplicationDrawable(drawable, watchState, listener)
         }
 
+        val policy = if (defaultDataSource != null) {
+            DefaultComplicationDataSourcePolicy(
+                systemDataSource = defaultDataSource,
+                systemDataSourceDefaultType = defaultType
+            )
+        } else {
+            DefaultComplicationDataSourcePolicy(
+                systemDataSource = SystemDataSources.NO_DATA_SOURCE,
+                systemDataSourceDefaultType = defaultType
+            )
+        }
+
         return ComplicationSlot.createRoundRectComplicationSlotBuilder(
             id = id,
             canvasComplicationFactory = factory,
             supportedTypes = supportedTypes,
-            defaultDataSourcePolicy = DefaultComplicationDataSourcePolicy(
-                systemDataSource = defaultDataSource,
-                systemDataSourceDefaultType = defaultType
-            ),
+            defaultDataSourcePolicy = policy,
             bounds = ComplicationSlotBounds(bounds)
         ).build()
     }
