@@ -76,7 +76,15 @@ private const val KEY_WF_SLOT2_TEXT_SCALE     = "wf_slot2_text_scale"
 private const val KEY_WF_SLOT3_TEXT_SCALE     = "wf_slot3_text_scale"
 private const val KEY_WF_SLOT4_TEXT_SCALE     = "wf_slot4_text_scale"
 private const val KEY_WF_WEATHER_TEXT_SCALE   = "wf_weather_text_scale"
-private const val KEY_WF_SUNRISE_TEXT_SCALE   = "wf_sunrise_text_scale"
+private const val KEY_WF_SUNRISE_TEXT_SCALE        = "wf_sunrise_text_scale"
+private const val KEY_WF_WATCH_BATTERY_TEXT_SCALE  = "wf_watch_battery_text_scale"
+private const val KEY_WF_HEALTH_DATA_SOURCE        = "wf_health_data_source"
+
+// ── Phone-Health-Daten (vom Smartphone gesendet) ────────────────────────────
+private const val PATH_PHONE_HEALTH          = "/iosync/watchface/phone_health"
+private const val KEY_PHONE_HEART_RATE       = "phone_heart_rate"
+private const val KEY_PHONE_SPO2             = "phone_spo2"
+private const val KEY_PHONE_CALORIES         = "phone_calories"
 
 // ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
 private const val KEY_WF_BATTERY_RING_COLOR1  = "wf_battery_ring_color1"
@@ -143,6 +151,13 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX))        WatchFaceConfigCache.customSlot4BarMax       = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) WatchFaceConfigCache.customSlot4BarShowLabel = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
                     Log.d(TAG, "Custom-Slot-Daten empfangen")
+                }
+                PATH_PHONE_HEALTH -> {
+                    val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    if (dataMap.containsKey(KEY_PHONE_HEART_RATE)) WatchFaceConfigCache.phoneHeartRate = dataMap.getInt(KEY_PHONE_HEART_RATE)
+                    if (dataMap.containsKey(KEY_PHONE_SPO2))       WatchFaceConfigCache.phoneSpO2      = dataMap.getInt(KEY_PHONE_SPO2)
+                    if (dataMap.containsKey(KEY_PHONE_CALORIES))   WatchFaceConfigCache.phoneCalories   = dataMap.getInt(KEY_PHONE_CALORIES)
+                    Log.d(TAG, "Phone-Health-Daten empfangen: HR=${WatchFaceConfigCache.phoneHeartRate}, SpO2=${WatchFaceConfigCache.phoneSpO2}, kcal=${WatchFaceConfigCache.phoneCalories}")
                 }
                 PATH_ACTION_PILL_STATE -> {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -219,9 +234,16 @@ object WatchFaceConfigCache {
     @Volatile var slot4TextScale: Int = 100
     @Volatile var weatherTextScale: Int = 100
     @Volatile var sunriseTextScale: Int = 100
+    @Volatile var watchBatteryTextScale: Int = 100
     // Akku-Ring-Farben (Farbverlauf)
     @Volatile var batteryRingColor1: String = "cyan"
     @Volatile var batteryRingColor2: String = "neon_yellow"
+    // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = vom Smartphone
+    @Volatile var healthDataSource: String = "local"
+    // Phone-Health-Daten (wenn Quelle = "phone")
+    @Volatile var phoneHeartRate: Int = 0
+    @Volatile var phoneSpO2: Int = 0
+    @Volatile var phoneCalories: Int = 0
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
@@ -264,9 +286,11 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_SLOT3_TEXT_SCALE))   slot3TextScale   = dataMap.getInt(KEY_WF_SLOT3_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_SLOT4_TEXT_SCALE))   slot4TextScale   = dataMap.getInt(KEY_WF_SLOT4_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_WEATHER_TEXT_SCALE)) weatherTextScale = dataMap.getInt(KEY_WF_WEATHER_TEXT_SCALE)
-        if (dataMap.containsKey(KEY_WF_SUNRISE_TEXT_SCALE)) sunriseTextScale = dataMap.getInt(KEY_WF_SUNRISE_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_SUNRISE_TEXT_SCALE))        sunriseTextScale       = dataMap.getInt(KEY_WF_SUNRISE_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_WATCH_BATTERY_TEXT_SCALE)) watchBatteryTextScale = dataMap.getInt(KEY_WF_WATCH_BATTERY_TEXT_SCALE)
         dataMap.getString(KEY_WF_BATTERY_RING_COLOR1)?.let { batteryRingColor1 = it }
         dataMap.getString(KEY_WF_BATTERY_RING_COLOR2)?.let { batteryRingColor2 = it }
+        dataMap.getString(KEY_WF_HEALTH_DATA_SOURCE)?.let { healthDataSource = it }
     }
 }
 

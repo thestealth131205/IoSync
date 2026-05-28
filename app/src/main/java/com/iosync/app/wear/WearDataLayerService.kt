@@ -79,7 +79,9 @@ private const val KEY_WF_SLOT2_TEXT_SCALE     = "wf_slot2_text_scale"
 private const val KEY_WF_SLOT3_TEXT_SCALE     = "wf_slot3_text_scale"
 private const val KEY_WF_SLOT4_TEXT_SCALE     = "wf_slot4_text_scale"
 private const val KEY_WF_WEATHER_TEXT_SCALE   = "wf_weather_text_scale"
-private const val KEY_WF_SUNRISE_TEXT_SCALE   = "wf_sunrise_text_scale"
+private const val KEY_WF_SUNRISE_TEXT_SCALE        = "wf_sunrise_text_scale"
+private const val KEY_WF_WATCH_BATTERY_TEXT_SCALE = "wf_watch_battery_text_scale"
+private const val KEY_WF_HEALTH_DATA_SOURCE      = "wf_health_data_source"
 private const val PATH_CUSTOM_SLOTS           = "/iosync/watchface/custom_slots"
 
 // ── Aktions-Pille-Konfigurationsschlüssel ─────────────────────────────────────
@@ -242,8 +244,10 @@ class WearDataLayerService @Inject constructor(
         slot4TextScale: Int = 100,
         weatherTextScale: Int = 100,
         sunriseTextScale: Int = 100,
+        watchBatteryTextScale: Int = 100,
         batteryRingColor1: String = "cyan",
-        batteryRingColor2: String = "neon_yellow"
+        batteryRingColor2: String = "neon_yellow",
+        healthDataSource: String = "local"
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -288,8 +292,10 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt(KEY_WF_SLOT4_TEXT_SCALE,    slot4TextScale)
                     dataMap.putInt(KEY_WF_WEATHER_TEXT_SCALE, weatherTextScale)
                     dataMap.putInt(KEY_WF_SUNRISE_TEXT_SCALE, sunriseTextScale)
+                    dataMap.putInt(KEY_WF_WATCH_BATTERY_TEXT_SCALE, watchBatteryTextScale)
                     dataMap.putString(KEY_WF_BATTERY_RING_COLOR1, batteryRingColor1)
                     dataMap.putString(KEY_WF_BATTERY_RING_COLOR2, batteryRingColor2)
+                    dataMap.putString(KEY_WF_HEALTH_DATA_SOURCE, healthDataSource)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

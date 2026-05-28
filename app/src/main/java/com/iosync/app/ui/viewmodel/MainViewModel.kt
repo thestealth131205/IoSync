@@ -119,9 +119,12 @@ data class MainUiState(
     val wfSlot4TextScale: Int = 100,
     val wfWeatherTextScale: Int = 100,
     val wfSunriseTextScale: Int = 100,
+    val wfWatchBatteryTextScale: Int = 100,
     // Akku-Ring-Farben
     val wfBatteryRingColor1: String = "cyan",
     val wfBatteryRingColor2: String = "neon_yellow",
+    // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = Smartphone
+    val wfHealthDataSource: String = "local",
     // Sync-Status-Log für die Konsolenanzeige
     val wearSyncLog: String = ""
 )
@@ -194,9 +197,11 @@ class MainViewModel @Inject constructor(
         val KEY_WF_SLOT3_TEXT_SCALE    = intPreferencesKey("wf_slot3_text_scale")
         val KEY_WF_SLOT4_TEXT_SCALE    = intPreferencesKey("wf_slot4_text_scale")
         val KEY_WF_WEATHER_TEXT_SCALE  = intPreferencesKey("wf_weather_text_scale")
-        val KEY_WF_SUNRISE_TEXT_SCALE  = intPreferencesKey("wf_sunrise_text_scale")
+        val KEY_WF_SUNRISE_TEXT_SCALE        = intPreferencesKey("wf_sunrise_text_scale")
+        val KEY_WF_WATCH_BATTERY_TEXT_SCALE = intPreferencesKey("wf_watch_battery_text_scale")
         val KEY_WF_BATTERY_RING_COLOR1 = stringPreferencesKey("wf_battery_ring_color1")
         val KEY_WF_BATTERY_RING_COLOR2 = stringPreferencesKey("wf_battery_ring_color2")
+        val KEY_WF_HEALTH_DATA_SOURCE  = stringPreferencesKey("wf_health_data_source")
         // Wetter-Standort
         val KEY_WEATHER_USE_FIXED   = booleanPreferencesKey("weather_use_fixed")
         val KEY_WEATHER_FIXED_LAT   = stringPreferencesKey("weather_fixed_lat")
@@ -276,8 +281,10 @@ class MainViewModel @Inject constructor(
             val wfSlot4TextScale   = prefs[KEY_WF_SLOT4_TEXT_SCALE]   ?: 100
             val wfWeatherTextScale = prefs[KEY_WF_WEATHER_TEXT_SCALE] ?: 100
             val wfSunriseTextScale = prefs[KEY_WF_SUNRISE_TEXT_SCALE] ?: 100
+            val wfWatchBatteryTextScale = prefs[KEY_WF_WATCH_BATTERY_TEXT_SCALE] ?: 100
             val wfBatteryRingColor1 = prefs[KEY_WF_BATTERY_RING_COLOR1] ?: "cyan"
             val wfBatteryRingColor2 = prefs[KEY_WF_BATTERY_RING_COLOR2] ?: "neon_yellow"
+            val wfHealthDataSource = prefs[KEY_WF_HEALTH_DATA_SOURCE] ?: "local"
             val weatherUseFixed   = prefs[KEY_WEATHER_USE_FIXED]   ?: false
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
@@ -342,8 +349,10 @@ class MainViewModel @Inject constructor(
                     wfSlot4TextScale   = wfSlot4TextScale,
                     wfWeatherTextScale = wfWeatherTextScale,
                     wfSunriseTextScale = wfSunriseTextScale,
+                    wfWatchBatteryTextScale = wfWatchBatteryTextScale,
                     wfBatteryRingColor1 = wfBatteryRingColor1,
                     wfBatteryRingColor2 = wfBatteryRingColor2,
+                    wfHealthDataSource = wfHealthDataSource,
                     weatherUseFixedLocation = weatherUseFixed,
                     weatherFixedLat   = weatherFixedLat,
                     weatherFixedLon   = weatherFixedLon,
@@ -582,8 +591,10 @@ class MainViewModel @Inject constructor(
         slot4TextScale: Int = _uiState.value.wfSlot4TextScale,
         weatherTextScale: Int = _uiState.value.wfWeatherTextScale,
         sunriseTextScale: Int = _uiState.value.wfSunriseTextScale,
+        watchBatteryTextScale: Int = _uiState.value.wfWatchBatteryTextScale,
         batteryRingColor1: String = _uiState.value.wfBatteryRingColor1,
-        batteryRingColor2: String = _uiState.value.wfBatteryRingColor2
+        batteryRingColor2: String = _uiState.value.wfBatteryRingColor2,
+        healthDataSource: String = _uiState.value.wfHealthDataSource
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(wearSyncLog = "Sende Watchface-Konfiguration …") }
@@ -611,9 +622,11 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_SLOT3_TEXT_SCALE]    = slot3TextScale
                 prefs[KEY_WF_SLOT4_TEXT_SCALE]    = slot4TextScale
                 prefs[KEY_WF_WEATHER_TEXT_SCALE]  = weatherTextScale
-                prefs[KEY_WF_SUNRISE_TEXT_SCALE]  = sunriseTextScale
+                prefs[KEY_WF_SUNRISE_TEXT_SCALE]        = sunriseTextScale
+                prefs[KEY_WF_WATCH_BATTERY_TEXT_SCALE] = watchBatteryTextScale
                 prefs[KEY_WF_BATTERY_RING_COLOR1] = batteryRingColor1
                 prefs[KEY_WF_BATTERY_RING_COLOR2] = batteryRingColor2
+                prefs[KEY_WF_HEALTH_DATA_SOURCE]  = healthDataSource
             }
             _uiState.update {
                 it.copy(
@@ -641,8 +654,10 @@ class MainViewModel @Inject constructor(
                     wfSlot4TextScale   = slot4TextScale,
                     wfWeatherTextScale = weatherTextScale,
                     wfSunriseTextScale = sunriseTextScale,
+                    wfWatchBatteryTextScale = watchBatteryTextScale,
                     wfBatteryRingColor1 = batteryRingColor1,
-                    wfBatteryRingColor2 = batteryRingColor2
+                    wfBatteryRingColor2 = batteryRingColor2,
+                    wfHealthDataSource = healthDataSource
                 )
             }
             try {
@@ -661,8 +676,9 @@ class MainViewModel @Inject constructor(
                     customSlot3Label, customSlot4Label, customSlot4BarColor, customSlot4BarMin, customSlot4BarMax,
                     s.customSlot4BarShowLabel,
                     hrTextScale, kcalTextScale, slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale,
-                    weatherTextScale, sunriseTextScale,
-                    batteryRingColor1, batteryRingColor2
+                    weatherTextScale, sunriseTextScale, watchBatteryTextScale,
+                    batteryRingColor1, batteryRingColor2,
+                    healthDataSource
                 )
                 _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -740,8 +756,9 @@ class MainViewModel @Inject constructor(
                     s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
                     s.customSlot4BarShowLabel,
                     s.wfHrTextScale, s.wfKcalTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
-                    s.wfWeatherTextScale, s.wfSunriseTextScale,
-                    s.wfBatteryRingColor1, s.wfBatteryRingColor2
+                    s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
+                    s.wfBatteryRingColor1, s.wfBatteryRingColor2,
+                    s.wfHealthDataSource
                 )
                 _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -847,8 +864,9 @@ class MainViewModel @Inject constructor(
                     s2.customSlot3Label, s2.customSlot4Label, s2.customSlot4BarColor, s2.customSlot4BarMin, s2.customSlot4BarMax,
                     s2.customSlot4BarShowLabel,
                     s2.wfHrTextScale, s2.wfKcalTextScale, s2.wfSlot1TextScale, s2.wfSlot2TextScale, s2.wfSlot3TextScale, s2.wfSlot4TextScale,
-                    s2.wfWeatherTextScale, s2.wfSunriseTextScale,
-                    s2.wfBatteryRingColor1, s2.wfBatteryRingColor2
+                    s2.wfWeatherTextScale, s2.wfSunriseTextScale, s2.wfWatchBatteryTextScale,
+                    s2.wfBatteryRingColor1, s2.wfBatteryRingColor2,
+                    s2.wfHealthDataSource
                 )
                 _uiState.update { it.copy(wearSyncLog = "Slot-Daten übertragen") }
             }

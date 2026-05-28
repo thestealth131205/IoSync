@@ -105,6 +105,7 @@ fun SettingsScreen(
     var wfShowHeartRate by remember(uiState.wfShowHeartRate) { mutableStateOf(uiState.wfShowHeartRate) }
     var wfShowOxygen    by remember(uiState.wfShowOxygen)    { mutableStateOf(uiState.wfShowOxygen) }
     var wfShowCalories  by remember(uiState.wfShowCalories)  { mutableStateOf(uiState.wfShowCalories) }
+    var wfHealthDataSource by remember(uiState.wfHealthDataSource) { mutableStateOf(uiState.wfHealthDataSource) }
 
     // Custom ioBroker-Slots
     var showCustomSlots by remember(uiState.showCustomSlots) { mutableStateOf(uiState.showCustomSlots) }
@@ -130,6 +131,7 @@ fun SettingsScreen(
     var wfSlot4TextScale   by remember(uiState.wfSlot4TextScale)   { mutableStateOf(uiState.wfSlot4TextScale) }
     var wfWeatherTextScale by remember(uiState.wfWeatherTextScale) { mutableStateOf(uiState.wfWeatherTextScale) }
     var wfSunriseTextScale by remember(uiState.wfSunriseTextScale) { mutableStateOf(uiState.wfSunriseTextScale) }
+    var wfWatchBatteryTextScale by remember(uiState.wfWatchBatteryTextScale) { mutableStateOf(uiState.wfWatchBatteryTextScale) }
 
     // Akku-Ring-Farben
     var wfBatteryRingColor1 by remember(uiState.wfBatteryRingColor1) { mutableStateOf(uiState.wfBatteryRingColor1) }
@@ -150,8 +152,9 @@ fun SettingsScreen(
         wfShowPhoneBattery, wfShowIoBrokerData, wfShowSecondsRing, wfSecondsRingColor,
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
         wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories,
-        wfHrTextScale, wfKcalTextScale, wfWeatherTextScale, wfSunriseTextScale,
-        wfBatteryRingColor1, wfBatteryRingColor2
+        wfHrTextScale, wfKcalTextScale, wfWeatherTextScale, wfSunriseTextScale, wfWatchBatteryTextScale,
+        wfBatteryRingColor1, wfBatteryRingColor2,
+        wfHealthDataSource
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -179,8 +182,10 @@ fun SettingsScreen(
             kcalTextScale      = wfKcalTextScale,
             weatherTextScale   = wfWeatherTextScale,
             sunriseTextScale   = wfSunriseTextScale,
+            watchBatteryTextScale = wfWatchBatteryTextScale,
             batteryRingColor1  = wfBatteryRingColor1,
-            batteryRingColor2  = wfBatteryRingColor2
+            batteryRingColor2  = wfBatteryRingColor2,
+            healthDataSource   = wfHealthDataSource
         )
     }
 
@@ -625,6 +630,27 @@ fun SettingsScreen(
                 onCheckedChange = { wfShowCalories = it }
             )
 
+            // ── Datenquelle für Gesundheitsdaten ────────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Datenquelle", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                    Text(
+                        "Lokal = Uhr-Sensoren, Smartphone = via Data Layer",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                HealthSourceDropdown(
+                    selected = wfHealthDataSource,
+                    onSelect = { wfHealthDataSource = it },
+                    modifier = Modifier.weight(0.6f)
+                )
+            }
+
             Spacer(Modifier.height(4.dp))
 
             // ── Custom ioBroker-Slots ────────────────────────────────────────
@@ -859,6 +885,12 @@ fun SettingsScreen(
                     FontSizeDropdown(selected = wfKcalTextScale, onSelect = { wfKcalTextScale = it })
                 }
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Akku-Ringe (Uhr)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfWatchBatteryTextScale, onSelect = { wfWatchBatteryTextScale = it })
+                }
+            }
 
             if (wfShowSecondsRing) {
                 Text(
@@ -964,8 +996,10 @@ fun SettingsScreen(
                         slot4TextScale     = wfSlot4TextScale,
                         weatherTextScale   = wfWeatherTextScale,
                         sunriseTextScale   = wfSunriseTextScale,
+                        watchBatteryTextScale = wfWatchBatteryTextScale,
                         batteryRingColor1  = wfBatteryRingColor1,
-                        batteryRingColor2  = wfBatteryRingColor2
+                        batteryRingColor2  = wfBatteryRingColor2,
+                        healthDataSource   = wfHealthDataSource
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -1559,6 +1593,50 @@ fun FontSizeDropdown(
                     },
                     onClick = {
                         onSelect(size)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+private val HEALTH_SOURCE_OPTIONS = listOf("local" to "Lokal (Uhr)", "phone" to "Smartphone")
+
+@Composable
+fun HealthSourceDropdown(
+    selected: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayName = HEALTH_SOURCE_OPTIONS.firstOrNull { it.first == selected }?.second ?: selected
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFF444444))
+        ) {
+            Text(displayName, style = MaterialTheme.typography.bodySmall)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color(0xFF1E1E1E))
+        ) {
+            HEALTH_SOURCE_OPTIONS.forEach { (value, label) ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = label,
+                            color = if (value == selected) NeonYellow else Color.White,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    onClick = {
+                        onSelect(value)
                         expanded = false
                     }
                 )

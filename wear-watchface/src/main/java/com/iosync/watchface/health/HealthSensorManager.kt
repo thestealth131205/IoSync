@@ -42,20 +42,20 @@ class HealthSensorManager private constructor(
     val heartRate: Int get() = HealthDataCache.heartRate
     val calories: Int get() = HealthDataCache.calories
     val steps: Int get() = HealthDataCache.steps
-    val spO2: Int = 0  // SpO2 nicht über Passive API verfügbar
+    val spO2: Int get() = HealthDataCache.spO2
 
     fun start() {
         if (isNoop || passiveMonitoringClient == null || scope == null) return
         scope.launch {
             try {
+                val dataTypes = mutableSetOf(
+                    DataType.HEART_RATE_BPM,
+                    DataType.CALORIES_DAILY,
+                    DataType.STEPS_DAILY
+                )
+                try { dataTypes.add(DataType.SPO2) } catch (_: Exception) { /* nicht auf jedem Gerät verfügbar */ }
                 val config = PassiveListenerConfig.builder()
-                    .setDataTypes(
-                        setOf(
-                            DataType.HEART_RATE_BPM,
-                            DataType.CALORIES_DAILY,
-                            DataType.STEPS_DAILY
-                        )
-                    )
+                    .setDataTypes(dataTypes)
                     .build()
 
                 passiveMonitoringClient.setPassiveListenerServiceAsync(

@@ -504,16 +504,6 @@ class IoSyncWatchFaceRenderer(
             ambientTimePaint.textAlign = Paint.Align.CENTER
             canvas.drawText(timeStr, cx + bx, cy + by + timeFontSize * 0.30f, ambientTimePaint)
         } else {
-            // ── Zifferbereich-Panel (eingetiefte Vertiefung) ───────────────────
-            val clockPanelW  = radius * 0.88f
-            val clockPanelH  = timeFontSize * 0.92f
-            val clockPanelY  = cy - timeFontSize * 0.60f
-            val clockPanelCR = clockPanelH * 0.14f
-            drawEmbossedRecess(canvas,
-                RectF(cx - clockPanelW / 2f, clockPanelY,
-                      cx + clockPanelW / 2f, clockPanelY + clockPanelH),
-                clockPanelCR)
-
             val timeColor = colorFromId(config.timeColorId)
             val dateColor = colorFromId(config.dateColorId)
             timePaint.color    = timeColor
@@ -580,19 +570,23 @@ class IoSyncWatchFaceRenderer(
                 drawIoBrokerData(canvas, cx, cy, radius, weekdayBottomY)
             }
 
-            // Akku-Ringe: Uhr immer, Handy optional
-            val ringRadius = radius * 0.115f
+            // Layout oben: Watch-Akku (links) — Wetter (Mitte) — Phone-Akku (rechts)
+            val watchBatteryScale = config.watchBatteryTextScale / 100f
+            val baseRingRadius = radius * 0.115f
+            val ringRadius = baseRingRadius * watchBatteryScale
             val ringCy     = cy - radius * 0.64f
             val color1 = colorFromId(config.batteryRingColor1)
             val color2 = colorFromId(config.batteryRingColor2)
-            drawBatteryRing(canvas, cx - radius * 0.14f, ringCy, ringRadius,
+            // Watch-Akku links
+            drawBatteryRing(canvas, cx - radius * 0.42f, ringCy, ringRadius,
                 getWatchBatteryLevel(), color1, color2)
+            // Phone-Akku rechts (gespiegelt)
             if (config.showPhoneBattery) {
-                drawBatteryRing(canvas, cx + radius * 0.22f, ringCy, ringRadius,
+                drawBatteryRing(canvas, cx + radius * 0.42f, ringCy, ringRadius,
                     config.phoneBatteryLevel, color1, color2)
             }
 
-            // Wetter-Kreis oben links
+            // Wetter-Kreis oben mittig (unter 12-Uhr-Markierung)
             if (config.showWeather) {
                 drawWeatherCircle(canvas, cx, cy, radius)
             }
@@ -857,17 +851,17 @@ class IoSyncWatchFaceRenderer(
         }
     }
 
-    // ── Wetter-Kreis (oben links) ─────────────────────────────────────────────
+    // ── Wetter-Kreis (oben mittig, unter 12-Uhr-Markierung) ──────────────────
 
     /**
-     * Zeichnet einen kleinen Kreis oben links mit Wettersymbol und Temperatur.
-     * Layout ähnlich wie auf dem Referenz-Bild: Kreis mit Icon + "24°"
+     * Zeichnet einen kleinen Kreis oben mittig mit Wettersymbol und Temperatur.
+     * Positioniert zwischen den beiden Akku-Ringen.
      */
     private fun drawWeatherCircle(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
         val circleRadius = radius * 0.18f
-        val circleCx = cx - radius * 0.42f
-        val circleCy = cy - radius * 0.50f
+        val circleCx = cx
+        val circleCy = cy - radius * 0.64f
 
         // Hintergrund: Vertiefungs-Effekt + dunkler Kreis
         drawEmbossedCircleRecess(canvas, circleCx, circleCy, circleRadius * 1.08f)
@@ -1000,19 +994,22 @@ class IoSyncWatchFaceRenderer(
 
     private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
-        val health = healthSensorManager
+        val usePhone = config.healthDataSource == "phone"
         val items = mutableListOf<HealthItem>()
 
         if (config.showHeartRate) {
-            val hrText = if (health.heartRate > 0) "${health.heartRate}" else "--"
+            val hr = if (usePhone) config.phoneHeartRate else healthSensorManager.heartRate
+            val hrText = if (hr > 0) "$hr" else "--"
             items.add(HealthItem("PULS", hrText, Color.parseColor("#F44336"), "heart"))
         }
         if (config.showOxygen) {
-            val o2Text = if (health.spO2 > 0) "${health.spO2}%" else "--%"
+            val o2 = if (usePhone) config.phoneSpO2 else healthSensorManager.spO2
+            val o2Text = if (o2 > 0) "$o2%" else "--%"
             items.add(HealthItem("OXYGEN", o2Text, Color.parseColor("#42A5F5"), "oxygen"))
         }
         if (config.showCalories) {
-            val calText = if (health.calories > 0) "${health.calories}" else "0"
+            val cal = if (usePhone) config.phoneCalories else healthSensorManager.calories
+            val calText = if (cal > 0) "$cal" else "0"
             items.add(HealthItem("KCAL", calText, Color.parseColor("#FF9800"), "flame"))
         }
 
@@ -1026,15 +1023,6 @@ class IoSyncWatchFaceRenderer(
         val startX = cx - totalWidth / 2f + itemWidth / 2f
         val baseY = cy + radius * 0.44f
 
-        // ── Gesundheits-Panel-Vertiefung ──────────────────────────────────────
-        val hPanelW  = totalWidth + radius * 0.14f
-        val hPanelH  = radius * 0.40f
-        val hPanelY  = baseY - radius * 0.12f
-        val hPanelCR = hPanelH * 0.28f
-        drawEmbossedRecess(canvas,
-            RectF(cx - hPanelW / 2f, hPanelY, cx + hPanelW / 2f, hPanelY + hPanelH),
-            hPanelCR)
-
         for ((index, item) in items.withIndex()) {
             val scaleFactor = when (item.icon) {
                 "heart" -> hrScale
@@ -1045,12 +1033,8 @@ class IoSyncWatchFaceRenderer(
             val valueSize = radius * 0.130f * scaleFactor
             val iconSize  = radius * 0.065f * scaleFactor
 
-            val xOffset = when (item.icon) {
-                "heart" -> -radius * 0.19f
-                "flame" ->  radius * 0.19f
-                else -> 0f
-            }
-            val x = startX + index * itemWidth + xOffset
+            // Gleichmaessig zentriert verteilen (kein manueller Offset)
+            val x = startX + index * itemWidth
 
             healthLabelPaint.textSize = labelSize
             healthValuePaint.textSize = valueSize
@@ -1188,14 +1172,13 @@ class IoSyncWatchFaceRenderer(
                 canvas.drawText(config.customSlot4Value, barRight, nextY - labelSize * 0.18f, customSlotValuePaint)
             }
 
-            nextY += barH + dp4 * 1.5f
+            nextY += barH + 3f * context.resources.displayMetrics.density
         }
 
-        // ── Slots 1 / 2 / 3 nebeneinander ────────────────────────────────
+        // ── Slots 1 / 2 / 3 nebeneinander (dynamisch zentriert) ─────────
         val slotSpacing = radius * 0.33f   // Abstand zwischen Slot-Mittelpunkten
 
         fun drawSlot(label: String, value: String, slotCx: Float, slotScale: Float) {
-            if (label.isBlank()) return
             val fontSize = radius * 0.10f * slotScale
             customSlotLabelPaint.textSize = fontSize
             customSlotValuePaint.textSize = fontSize
@@ -1208,27 +1191,21 @@ class IoSyncWatchFaceRenderer(
             canvas.drawText(value, slotCx + gap / 2f, slotY, customSlotValuePaint)
         }
 
-        val hasSlot3 = config.customSlot3Label.isNotBlank()
-        val hasSlot2 = config.customSlot2Label.isNotBlank()
-        val hasSlot1 = config.customSlot1Label.isNotBlank()
+        // Nur aktive Slots sammeln
+        data class SlotData(val label: String, val value: String, val scale: Float)
+        val activeSlots = mutableListOf<SlotData>()
+        if (config.customSlot1Label.isNotBlank()) activeSlots.add(SlotData(config.customSlot1Label, config.customSlot1Value, config.slot1TextScale / 100f))
+        if (config.customSlot2Label.isNotBlank()) activeSlots.add(SlotData(config.customSlot2Label, config.customSlot2Value, config.slot2TextScale / 100f))
+        if (config.customSlot3Label.isNotBlank()) activeSlots.add(SlotData(config.customSlot3Label, config.customSlot3Value, config.slot3TextScale / 100f))
 
-        val slot1Scale = config.slot1TextScale / 100f
-        val slot2Scale = config.slot2TextScale / 100f
-        val slot3Scale = config.slot3TextScale / 100f
-
-        val slotShift = radius * 0.10f
-        if (hasSlot3) {
-            // 3 Slots: links, mitte, rechts — etwas nach links verschoben
-            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing - slotShift, slot1Scale)
-            drawSlot(config.customSlot2Label, config.customSlot2Value, cx - slotShift, slot2Scale)
-            drawSlot(config.customSlot3Label, config.customSlot3Value, cx + slotSpacing - slotShift, slot3Scale)
-        } else if (hasSlot2) {
-            // 2 Slots: links und rechts
-            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing / 2f, slot1Scale)
-            drawSlot(config.customSlot2Label, config.customSlot2Value, cx + slotSpacing / 2f, slot2Scale)
-        } else if (hasSlot1) {
-            // 1 Slot: zentriert
-            drawSlot(config.customSlot1Label, config.customSlot1Value, cx, slot1Scale)
+        // Dynamisch zentrieren: egal welche/wieviele Slots aktiv sind
+        val count = activeSlots.size
+        if (count > 0) {
+            val totalWidth = (count - 1) * slotSpacing
+            val startX = cx - totalWidth / 2f
+            for ((i, slot) in activeSlots.withIndex()) {
+                drawSlot(slot.label, slot.value, startX + i * slotSpacing, slot.scale)
+            }
         }
     }
 

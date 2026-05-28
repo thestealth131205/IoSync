@@ -140,7 +140,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
         val bottomComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_BOTTOM_ID,
-            bounds = RectF(0.34f, 0.54f, 0.66f, 0.66f),
+            bounds = RectF(0.34f, 0.60f, 0.66f, 0.72f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
             supportedTypes = listOf(
                 ComplicationType.RANGED_VALUE,
@@ -187,7 +187,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
             activeStyle.apply {
                 textColor = android.graphics.Color.parseColor("#EAFF00")
                 titleColor = android.graphics.Color.parseColor("#999999")
-                iconColor = android.graphics.Color.parseColor("#EAFF00")
+                iconColor = android.graphics.Color.parseColor("#BBBBBB")
                 borderColor = android.graphics.Color.TRANSPARENT
                 borderWidth = 0
                 backgroundColor = android.graphics.Color.TRANSPARENT
