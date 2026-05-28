@@ -595,8 +595,9 @@ class IoSyncWatchFaceRenderer(
         val states = SmartHomeStateCache.states.take(2)
         if (states.isEmpty()) return
 
-        val labelSize   = radius * 0.085f
-        val valueSize   = radius * 0.115f
+        val scaleFactor = WatchFaceConfigCache.valueTextScale / 100f
+        val labelSize   = radius * 0.085f * scaleFactor
+        val valueSize   = radius * 0.115f * scaleFactor
         val barHeight   = radius * 0.042f
         val barWidth    = radius * 0.68f
         val lineSpacing = radius * 0.055f
@@ -717,7 +718,7 @@ class IoSyncWatchFaceRenderer(
 
         // Prozentzahl unterhalb des Icons
         val levelText = if (level >= 0) "$level%" else "--"
-        paint.textSize = radius * 0.085f
+        paint.textSize = radius * 0.085f * (WatchFaceConfigCache.valueTextScale / 100f)
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText(levelText, iconCx, iconBottom + radius * 0.115f, paint)
     }
@@ -941,9 +942,10 @@ class IoSyncWatchFaceRenderer(
 
         if (items.isEmpty()) return
 
-        val labelSize = radius * 0.070f
-        val valueSize = radius * 0.130f
-        val iconSize  = radius * 0.065f
+        val scaleFactor = config.valueTextScale / 100f
+        val labelSize = radius * 0.070f * scaleFactor
+        val valueSize = radius * 0.130f * scaleFactor
+        val iconSize  = radius * 0.065f * scaleFactor
         val itemWidth = radius * 0.55f
         val totalWidth = items.size * itemWidth
         val startX = cx - totalWidth / 2f + itemWidth / 2f
@@ -1043,7 +1045,8 @@ class IoSyncWatchFaceRenderer(
      */
     private fun drawCustomSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float, clockBottomY: Float) {
         val config = WatchFaceConfigCache
-        val fontSize = radius * 0.10f
+        val scaleFactor = config.valueTextScale / 100f
+        val fontSize = radius * 0.10f * scaleFactor
         customSlotLabelPaint.textSize = fontSize
         customSlotValuePaint.textSize = fontSize
 
@@ -1055,7 +1058,7 @@ class IoSyncWatchFaceRenderer(
 
         // ── Slot 4: Balken-Graph ───────────────────────────────────────────
         if (config.customSlot4Label.isNotBlank()) {
-            val barW     = radius * 0.72f
+            val barW     = radius * 0.88f
             val barH     = radius * 0.055f
             val barLeft  = cx - barW / 2f
             val barRight = cx + barW / 2f
@@ -1063,7 +1066,7 @@ class IoSyncWatchFaceRenderer(
 
             val minVal = config.customSlot4BarMin
             val maxVal = config.customSlot4BarMax
-            val curVal = config.customSlot4Value.toFloatOrNull() ?: minVal
+            val curVal = config.customSlot4Value.replace(',', '.').toFloatOrNull() ?: minVal
             val fraction = if (maxVal > minVal) ((curVal - minVal) / (maxVal - minVal)).coerceIn(0f, 1f) else 0f
 
             val barColor = colorFromPillId(config.customSlot4BarColor)
@@ -1087,16 +1090,18 @@ class IoSyncWatchFaceRenderer(
                 )
             }
 
-            // Label + Wert als kleine Überschrift
-            val labelSize = radius * 0.072f
-            customSlotLabelPaint.textSize = labelSize
-            customSlotLabelPaint.textAlign = Paint.Align.LEFT
-            canvas.drawText(config.customSlot4Label.take(3).uppercase(), barLeft, nextY - labelSize * 0.18f, customSlotLabelPaint)
-            customSlotValuePaint.textSize = labelSize
-            customSlotValuePaint.textAlign = Paint.Align.RIGHT
-            canvas.drawText(config.customSlot4Value, barRight, nextY - labelSize * 0.18f, customSlotValuePaint)
-            customSlotLabelPaint.textSize = fontSize
-            customSlotValuePaint.textSize = fontSize
+            // Label + Wert als kleine Überschrift (optional)
+            if (config.customSlot4BarShowLabel) {
+                val labelSize = radius * 0.072f * scaleFactor
+                customSlotLabelPaint.textSize = labelSize
+                customSlotLabelPaint.textAlign = Paint.Align.LEFT
+                canvas.drawText(config.customSlot4Label.take(3).uppercase(), barLeft, nextY - labelSize * 0.18f, customSlotLabelPaint)
+                customSlotValuePaint.textSize = labelSize
+                customSlotValuePaint.textAlign = Paint.Align.RIGHT
+                canvas.drawText(config.customSlot4Value, barRight, nextY - labelSize * 0.18f, customSlotValuePaint)
+                customSlotLabelPaint.textSize = fontSize
+                customSlotValuePaint.textSize = fontSize
+            }
 
             nextY += barH + dp4 * 1.5f
         }

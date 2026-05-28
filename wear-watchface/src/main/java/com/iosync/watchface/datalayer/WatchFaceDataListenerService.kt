@@ -66,8 +66,10 @@ private const val KEY_WF_CUSTOM_SLOT4_LABEL = "wf_custom_slot4_label"
 private const val KEY_WF_CUSTOM_SLOT4_VALUE = "wf_custom_slot4_value"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_COLOR = "wf_custom_slot4_bar_color"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN   = "wf_custom_slot4_bar_min"
-private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX   = "wf_custom_slot4_bar_max"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX        = "wf_custom_slot4_bar_max"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL = "wf_custom_slot4_bar_show_label"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
+private const val KEY_WF_VALUE_TEXT_SCALE   = "wf_value_text_scale"
 
 // ── Custom-Slot-Daten (Echtzeit-Updates der Werte) ──────────────────────────
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
@@ -126,8 +128,9 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     dataMap.getString(KEY_WF_CUSTOM_SLOT4_LABEL)?.let { WatchFaceConfigCache.customSlot4Label = it }
                     dataMap.getString(KEY_WF_CUSTOM_SLOT4_VALUE)?.let { WatchFaceConfigCache.customSlot4Value = it }
                     dataMap.getString(KEY_WF_CUSTOM_SLOT4_BAR_COLOR)?.let { WatchFaceConfigCache.customSlot4BarColor = it }
-                    if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MIN)) WatchFaceConfigCache.customSlot4BarMin = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN)
-                    if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX)) WatchFaceConfigCache.customSlot4BarMax = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
+                    if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MIN))        WatchFaceConfigCache.customSlot4BarMin       = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN)
+                    if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX))        WatchFaceConfigCache.customSlot4BarMax       = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
+                    if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) WatchFaceConfigCache.customSlot4BarShowLabel = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
                     Log.d(TAG, "Custom-Slot-Daten empfangen")
                 }
                 PATH_ACTION_PILL_STATE -> {
@@ -195,6 +198,9 @@ object WatchFaceConfigCache {
     @Volatile var customSlot4BarColor: String = "neon_yellow"
     @Volatile var customSlot4BarMin: Float = 0f
     @Volatile var customSlot4BarMax: Float = 100f
+    @Volatile var customSlot4BarShowLabel: Boolean = true
+    // Schriftgröße für dynamische Werte (50–200, Default 100 = 100 %)
+    @Volatile var valueTextScale: Int = 100
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
@@ -228,7 +234,9 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_CUSTOM_SLOT4_LABEL)?.let { customSlot4Label = it }
         dataMap.getString(KEY_WF_CUSTOM_SLOT4_BAR_COLOR)?.let { customSlot4BarColor = it }
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MIN)) customSlot4BarMin = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN)
-        if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX)) customSlot4BarMax = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
+        if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX))        customSlot4BarMax        = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
+        if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) customSlot4BarShowLabel  = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
+        if (dataMap.containsKey(KEY_WF_VALUE_TEXT_SCALE))             valueTextScale           = dataMap.getInt(KEY_WF_VALUE_TEXT_SCALE)
     }
 }
 

@@ -114,9 +114,13 @@ fun SettingsScreen(
     var customSlot3Label by remember(uiState.customSlot3Label) { mutableStateOf(uiState.customSlot3Label) }
     var customSlot4Id    by remember(uiState.customSlot4Id)    { mutableStateOf(uiState.customSlot4Id) }
     var customSlot4Label by remember(uiState.customSlot4Label) { mutableStateOf(uiState.customSlot4Label) }
-    var customSlot4BarColor by remember(uiState.customSlot4BarColor) { mutableStateOf(uiState.customSlot4BarColor) }
-    var customSlot4BarMin by remember(uiState.customSlot4BarMin) { mutableStateOf(uiState.customSlot4BarMin.toString()) }
-    var customSlot4BarMax by remember(uiState.customSlot4BarMax) { mutableStateOf(uiState.customSlot4BarMax.toString()) }
+    var customSlot4BarColor      by remember(uiState.customSlot4BarColor)      { mutableStateOf(uiState.customSlot4BarColor) }
+    var customSlot4BarMin        by remember(uiState.customSlot4BarMin)        { mutableStateOf(uiState.customSlot4BarMin.toString()) }
+    var customSlot4BarMax        by remember(uiState.customSlot4BarMax)        { mutableStateOf(uiState.customSlot4BarMax.toString()) }
+    var customSlot4BarShowLabel  by remember(uiState.customSlot4BarShowLabel)  { mutableStateOf(uiState.customSlot4BarShowLabel) }
+
+    // Schriftgröße für dynamische Werte
+    var wfValueTextScale by remember(uiState.wfValueTextScale) { mutableStateOf(uiState.wfValueTextScale.toFloat()) }
 
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
@@ -132,7 +136,8 @@ fun SettingsScreen(
         wfTimeColor, wfDateColor, wfShowSeconds, wfShowTicks, wfShowWeekday,
         wfShowPhoneBattery, wfShowIoBrokerData, wfShowSecondsRing, wfSecondsRingColor,
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
-        wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories
+        wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories,
+        wfValueTextScale
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -155,7 +160,8 @@ fun SettingsScreen(
             showCalories       = wfShowCalories,
             showCustomSlots    = showCustomSlots,
             customSlot1Label   = customSlot1Label.trim(),
-            customSlot2Label   = customSlot2Label.trim()
+            customSlot2Label   = customSlot2Label.trim(),
+            valueTextScale     = wfValueTextScale.toInt()
         )
     }
 
@@ -699,6 +705,13 @@ fun SettingsScreen(
                     )
                 }
 
+                WatchFaceToggleRow(
+                    text = "Beschriftung anzeigen",
+                    subText = "Label und Wert über dem Balken einblenden",
+                    checked = customSlot4BarShowLabel,
+                    onCheckedChange = { customSlot4BarShowLabel = it }
+                )
+
                 Button(
                     onClick = {
                         viewModel.updateCustomSlotsConfig(
@@ -711,9 +724,10 @@ fun SettingsScreen(
                             slot3Label = customSlot3Label.trim(),
                             slot4Id    = customSlot4Id.trim(),
                             slot4Label = customSlot4Label.trim(),
-                            slot4BarColor = customSlot4BarColor,
-                            slot4BarMin   = customSlot4BarMin.toFloatOrNull() ?: 0f,
-                            slot4BarMax   = customSlot4BarMax.toFloatOrNull() ?: 100f
+                            slot4BarColor     = customSlot4BarColor,
+                            slot4BarMin       = customSlot4BarMin.toFloatOrNull() ?: 0f,
+                            slot4BarMax       = customSlot4BarMax.toFloatOrNull() ?: 100f,
+                            slot4BarShowLabel = customSlot4BarShowLabel
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -740,6 +754,31 @@ fun SettingsScreen(
                 subText = "Füllt sich sekündlich um den Rand (0–59 s = 0–360°)",
                 checked = wfShowSecondsRing,
                 onCheckedChange = { wfShowSecondsRing = it }
+            )
+
+            // ── Schriftgröße dynamische Werte ────────────────────────────────
+            HorizontalDivider(color = Color(0xFF2A2A2A))
+            Text(
+                text = "Schriftgröße – dynamische Werte",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Skaliert alle Wert-Texte auf dem Watchface (Puls, Kcal, Slots, Akku …), nicht Uhrzeit und Datum",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+            Text(
+                text = "Größe: ${wfValueTextScale.toInt()} %",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Slider(
+                value = wfValueTextScale,
+                onValueChange = { wfValueTextScale = it },
+                valueRange = 50f..200f,
+                steps = 29,
+                modifier = Modifier.fillMaxWidth()
             )
 
             if (wfShowSecondsRing) {
@@ -837,7 +876,8 @@ fun SettingsScreen(
                         showCalories       = wfShowCalories,
                         showCustomSlots    = showCustomSlots,
                         customSlot1Label   = customSlot1Label.trim(),
-                        customSlot2Label   = customSlot2Label.trim()
+                        customSlot2Label   = customSlot2Label.trim(),
+                        valueTextScale     = wfValueTextScale.toInt()
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),

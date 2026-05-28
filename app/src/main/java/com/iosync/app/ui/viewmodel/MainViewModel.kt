@@ -109,6 +109,9 @@ data class MainUiState(
     val customSlot4BarColor: String = "neon_yellow",
     val customSlot4BarMin: Float = 0f,
     val customSlot4BarMax: Float = 100f,
+    val customSlot4BarShowLabel: Boolean = true,
+    // Schriftgröße für dynamische Werte (50–200, Default 100 = 100 %)
+    val wfValueTextScale: Int = 100,
     // Sync-Status-Log für die Konsolenanzeige
     val wearSyncLog: String = ""
 )
@@ -169,10 +172,12 @@ class MainViewModel @Inject constructor(
         val KEY_CUSTOM_SLOT3_LABEL  = stringPreferencesKey("custom_slot3_label")
         val KEY_CUSTOM_SLOT4_ID     = stringPreferencesKey("custom_slot4_id")
         val KEY_CUSTOM_SLOT4_LABEL  = stringPreferencesKey("custom_slot4_label")
-        val KEY_CUSTOM_SLOT4_BAR_COLOR = stringPreferencesKey("custom_slot4_bar_color")
-        val KEY_CUSTOM_SLOT4_BAR_MIN   = stringPreferencesKey("custom_slot4_bar_min")
-        val KEY_CUSTOM_SLOT4_BAR_MAX   = stringPreferencesKey("custom_slot4_bar_max")
+        val KEY_CUSTOM_SLOT4_BAR_COLOR      = stringPreferencesKey("custom_slot4_bar_color")
+        val KEY_CUSTOM_SLOT4_BAR_MIN        = stringPreferencesKey("custom_slot4_bar_min")
+        val KEY_CUSTOM_SLOT4_BAR_MAX        = stringPreferencesKey("custom_slot4_bar_max")
+        val KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL = booleanPreferencesKey("custom_slot4_bar_show_label")
         // Wetter-Standort
+        val KEY_WF_VALUE_TEXT_SCALE = intPreferencesKey("wf_value_text_scale")
         val KEY_WEATHER_USE_FIXED   = booleanPreferencesKey("weather_use_fixed")
         val KEY_WEATHER_FIXED_LAT   = stringPreferencesKey("weather_fixed_lat")
         val KEY_WEATHER_FIXED_LON   = stringPreferencesKey("weather_fixed_lon")
@@ -239,9 +244,11 @@ class MainViewModel @Inject constructor(
             val customSlot3Label  = prefs[KEY_CUSTOM_SLOT3_LABEL]  ?: ""
             val customSlot4Id     = prefs[KEY_CUSTOM_SLOT4_ID]     ?: ""
             val customSlot4Label  = prefs[KEY_CUSTOM_SLOT4_LABEL]  ?: ""
-            val customSlot4BarColor = prefs[KEY_CUSTOM_SLOT4_BAR_COLOR] ?: "neon_yellow"
-            val customSlot4BarMin   = prefs[KEY_CUSTOM_SLOT4_BAR_MIN]?.toFloatOrNull() ?: 0f
-            val customSlot4BarMax   = prefs[KEY_CUSTOM_SLOT4_BAR_MAX]?.toFloatOrNull() ?: 100f
+            val customSlot4BarColor      = prefs[KEY_CUSTOM_SLOT4_BAR_COLOR] ?: "neon_yellow"
+            val customSlot4BarMin        = prefs[KEY_CUSTOM_SLOT4_BAR_MIN]?.toFloatOrNull() ?: 0f
+            val customSlot4BarMax        = prefs[KEY_CUSTOM_SLOT4_BAR_MAX]?.toFloatOrNull() ?: 100f
+            val customSlot4BarShowLabel  = prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] ?: true
+            val wfValueTextScale    = prefs[KEY_WF_VALUE_TEXT_SCALE]   ?: 100
             val weatherUseFixed   = prefs[KEY_WEATHER_USE_FIXED]   ?: false
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
@@ -294,9 +301,11 @@ class MainViewModel @Inject constructor(
                     customSlot3Label   = customSlot3Label,
                     customSlot4Id      = customSlot4Id,
                     customSlot4Label   = customSlot4Label,
-                    customSlot4BarColor = customSlot4BarColor,
-                    customSlot4BarMin   = customSlot4BarMin,
-                    customSlot4BarMax   = customSlot4BarMax,
+                    customSlot4BarColor      = customSlot4BarColor,
+                    customSlot4BarMin        = customSlot4BarMin,
+                    customSlot4BarMax        = customSlot4BarMax,
+                    customSlot4BarShowLabel  = customSlot4BarShowLabel,
+                    wfValueTextScale    = wfValueTextScale,
                     weatherUseFixedLocation = weatherUseFixed,
                     weatherFixedLat   = weatherFixedLat,
                     weatherFixedLon   = weatherFixedLon,
@@ -526,7 +535,8 @@ class MainViewModel @Inject constructor(
         customSlot4Label: String = _uiState.value.customSlot4Label,
         customSlot4BarColor: String = _uiState.value.customSlot4BarColor,
         customSlot4BarMin: Float = _uiState.value.customSlot4BarMin,
-        customSlot4BarMax: Float = _uiState.value.customSlot4BarMax
+        customSlot4BarMax: Float = _uiState.value.customSlot4BarMax,
+        valueTextScale: Int = _uiState.value.wfValueTextScale
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(wearSyncLog = "Sende Watchface-Konfiguration …") }
@@ -547,6 +557,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_SHOW_HEART_RATE]     = showHeartRate
                 prefs[KEY_WF_SHOW_OXYGEN]         = showOxygen
                 prefs[KEY_WF_SHOW_CALORIES]       = showCalories
+                prefs[KEY_WF_VALUE_TEXT_SCALE]    = valueTextScale
             }
             _uiState.update {
                 it.copy(
@@ -565,7 +576,8 @@ class MainViewModel @Inject constructor(
                     wfShowWeather       = showWeather,
                     wfShowHeartRate    = showHeartRate,
                     wfShowOxygen       = showOxygen,
-                    wfShowCalories     = showCalories
+                    wfShowCalories     = showCalories,
+                    wfValueTextScale   = valueTextScale
                 )
             }
             try {
@@ -581,7 +593,9 @@ class MainViewModel @Inject constructor(
                     s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
                     showWeather, showHeartRate, showOxygen, showCalories,
                     showCustomSlots, customSlot1Label, customSlot2Label,
-                    customSlot3Label, customSlot4Label, customSlot4BarColor, customSlot4BarMin, customSlot4BarMax
+                    customSlot3Label, customSlot4Label, customSlot4BarColor, customSlot4BarMin, customSlot4BarMax,
+                    s.customSlot4BarShowLabel,
+                    valueTextScale
                 )
                 _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -656,7 +670,9 @@ class MainViewModel @Inject constructor(
                     enabled, colorTrue, colorFalse, ioBrokerId, valueMode, fixedValue, currentState,
                     s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories,
                     s.showCustomSlots, s.customSlot1Label, s.customSlot2Label,
-                    s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax
+                    s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
+                    s.customSlot4BarShowLabel,
+                    s.wfValueTextScale
                 )
                 _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -694,7 +710,8 @@ class MainViewModel @Inject constructor(
         slot4Label: String = "",
         slot4BarColor: String = "neon_yellow",
         slot4BarMin: Float = 0f,
-        slot4BarMax: Float = 100f
+        slot4BarMax: Float = 100f,
+        slot4BarShowLabel: Boolean = true
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -707,9 +724,10 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_CUSTOM_SLOT3_LABEL] = slot3Label
                 prefs[KEY_CUSTOM_SLOT4_ID]    = slot4Id
                 prefs[KEY_CUSTOM_SLOT4_LABEL] = slot4Label
-                prefs[KEY_CUSTOM_SLOT4_BAR_COLOR] = slot4BarColor
-                prefs[KEY_CUSTOM_SLOT4_BAR_MIN]   = slot4BarMin.toString()
-                prefs[KEY_CUSTOM_SLOT4_BAR_MAX]   = slot4BarMax.toString()
+                prefs[KEY_CUSTOM_SLOT4_BAR_COLOR]      = slot4BarColor
+                prefs[KEY_CUSTOM_SLOT4_BAR_MIN]        = slot4BarMin.toString()
+                prefs[KEY_CUSTOM_SLOT4_BAR_MAX]        = slot4BarMax.toString()
+                prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] = slot4BarShowLabel
             }
             _uiState.update {
                 it.copy(
@@ -722,9 +740,10 @@ class MainViewModel @Inject constructor(
                     customSlot3Label = slot3Label,
                     customSlot4Id    = slot4Id,
                     customSlot4Label = slot4Label,
-                    customSlot4BarColor = slot4BarColor,
-                    customSlot4BarMin   = slot4BarMin,
-                    customSlot4BarMax   = slot4BarMax
+                    customSlot4BarColor      = slot4BarColor,
+                    customSlot4BarMin        = slot4BarMin,
+                    customSlot4BarMax        = slot4BarMax,
+                    customSlot4BarShowLabel  = slot4BarShowLabel
                 )
             }
             // Sofort Werte senden falls Daten vorhanden
@@ -759,14 +778,14 @@ class MainViewModel @Inject constructor(
             s.customSlot2Label, formatSlotValue(val2?.value),
             s.customSlot3Label, formatSlotValue(val3?.value),
             s.customSlot4Label, formatSlotValue(val4?.value),
-            s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax
+            s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax, s.customSlot4BarShowLabel
         )
     }
 
     private fun formatSlotValue(value: String?): String {
         if (value == null) return "--"
         val num = value.toDoubleOrNull() ?: return value.take(6)
-        return String.format("%.1f", num)
+        return String.format(java.util.Locale.US, "%.1f", num)
     }
 
     // ── Handy-Akku ────────────────────────────────────────────────────────────

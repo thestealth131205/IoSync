@@ -68,9 +68,11 @@ private const val KEY_WF_CUSTOM_SLOT3_VALUE = "wf_custom_slot3_value"
 private const val KEY_WF_CUSTOM_SLOT4_LABEL = "wf_custom_slot4_label"
 private const val KEY_WF_CUSTOM_SLOT4_VALUE = "wf_custom_slot4_value"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_COLOR = "wf_custom_slot4_bar_color"
-private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN   = "wf_custom_slot4_bar_min"
-private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX   = "wf_custom_slot4_bar_max"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN        = "wf_custom_slot4_bar_min"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX        = "wf_custom_slot4_bar_max"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL = "wf_custom_slot4_bar_show_label"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
+private const val KEY_WF_VALUE_TEXT_SCALE   = "wf_value_text_scale"
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
 
 // ── Aktions-Pille-Konfigurationsschlüssel ─────────────────────────────────────
@@ -219,7 +221,9 @@ class WearDataLayerService @Inject constructor(
         customSlot4Label: String = "",
         customSlot4BarColor: String = "neon_yellow",
         customSlot4BarMin: Float = 0f,
-        customSlot4BarMax: Float = 100f
+        customSlot4BarMax: Float = 100f,
+        customSlot4BarShowLabel: Boolean = true,
+        valueTextScale: Int = 100
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -255,6 +259,8 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_CUSTOM_SLOT4_BAR_COLOR, customSlot4BarColor)
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN, customSlot4BarMin)
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX, customSlot4BarMax)
+                    dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL, customSlot4BarShowLabel)
+                    dataMap.putInt(KEY_WF_VALUE_TEXT_SCALE, valueTextScale)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
@@ -313,7 +319,8 @@ class WearDataLayerService @Inject constructor(
         slot3Label: String = "", slot3Value: String = "--",
         slot4Label: String = "", slot4Value: String = "--",
         slot4BarColor: String = "neon_yellow",
-        slot4BarMin: Float = 0f, slot4BarMax: Float = 100f
+        slot4BarMin: Float = 0f, slot4BarMax: Float = 100f,
+        slot4BarShowLabel: Boolean = true
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -329,6 +336,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_CUSTOM_SLOT4_BAR_COLOR, slot4BarColor)
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN, slot4BarMin)
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX, slot4BarMax)
+                    dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL, slot4BarShowLabel)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
