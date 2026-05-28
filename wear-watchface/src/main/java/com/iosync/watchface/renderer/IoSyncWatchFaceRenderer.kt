@@ -1009,12 +1009,7 @@ class IoSyncWatchFaceRenderer(
         val usePhone = config.healthDataSource == "phone"
         val items = mutableListOf<HealthItem>()
 
-        // Puls und Kcal werden jetzt als native Complications gerendert (Slots 4 & 5)
-        if (config.showSteps) {
-            val steps = healthSensorManager.steps
-            val stepsText = if (steps > 0) "$steps" else "0"
-            items.add(HealthItem("SCHRITTE", stepsText, Color.parseColor("#AAAAAA"), "steps"))
-        }
+        // Puls, Kcal und Schritte werden jetzt als native Complications gerendert (Slots 4, 5 & 6)
         if (config.showOxygen) {
             val o2 = if (usePhone) config.phoneSpO2 else healthSensorManager.spO2
             val o2Text = if (o2 > 0) "$o2%" else "--%"

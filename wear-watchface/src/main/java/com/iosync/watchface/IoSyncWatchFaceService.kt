@@ -44,6 +44,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
         const val COMPLICATION_RIGHT_ID = 3
         const val COMPLICATION_HEART_RATE_ID = 4
         const val COMPLICATION_CALORIES_ID = 5
+        const val COMPLICATION_STEPS_ID = 6
     }
 
     override suspend fun createWatchFace(
@@ -192,13 +193,29 @@ class IoSyncWatchFaceService : WatchFaceService() {
             textSizeSp = 18
         )
 
+        // Native Komplikation: Schritte (Mitte unten)
+        val stepsComplication = buildComplicationSlot(
+            context = context,
+            id = COMPLICATION_STEPS_ID,
+            bounds = RectF(0.30f, 0.88f, 0.70f, 0.98f),
+            defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
+            supportedTypes = listOf(
+                ComplicationType.SHORT_TEXT,
+                ComplicationType.RANGED_VALUE,
+                ComplicationType.SMALL_IMAGE
+            ),
+            textSizeSp = 18,
+            defaultType = ComplicationType.SHORT_TEXT
+        )
+
         return ComplicationSlotsManager(
             complicationSlotCollection = listOf(
                 topComplication,
                 bottomComplication,
                 leftComplication,
                 heartRateComplication,
-                caloriesComplication
+                caloriesComplication,
+                stepsComplication
             ),
             currentUserStyleRepository = currentUserStyleRepository
         )
