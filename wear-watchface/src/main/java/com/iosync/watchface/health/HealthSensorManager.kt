@@ -21,11 +21,22 @@ private const val TAG = "HealthSensorManager"
  *   - android.permission.BODY_SENSORS
  *   - android.permission.ACTIVITY_RECOGNITION
  */
-class HealthSensorManager(private val context: Context) {
+class HealthSensorManager private constructor(
+    private val context: Context?,
+    private val isNoop: Boolean = false
+) {
+    // Öffentlicher Konstruktor für normalen Betrieb
+    constructor(context: Context) : this(context, false)
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val passiveMonitoringClient =
-        HealthServices.getClient(context).passiveMonitoringClient
+    companion object {
+        /** Dummy-Instanz falls Health Services nicht verfügbar */
+        val NOOP = HealthSensorManager(context = null, isNoop = true)
+    }
+
+    private val scope = if (!isNoop) CoroutineScope(SupervisorJob() + Dispatchers.IO) else null
+    private val passiveMonitoringClient = if (!isNoop && context != null) {
+        try { HealthServices.getClient(context).passiveMonitoringClient } catch (_: Exception) { null }
+    } else null
 
     // Lesezugriff auf den gemeinsamen Cache (für den Renderer)
     val heartRate: Int get() = HealthDataCache.heartRate
@@ -34,6 +45,7 @@ class HealthSensorManager(private val context: Context) {
     val spO2: Int = 0  // SpO2 nicht über Passive API verfügbar
 
     fun start() {
+        if (isNoop || passiveMonitoringClient == null || scope == null) return
         scope.launch {
             try {
                 val config = PassiveListenerConfig.builder()
@@ -58,6 +70,7 @@ class HealthSensorManager(private val context: Context) {
     }
 
     fun stop() {
+        if (isNoop || passiveMonitoringClient == null || scope == null) return
         scope.launch {
             try {
                 passiveMonitoringClient.clearPassiveListenerServiceAsync()

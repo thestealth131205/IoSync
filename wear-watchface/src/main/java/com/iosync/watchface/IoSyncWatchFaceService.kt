@@ -50,8 +50,12 @@ class IoSyncWatchFaceService : WatchFaceService() {
         complicationSlotsManager: ComplicationSlotsManager,
         currentUserStyleRepository: CurrentUserStyleRepository
     ): WatchFace {
-        val healthSensorManager = HealthSensorManager(applicationContext)
-        healthSensorManager.start()
+        val healthSensorManager = try {
+            HealthSensorManager(applicationContext).also { it.start() }
+        } catch (e: Exception) {
+            android.util.Log.e("IoSyncWatchFace", "HealthSensorManager init fehlgeschlagen", e)
+            null
+        }
 
         val renderer = IoSyncWatchFaceRenderer(
             context = applicationContext,
@@ -60,7 +64,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
             complicationSlotsManager = complicationSlotsManager,
             currentUserStyleRepository = currentUserStyleRepository,
             canvasType = CanvasType.SOFTWARE,
-            healthSensorManager = healthSensorManager
+            healthSensorManager = healthSensorManager ?: HealthSensorManager.NOOP
         )
 
         return WatchFace(
