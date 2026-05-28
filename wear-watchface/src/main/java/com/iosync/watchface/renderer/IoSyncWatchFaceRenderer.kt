@@ -778,7 +778,7 @@ class IoSyncWatchFaceRenderer(
 
         // Prozentzahl in der Mitte des Rings
         val text = if (level >= 0) "$level%" else "--"
-        batteryPercentPaint.textSize = ringRadius * 0.58f
+        batteryPercentPaint.textSize = ringRadius * 0.88f
         val fm = batteryPercentPaint.fontMetrics
         canvas.drawText(text, ringCx, ringCy - (fm.ascent + fm.descent) / 2f, batteryPercentPaint)
     }
@@ -1002,6 +1002,11 @@ class IoSyncWatchFaceRenderer(
             val hrText = if (hr > 0) "$hr" else "--"
             items.add(HealthItem("PULS", hrText, Color.parseColor("#F44336"), "heart"))
         }
+        if (config.showSteps) {
+            val steps = healthSensorManager.steps
+            val stepsText = if (steps > 0) "$steps" else "0"
+            items.add(HealthItem("SCHRITTE", stepsText, Color.parseColor("#AAAAAA"), "steps"))
+        }
         if (config.showOxygen) {
             val o2 = if (usePhone) config.phoneSpO2 else healthSensorManager.spO2
             val o2Text = if (o2 > 0) "$o2%" else "--%"
@@ -1015,45 +1020,64 @@ class IoSyncWatchFaceRenderer(
 
         if (items.isEmpty()) return
 
-        val hrScale   = config.hrTextScale   / 100f
-        val kcalScale = config.kcalTextScale / 100f
+        val hrScale    = config.hrTextScale    / 100f
+        val kcalScale  = config.kcalTextScale  / 100f
+        val stepsScale = config.stepsTextScale / 100f
 
-        val itemWidth = radius * 0.55f
+        // Größerer Abstand: PULS weiter links, KCAL weiter rechts
+        val itemWidth  = radius * 0.80f
         val totalWidth = items.size * itemWidth
-        val startX = cx - totalWidth / 2f + itemWidth / 2f
-        val baseY = cy + radius * 0.44f
+        val startX     = cx - totalWidth / 2f + itemWidth / 2f
+        val baseY      = cy + radius * 0.44f
 
         for ((index, item) in items.withIndex()) {
             val scaleFactor = when (item.icon) {
                 "heart" -> hrScale
                 "flame" -> kcalScale
+                "steps" -> stepsScale
                 else    -> hrScale
             }
+            val isSteps   = item.icon == "steps"
             val labelSize = radius * 0.070f * scaleFactor
             val valueSize = radius * 0.130f * scaleFactor
             val iconSize  = radius * 0.065f * scaleFactor
 
-            // Gleichmaessig zentriert verteilen (kein manueller Offset)
             val x = startX + index * itemWidth
 
             healthLabelPaint.textSize = labelSize
             healthValuePaint.textSize = valueSize
 
-            // Symbol links vom Label
-            val labelWidth = healthLabelPaint.measureText(item.label)
-            val iconGap = iconSize * 0.35f
-            val totalLabelWidth = iconSize + iconGap + labelWidth
-            val labelStartX = x - totalLabelWidth / 2f
+            if (isSteps) {
+                // Schritte: Label auf Höhe der PULS/KCAL-Beschriftungen (baseY),
+                // Zahl darunter auf gleicher Höhe wie Puls/kcal-Werte
+                val stepsValueSize = radius * 0.105f * scaleFactor
+                val stepsLabelSize = radius * 0.055f * scaleFactor
 
-            drawHealthIcon(canvas, labelStartX + iconSize / 2f, baseY - labelSize * 0.30f, iconSize, item.icon)
+                healthLabelPaint.textSize  = stepsLabelSize
+                healthLabelPaint.color     = Color.parseColor("#AAAAAA")
+                healthLabelPaint.textAlign = Paint.Align.CENTER
+                canvas.drawText("SCHR", x, baseY, healthLabelPaint)
 
-            healthLabelPaint.color = Color.parseColor("#AAAAAA")
-            healthLabelPaint.textAlign = Paint.Align.LEFT
-            canvas.drawText(item.label, labelStartX + iconSize + iconGap, baseY, healthLabelPaint)
-            healthLabelPaint.textAlign = Paint.Align.CENTER
+                healthValuePaint.textSize = stepsValueSize
+                healthValuePaint.color    = item.color
+                canvas.drawText(item.value, x, baseY + valueSize * 1.2f, healthValuePaint)
+                healthLabelPaint.textAlign = Paint.Align.CENTER
+            } else {
+                val labelWidth      = healthLabelPaint.measureText(item.label)
+                val iconGap         = iconSize * 0.35f
+                val totalLabelWidth = iconSize + iconGap + labelWidth
+                val labelStartX     = x - totalLabelWidth / 2f
 
-            healthValuePaint.color = item.color
-            canvas.drawText(item.value, x, baseY + valueSize * 1.2f, healthValuePaint)
+                drawHealthIcon(canvas, labelStartX + iconSize / 2f, baseY - labelSize * 0.30f, iconSize, item.icon)
+
+                healthLabelPaint.color     = Color.parseColor("#AAAAAA")
+                healthLabelPaint.textAlign = Paint.Align.LEFT
+                canvas.drawText(item.label, labelStartX + iconSize + iconGap, baseY, healthLabelPaint)
+                healthLabelPaint.textAlign = Paint.Align.CENTER
+
+                healthValuePaint.color = item.color
+                canvas.drawText(item.value, x, baseY + valueSize * 1.2f, healthValuePaint)
+            }
         }
     }
 
@@ -1094,6 +1118,16 @@ class IoSyncWatchFaceRenderer(
                 healthIconPath.cubicTo(cx + s * 0.6f, cy + s * 0.8f, cx + s * 0.8f, cy + s * 0.1f, cx, cy - s * 0.9f)
                 healthIconPath.close()
                 canvas.drawPath(healthIconPath, healthIconPaint)
+            }
+            "steps" -> {
+                // Zwei diagonale Striche als einfaches Schritt-Symbol
+                healthIconPaint.color = Color.parseColor("#AAAAAA")
+                healthIconPaint.style = Paint.Style.STROKE
+                healthIconPaint.strokeWidth = size * 0.22f
+                healthIconPaint.strokeCap = Paint.Cap.ROUND
+                canvas.drawLine(cx - size * 0.55f, cy - size * 0.35f, cx - size * 0.10f, cy + size * 0.45f, healthIconPaint)
+                canvas.drawLine(cx + size * 0.10f, cy - size * 0.35f, cx + size * 0.55f, cy + size * 0.45f, healthIconPaint)
+                healthIconPaint.style = Paint.Style.FILL
             }
         }
     }
@@ -1185,10 +1219,12 @@ class IoSyncWatchFaceRenderer(
             val fm = customSlotValuePaint.fontMetrics
             val slotY = nextY - fm.ascent
             val labelText = label.take(3).uppercase()
+            // Abstand skaliert mit Schriftgröße, damit Beschriftung bei größerer Schrift mitläuft
+            val scaledGap = fontSize * 0.55f
             customSlotLabelPaint.textAlign = Paint.Align.RIGHT
-            canvas.drawText(labelText, slotCx - gap / 2f, slotY, customSlotLabelPaint)
+            canvas.drawText(labelText, slotCx - scaledGap / 2f, slotY, customSlotLabelPaint)
             customSlotValuePaint.textAlign = Paint.Align.LEFT
-            canvas.drawText(value, slotCx + gap / 2f, slotY, customSlotValuePaint)
+            canvas.drawText(value, slotCx + scaledGap / 2f, slotY, customSlotValuePaint)
         }
 
         // Nur aktive Slots sammeln
@@ -1353,8 +1389,8 @@ class IoSyncWatchFaceRenderer(
         val sunriseScale = WatchFaceConfigCache.sunriseTextScale / 100f
         complicationSlotsManager.complicationSlots[2]?.let { slot ->
             (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
-                textSize  = (20f * sunriseScale).toInt().coerceAtLeast(8)
-                titleSize = (15f * sunriseScale).toInt().coerceAtLeast(6)
+                textSize  = (30f * sunriseScale).toInt().coerceAtLeast(8)
+                titleSize = (22f * sunriseScale).toInt().coerceAtLeast(6)
             }
         }
         // Slot 0 (Uhren-Akku) wird durch drawBatteryRing() ersetzt — nicht nochmal zeichnen

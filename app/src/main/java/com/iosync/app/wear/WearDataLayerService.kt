@@ -52,6 +52,7 @@ private const val KEY_WF_SHOW_WEATHER     = "wf_show_weather"
 private const val KEY_WF_SHOW_HEART_RATE  = "wf_show_heart_rate"
 private const val KEY_WF_SHOW_OXYGEN      = "wf_show_oxygen"
 private const val KEY_WF_SHOW_CALORIES    = "wf_show_calories"
+private const val KEY_WF_SHOW_STEPS       = "wf_show_steps"
 
 // ── Wetter-Daten-Pfad ─────────────────────────────────────────────────────────
 private const val PATH_WEATHER            = "/iosync/watchface/weather"
@@ -81,6 +82,7 @@ private const val KEY_WF_SLOT4_TEXT_SCALE     = "wf_slot4_text_scale"
 private const val KEY_WF_WEATHER_TEXT_SCALE   = "wf_weather_text_scale"
 private const val KEY_WF_SUNRISE_TEXT_SCALE        = "wf_sunrise_text_scale"
 private const val KEY_WF_WATCH_BATTERY_TEXT_SCALE = "wf_watch_battery_text_scale"
+private const val KEY_WF_STEPS_TEXT_SCALE         = "wf_steps_text_scale"
 private const val KEY_WF_HEALTH_DATA_SOURCE      = "wf_health_data_source"
 private const val PATH_CUSTOM_SLOTS           = "/iosync/watchface/custom_slots"
 
@@ -227,6 +229,7 @@ class WearDataLayerService @Inject constructor(
         showHeartRate: Boolean = true,
         showOxygen: Boolean = false,
         showCalories: Boolean = true,
+        showSteps: Boolean = true,
         showCustomSlots: Boolean = false,
         customSlot1Label: String = "",
         customSlot2Label: String = "",
@@ -238,6 +241,7 @@ class WearDataLayerService @Inject constructor(
         customSlot4BarShowLabel: Boolean = true,
         hrTextScale: Int = 100,
         kcalTextScale: Int = 100,
+        stepsTextScale: Int = 100,
         slot1TextScale: Int = 100,
         slot2TextScale: Int = 100,
         slot3TextScale: Int = 100,
@@ -268,6 +272,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putBoolean(KEY_WF_SHOW_HEART_RATE, showHeartRate)
                     dataMap.putBoolean(KEY_WF_SHOW_OXYGEN, showOxygen)
                     dataMap.putBoolean(KEY_WF_SHOW_CALORIES, showCalories)
+                    dataMap.putBoolean(KEY_WF_SHOW_STEPS, showSteps)
                     dataMap.putBoolean(KEY_WF_ACTION_PILL_ENABLED, actionPillEnabled)
                     dataMap.putString(KEY_WF_ACTION_PILL_COLOR_TRUE, actionPillColorTrue)
                     dataMap.putString(KEY_WF_ACTION_PILL_COLOR_FALSE, actionPillColorFalse)
@@ -286,6 +291,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL, customSlot4BarShowLabel)
                     dataMap.putInt(KEY_WF_HR_TEXT_SCALE,    hrTextScale)
                     dataMap.putInt(KEY_WF_KCAL_TEXT_SCALE,  kcalTextScale)
+                    dataMap.putInt(KEY_WF_STEPS_TEXT_SCALE, stepsTextScale)
                     dataMap.putInt(KEY_WF_SLOT1_TEXT_SCALE, slot1TextScale)
                     dataMap.putInt(KEY_WF_SLOT2_TEXT_SCALE, slot2TextScale)
                     dataMap.putInt(KEY_WF_SLOT3_TEXT_SCALE, slot3TextScale)

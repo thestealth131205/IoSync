@@ -36,6 +36,7 @@ private const val KEY_WF_SHOW_WEATHER     = "wf_show_weather"
 private const val KEY_WF_SHOW_HEART_RATE  = "wf_show_heart_rate"
 private const val KEY_WF_SHOW_OXYGEN      = "wf_show_oxygen"
 private const val KEY_WF_SHOW_CALORIES    = "wf_show_calories"
+private const val KEY_WF_SHOW_STEPS       = "wf_show_steps"
 
 // ── Aktions-Pille-Keys ────────────────────────────────────────────────────────
 private const val KEY_WF_ACTION_PILL_ENABLED      = "wf_action_pill_enabled"
@@ -78,6 +79,7 @@ private const val KEY_WF_SLOT4_TEXT_SCALE     = "wf_slot4_text_scale"
 private const val KEY_WF_WEATHER_TEXT_SCALE   = "wf_weather_text_scale"
 private const val KEY_WF_SUNRISE_TEXT_SCALE        = "wf_sunrise_text_scale"
 private const val KEY_WF_WATCH_BATTERY_TEXT_SCALE  = "wf_watch_battery_text_scale"
+private const val KEY_WF_STEPS_TEXT_SCALE          = "wf_steps_text_scale"
 private const val KEY_WF_HEALTH_DATA_SOURCE        = "wf_health_data_source"
 
 // ── Phone-Health-Daten (vom Smartphone gesendet) ────────────────────────────
@@ -198,6 +200,7 @@ object WatchFaceConfigCache {
     @Volatile var showHeartRate: Boolean = true
     @Volatile var showOxygen: Boolean = false
     @Volatile var showCalories: Boolean = true
+    @Volatile var showSteps: Boolean = true
     // Wetterdaten (vom Handy empfangen)
     @Volatile var weatherTemp: Int = 0
     @Volatile var weatherCondition: String = "clear"
@@ -228,6 +231,7 @@ object WatchFaceConfigCache {
     // Individuelle Schriftgrößen je Wert (70–160, Default 100 = 100 %)
     @Volatile var hrTextScale: Int = 100
     @Volatile var kcalTextScale: Int = 100
+    @Volatile var stepsTextScale: Int = 100
     @Volatile var slot1TextScale: Int = 100
     @Volatile var slot2TextScale: Int = 100
     @Volatile var slot3TextScale: Int = 100
@@ -263,6 +267,7 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_SHOW_HEART_RATE))   showHeartRate  = dataMap.getBoolean(KEY_WF_SHOW_HEART_RATE)
         if (dataMap.containsKey(KEY_WF_SHOW_OXYGEN))       showOxygen     = dataMap.getBoolean(KEY_WF_SHOW_OXYGEN)
         if (dataMap.containsKey(KEY_WF_SHOW_CALORIES))     showCalories   = dataMap.getBoolean(KEY_WF_SHOW_CALORIES)
+        if (dataMap.containsKey(KEY_WF_SHOW_STEPS))        showSteps      = dataMap.getBoolean(KEY_WF_SHOW_STEPS)
         if (dataMap.containsKey(KEY_WF_ACTION_PILL_ENABLED))     actionPillEnabled    = dataMap.getBoolean(KEY_WF_ACTION_PILL_ENABLED)
         dataMap.getString(KEY_WF_ACTION_PILL_COLOR_TRUE)?.let  { actionPillColorTrue  = it }
         dataMap.getString(KEY_WF_ACTION_PILL_COLOR_FALSE)?.let { actionPillColorFalse = it }
@@ -281,6 +286,7 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) customSlot4BarShowLabel = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
         if (dataMap.containsKey(KEY_WF_HR_TEXT_SCALE))      hrTextScale      = dataMap.getInt(KEY_WF_HR_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_KCAL_TEXT_SCALE))    kcalTextScale    = dataMap.getInt(KEY_WF_KCAL_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_STEPS_TEXT_SCALE))   stepsTextScale   = dataMap.getInt(KEY_WF_STEPS_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_SLOT1_TEXT_SCALE))   slot1TextScale   = dataMap.getInt(KEY_WF_SLOT1_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_SLOT2_TEXT_SCALE))   slot2TextScale   = dataMap.getInt(KEY_WF_SLOT2_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_SLOT3_TEXT_SCALE))   slot3TextScale   = dataMap.getInt(KEY_WF_SLOT3_TEXT_SCALE)

@@ -87,6 +87,7 @@ data class MainUiState(
     val wfShowHeartRate: Boolean = true,
     val wfShowOxygen: Boolean = false,
     val wfShowCalories: Boolean = true,
+    val wfShowSteps: Boolean = true,
     // Wetter-Standort
     val weatherUseFixedLocation: Boolean = false,
     val weatherFixedLat: Double = 0.0,
@@ -113,6 +114,7 @@ data class MainUiState(
     // Individuelle Schriftgröße je Wert (70–160, Default 100 = 100 %)
     val wfHrTextScale: Int = 100,
     val wfKcalTextScale: Int = 100,
+    val wfStepsTextScale: Int = 100,
     val wfSlot1TextScale: Int = 100,
     val wfSlot2TextScale: Int = 100,
     val wfSlot3TextScale: Int = 100,
@@ -175,6 +177,7 @@ class MainViewModel @Inject constructor(
         val KEY_WF_SHOW_HEART_RATE  = booleanPreferencesKey("wf_show_heart_rate")
         val KEY_WF_SHOW_OXYGEN      = booleanPreferencesKey("wf_show_oxygen")
         val KEY_WF_SHOW_CALORIES    = booleanPreferencesKey("wf_show_calories")
+        val KEY_WF_SHOW_STEPS       = booleanPreferencesKey("wf_show_steps")
         // Custom ioBroker-Slots
         val KEY_SHOW_CUSTOM_SLOTS   = booleanPreferencesKey("show_custom_slots")
         val KEY_CUSTOM_SLOT1_ID     = stringPreferencesKey("custom_slot1_id")
@@ -192,6 +195,7 @@ class MainViewModel @Inject constructor(
         // Individuelle Schriftgrößen
         val KEY_WF_HR_TEXT_SCALE       = intPreferencesKey("wf_hr_text_scale")
         val KEY_WF_KCAL_TEXT_SCALE     = intPreferencesKey("wf_kcal_text_scale")
+        val KEY_WF_STEPS_TEXT_SCALE    = intPreferencesKey("wf_steps_text_scale")
         val KEY_WF_SLOT1_TEXT_SCALE    = intPreferencesKey("wf_slot1_text_scale")
         val KEY_WF_SLOT2_TEXT_SCALE    = intPreferencesKey("wf_slot2_text_scale")
         val KEY_WF_SLOT3_TEXT_SCALE    = intPreferencesKey("wf_slot3_text_scale")
@@ -260,6 +264,7 @@ class MainViewModel @Inject constructor(
             val wfShowHeartRate   = prefs[KEY_WF_SHOW_HEART_RATE]  ?: true
             val wfShowOxygen      = prefs[KEY_WF_SHOW_OXYGEN]      ?: false
             val wfShowCalories    = prefs[KEY_WF_SHOW_CALORIES]    ?: true
+            val wfShowSteps       = prefs[KEY_WF_SHOW_STEPS]       ?: true
             val showCustomSlots   = prefs[KEY_SHOW_CUSTOM_SLOTS]   ?: false
             val customSlot1Id     = prefs[KEY_CUSTOM_SLOT1_ID]     ?: ""
             val customSlot1Label  = prefs[KEY_CUSTOM_SLOT1_LABEL]  ?: ""
@@ -275,6 +280,7 @@ class MainViewModel @Inject constructor(
             val customSlot4BarShowLabel  = prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] ?: true
             val wfHrTextScale      = prefs[KEY_WF_HR_TEXT_SCALE]      ?: 100
             val wfKcalTextScale    = prefs[KEY_WF_KCAL_TEXT_SCALE]    ?: 100
+            val wfStepsTextScale   = prefs[KEY_WF_STEPS_TEXT_SCALE]   ?: 100
             val wfSlot1TextScale   = prefs[KEY_WF_SLOT1_TEXT_SCALE]   ?: 100
             val wfSlot2TextScale   = prefs[KEY_WF_SLOT2_TEXT_SCALE]   ?: 100
             val wfSlot3TextScale   = prefs[KEY_WF_SLOT3_TEXT_SCALE]   ?: 100
@@ -328,6 +334,7 @@ class MainViewModel @Inject constructor(
                     wfShowHeartRate   = wfShowHeartRate,
                     wfShowOxygen      = wfShowOxygen,
                     wfShowCalories    = wfShowCalories,
+                    wfShowSteps       = wfShowSteps,
                     showCustomSlots    = showCustomSlots,
                     customSlot1Id      = customSlot1Id,
                     customSlot1Label   = customSlot1Label,
@@ -343,6 +350,7 @@ class MainViewModel @Inject constructor(
                     customSlot4BarShowLabel  = customSlot4BarShowLabel,
                     wfHrTextScale      = wfHrTextScale,
                     wfKcalTextScale    = wfKcalTextScale,
+                    wfStepsTextScale   = wfStepsTextScale,
                     wfSlot1TextScale   = wfSlot1TextScale,
                     wfSlot2TextScale   = wfSlot2TextScale,
                     wfSlot3TextScale   = wfSlot3TextScale,
@@ -575,6 +583,7 @@ class MainViewModel @Inject constructor(
         showHeartRate: Boolean,
         showOxygen: Boolean,
         showCalories: Boolean,
+        showSteps: Boolean = _uiState.value.wfShowSteps,
         showCustomSlots: Boolean = _uiState.value.showCustomSlots,
         customSlot1Label: String = _uiState.value.customSlot1Label,
         customSlot2Label: String = _uiState.value.customSlot2Label,
@@ -585,6 +594,7 @@ class MainViewModel @Inject constructor(
         customSlot4BarMax: Float = _uiState.value.customSlot4BarMax,
         hrTextScale: Int = _uiState.value.wfHrTextScale,
         kcalTextScale: Int = _uiState.value.wfKcalTextScale,
+        stepsTextScale: Int = _uiState.value.wfStepsTextScale,
         slot1TextScale: Int = _uiState.value.wfSlot1TextScale,
         slot2TextScale: Int = _uiState.value.wfSlot2TextScale,
         slot3TextScale: Int = _uiState.value.wfSlot3TextScale,
@@ -615,8 +625,10 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_SHOW_HEART_RATE]     = showHeartRate
                 prefs[KEY_WF_SHOW_OXYGEN]         = showOxygen
                 prefs[KEY_WF_SHOW_CALORIES]       = showCalories
+                prefs[KEY_WF_SHOW_STEPS]          = showSteps
                 prefs[KEY_WF_HR_TEXT_SCALE]       = hrTextScale
                 prefs[KEY_WF_KCAL_TEXT_SCALE]     = kcalTextScale
+                prefs[KEY_WF_STEPS_TEXT_SCALE]    = stepsTextScale
                 prefs[KEY_WF_SLOT1_TEXT_SCALE]    = slot1TextScale
                 prefs[KEY_WF_SLOT2_TEXT_SCALE]    = slot2TextScale
                 prefs[KEY_WF_SLOT3_TEXT_SCALE]    = slot3TextScale
@@ -646,8 +658,10 @@ class MainViewModel @Inject constructor(
                     wfShowHeartRate    = showHeartRate,
                     wfShowOxygen       = showOxygen,
                     wfShowCalories     = showCalories,
+                    wfShowSteps        = showSteps,
                     wfHrTextScale      = hrTextScale,
                     wfKcalTextScale    = kcalTextScale,
+                    wfStepsTextScale   = stepsTextScale,
                     wfSlot1TextScale   = slot1TextScale,
                     wfSlot2TextScale   = slot2TextScale,
                     wfSlot3TextScale   = slot3TextScale,
@@ -671,11 +685,11 @@ class MainViewModel @Inject constructor(
                     showSecondsRing, secondsRingColor, secondsRingWidth, secondsGlowWidth, secondsNumberColor,
                     s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
                     s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
-                    showWeather, showHeartRate, showOxygen, showCalories,
+                    showWeather, showHeartRate, showOxygen, showCalories, showSteps,
                     showCustomSlots, customSlot1Label, customSlot2Label,
                     customSlot3Label, customSlot4Label, customSlot4BarColor, customSlot4BarMin, customSlot4BarMax,
                     s.customSlot4BarShowLabel,
-                    hrTextScale, kcalTextScale, slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale,
+                    hrTextScale, kcalTextScale, stepsTextScale, slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale,
                     weatherTextScale, sunriseTextScale, watchBatteryTextScale,
                     batteryRingColor1, batteryRingColor2,
                     healthDataSource

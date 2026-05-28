@@ -105,6 +105,7 @@ fun SettingsScreen(
     var wfShowHeartRate by remember(uiState.wfShowHeartRate) { mutableStateOf(uiState.wfShowHeartRate) }
     var wfShowOxygen    by remember(uiState.wfShowOxygen)    { mutableStateOf(uiState.wfShowOxygen) }
     var wfShowCalories  by remember(uiState.wfShowCalories)  { mutableStateOf(uiState.wfShowCalories) }
+    var wfShowSteps     by remember(uiState.wfShowSteps)     { mutableStateOf(uiState.wfShowSteps) }
     var wfHealthDataSource by remember(uiState.wfHealthDataSource) { mutableStateOf(uiState.wfHealthDataSource) }
 
     // Custom ioBroker-Slots
@@ -125,6 +126,7 @@ fun SettingsScreen(
     // Individuelle Schriftgrößen je Wert
     var wfHrTextScale      by remember(uiState.wfHrTextScale)      { mutableStateOf(uiState.wfHrTextScale) }
     var wfKcalTextScale    by remember(uiState.wfKcalTextScale)    { mutableStateOf(uiState.wfKcalTextScale) }
+    var wfStepsTextScale   by remember(uiState.wfStepsTextScale)   { mutableStateOf(uiState.wfStepsTextScale) }
     var wfSlot1TextScale   by remember(uiState.wfSlot1TextScale)   { mutableStateOf(uiState.wfSlot1TextScale) }
     var wfSlot2TextScale   by remember(uiState.wfSlot2TextScale)   { mutableStateOf(uiState.wfSlot2TextScale) }
     var wfSlot3TextScale   by remember(uiState.wfSlot3TextScale)   { mutableStateOf(uiState.wfSlot3TextScale) }
@@ -151,8 +153,8 @@ fun SettingsScreen(
         wfTimeColor, wfDateColor, wfShowSeconds, wfShowTicks, wfShowWeekday,
         wfShowPhoneBattery, wfShowIoBrokerData, wfShowSecondsRing, wfSecondsRingColor,
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
-        wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories,
-        wfHrTextScale, wfKcalTextScale, wfWeatherTextScale, wfSunriseTextScale, wfWatchBatteryTextScale,
+        wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories, wfShowSteps,
+        wfHrTextScale, wfKcalTextScale, wfStepsTextScale, wfWeatherTextScale, wfSunriseTextScale, wfWatchBatteryTextScale,
         wfBatteryRingColor1, wfBatteryRingColor2,
         wfHealthDataSource
     ) {
@@ -175,11 +177,13 @@ fun SettingsScreen(
             showHeartRate      = wfShowHeartRate,
             showOxygen         = wfShowOxygen,
             showCalories       = wfShowCalories,
+            showSteps          = wfShowSteps,
             showCustomSlots    = showCustomSlots,
             customSlot1Label   = customSlot1Label.trim(),
             customSlot2Label   = customSlot2Label.trim(),
             hrTextScale        = wfHrTextScale,
             kcalTextScale      = wfKcalTextScale,
+            stepsTextScale     = wfStepsTextScale,
             weatherTextScale   = wfWeatherTextScale,
             sunriseTextScale   = wfSunriseTextScale,
             watchBatteryTextScale = wfWatchBatteryTextScale,
@@ -985,11 +989,13 @@ fun SettingsScreen(
                         showHeartRate      = wfShowHeartRate,
                         showOxygen         = wfShowOxygen,
                         showCalories       = wfShowCalories,
+                        showSteps          = wfShowSteps,
                         showCustomSlots    = showCustomSlots,
                         customSlot1Label   = customSlot1Label.trim(),
                         customSlot2Label   = customSlot2Label.trim(),
                         hrTextScale        = wfHrTextScale,
                         kcalTextScale      = wfKcalTextScale,
+                        stepsTextScale     = wfStepsTextScale,
                         slot1TextScale     = wfSlot1TextScale,
                         slot2TextScale     = wfSlot2TextScale,
                         slot3TextScale     = wfSlot3TextScale,
@@ -1163,7 +1169,7 @@ fun SettingsScreen(
             )
 
             DetailCard(label = "Version") {
-                Text("1.0.0", style = MaterialTheme.typography.bodyMedium)
+                Text(com.iosync.app.BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodyMedium)
             }
 
             DetailCard(label = "Beschreibung") {
