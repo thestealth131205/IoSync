@@ -2,6 +2,21 @@
 
 Dieses Dokument beschreibt die Projektstruktur und Konventionen für das **IoSync**-Projekt.
 
+## ⚠️ KRITISCHE EINSCHRÄNKUNG — NIEMALS UMGEHEN
+
+**Android-Builds sind auf diesem Gerät (Raspberry Pi) VERBOTEN.**
+
+- `./gradlew` und `gradle` dürfen **unter keinen Umständen** ausgeführt werden
+- Kein `assembleDebug`, `assembleRelease`, `build`, `compileKotlin` oder ähnliches
+- Kein Starten des Kotlin-Compiler-Daemons (`KotlinCompileDaemon`)
+- Kein `java -jar` für Build-Tools
+
+**Grund:** Der Raspberry Pi hat zu wenig RAM. Ein einziger Gradle-Build bringt das gesamte System zum Absturz (SSH, Webserver, alles).
+
+**Stattdessen:** Teile dem Nutzer mit, dass Builds über GitHub Actions / CI ausgeführt werden müssen. Zeige den entsprechenden Workflow-Befehl oder erkläre wie der Build remote gestartet wird.
+
+---
+
 ## Projektübersicht
 
 **IoSync** ist ein modulares Ökosystem, das als Schnittstelle zwischen ioBroker / Home Assistant und Android dient. Es besteht aus zwei Modulen:
@@ -14,19 +29,13 @@ Dieses Dokument beschreibt die Projektstruktur und Konventionen für das **IoSyn
 
 ## Build-Befehle
 
+**ACHTUNG: Builds NUR über GitHub Actions ausführen — NICHT lokal auf dem Pi!**
+
 ```bash
-# Vom Projektroot /opt/Iosync/
-./gradlew :app:assembleDebug           # Smartphone-APK
-./gradlew :wear-watchface:assembleDebug # Watchface APK
-./gradlew build                        # Alle Android-Module
-
-# ioBroker Plugin (Node.js)
-cd iobroker-plugin/
-npm install
-node main.js                           # Lokal testen
+# Builds via GitHub Actions (nicht lokal ausführen!):
+# Push zu main → CI startet automatisch
+# Oder manuell: gh workflow run build.yml
 ```
-
-**Wichtig:** Gradle nur auf explizite Anweisung ausführen — Builds sind langsam.
 
 ## Architektur
 
