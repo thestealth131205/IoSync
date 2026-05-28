@@ -3,7 +3,7 @@ package com.iosync.watchface.health
 import android.content.Context
 import android.util.Log
 import androidx.health.services.client.HealthServices
-import androidx.health.services.client.PassiveListenerConfig
+import androidx.health.services.client.data.PassiveListenerConfig
 import androidx.health.services.client.data.DataType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,13 +40,13 @@ class HealthSensorManager(private val context: Context) {
                     .setDataTypes(
                         setOf(
                             DataType.HEART_RATE_BPM,
-                            DataType.DAILY_CALORIES,
-                            DataType.DAILY_STEPS
+                            DataType.CALORIES_DAILY,
+                            DataType.STEPS_DAILY
                         )
                     )
                     .build()
 
-                passiveMonitoringClient.setPassiveListenerService(
+                passiveMonitoringClient.setPassiveListenerServiceAsync(
                     HealthPassiveDataService::class.java,
                     config
                 )
@@ -60,7 +60,7 @@ class HealthSensorManager(private val context: Context) {
     fun stop() {
         scope.launch {
             try {
-                passiveMonitoringClient.clearPassiveListenerService()
+                passiveMonitoringClient.clearPassiveListenerServiceAsync()
                 Log.d(TAG, "Health Services Passive Listener deregistriert")
             } catch (e: Exception) {
                 Log.w(TAG, "Deregistrierung fehlgeschlagen: ${e.message}")

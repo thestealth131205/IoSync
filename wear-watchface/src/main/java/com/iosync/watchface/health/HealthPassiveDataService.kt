@@ -26,14 +26,14 @@ class HealthPassiveDataService : PassiveListenerService() {
         }
 
         // Tageskalorien (DeltaDataType → IntervalDataPoint<Double>)
-        dataPoints.getData(DataType.DAILY_CALORIES).lastOrNull()?.let { point ->
+        dataPoints.getData(DataType.CALORIES_DAILY).lastOrNull()?.let { point ->
             val kcal = point.value.toInt()
             HealthDataCache.calories = kcal
             Log.d(TAG, "Kalorien: $kcal kcal")
         }
 
         // Tagesschritte (DeltaDataType → IntervalDataPoint<Long>)
-        dataPoints.getData(DataType.DAILY_STEPS).lastOrNull()?.let { point ->
+        dataPoints.getData(DataType.STEPS_DAILY).lastOrNull()?.let { point ->
             val s = point.value.toInt()
             HealthDataCache.steps = s
             Log.d(TAG, "Schritte: $s")
