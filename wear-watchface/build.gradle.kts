@@ -32,8 +32,8 @@ android {
         applicationId = "com.iosync.app"
         minSdk = 30  // Wear OS 3+ (API 30)
         targetSdk = 36
-        versionCode = 350
-        versionName = "3.5.0"
+        versionCode = 351
+        versionName = "3.5.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -98,7 +98,7 @@ dependencies {
 
     // Health Services
     implementation(libs.health.services.client)
-    implementation("com.google.guava:listenablefuture:1.0")
+    implementation("com.google.guava:guava:33.0.0-android")
 
     // Wearable Data Layer
     implementation(libs.play.services.wearable)
