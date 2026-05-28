@@ -69,7 +69,12 @@ private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN   = "wf_custom_slot4_bar_min"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX        = "wf_custom_slot4_bar_max"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL = "wf_custom_slot4_bar_show_label"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
-private const val KEY_WF_VALUE_TEXT_SCALE   = "wf_value_text_scale"
+private const val KEY_WF_HR_TEXT_SCALE      = "wf_hr_text_scale"
+private const val KEY_WF_KCAL_TEXT_SCALE    = "wf_kcal_text_scale"
+private const val KEY_WF_SLOT1_TEXT_SCALE   = "wf_slot1_text_scale"
+private const val KEY_WF_SLOT2_TEXT_SCALE   = "wf_slot2_text_scale"
+private const val KEY_WF_SLOT3_TEXT_SCALE   = "wf_slot3_text_scale"
+private const val KEY_WF_SLOT4_TEXT_SCALE   = "wf_slot4_text_scale"
 
 // ── Custom-Slot-Daten (Echtzeit-Updates der Werte) ──────────────────────────
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
@@ -199,8 +204,13 @@ object WatchFaceConfigCache {
     @Volatile var customSlot4BarMin: Float = 0f
     @Volatile var customSlot4BarMax: Float = 100f
     @Volatile var customSlot4BarShowLabel: Boolean = true
-    // Schriftgröße für dynamische Werte (50–200, Default 100 = 100 %)
-    @Volatile var valueTextScale: Int = 100
+    // Individuelle Schriftgrößen je Wert (70–160, Default 100 = 100 %)
+    @Volatile var hrTextScale: Int = 100
+    @Volatile var kcalTextScale: Int = 100
+    @Volatile var slot1TextScale: Int = 100
+    @Volatile var slot2TextScale: Int = 100
+    @Volatile var slot3TextScale: Int = 100
+    @Volatile var slot4TextScale: Int = 100
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
@@ -235,8 +245,13 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_CUSTOM_SLOT4_BAR_COLOR)?.let { customSlot4BarColor = it }
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MIN)) customSlot4BarMin = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN)
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX))        customSlot4BarMax        = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
-        if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) customSlot4BarShowLabel  = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
-        if (dataMap.containsKey(KEY_WF_VALUE_TEXT_SCALE))             valueTextScale           = dataMap.getInt(KEY_WF_VALUE_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) customSlot4BarShowLabel = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
+        if (dataMap.containsKey(KEY_WF_HR_TEXT_SCALE))    hrTextScale    = dataMap.getInt(KEY_WF_HR_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_KCAL_TEXT_SCALE))  kcalTextScale  = dataMap.getInt(KEY_WF_KCAL_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_SLOT1_TEXT_SCALE)) slot1TextScale = dataMap.getInt(KEY_WF_SLOT1_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_SLOT2_TEXT_SCALE)) slot2TextScale = dataMap.getInt(KEY_WF_SLOT2_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_SLOT3_TEXT_SCALE)) slot3TextScale = dataMap.getInt(KEY_WF_SLOT3_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_SLOT4_TEXT_SCALE)) slot4TextScale = dataMap.getInt(KEY_WF_SLOT4_TEXT_SCALE)
     }
 }
 

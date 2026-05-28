@@ -72,7 +72,12 @@ private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN        = "wf_custom_slot4_bar_min"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX        = "wf_custom_slot4_bar_max"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL = "wf_custom_slot4_bar_show_label"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
-private const val KEY_WF_VALUE_TEXT_SCALE   = "wf_value_text_scale"
+private const val KEY_WF_HR_TEXT_SCALE      = "wf_hr_text_scale"
+private const val KEY_WF_KCAL_TEXT_SCALE    = "wf_kcal_text_scale"
+private const val KEY_WF_SLOT1_TEXT_SCALE   = "wf_slot1_text_scale"
+private const val KEY_WF_SLOT2_TEXT_SCALE   = "wf_slot2_text_scale"
+private const val KEY_WF_SLOT3_TEXT_SCALE   = "wf_slot3_text_scale"
+private const val KEY_WF_SLOT4_TEXT_SCALE   = "wf_slot4_text_scale"
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
 
 // ── Aktions-Pille-Konfigurationsschlüssel ─────────────────────────────────────
@@ -223,7 +228,12 @@ class WearDataLayerService @Inject constructor(
         customSlot4BarMin: Float = 0f,
         customSlot4BarMax: Float = 100f,
         customSlot4BarShowLabel: Boolean = true,
-        valueTextScale: Int = 100
+        hrTextScale: Int = 100,
+        kcalTextScale: Int = 100,
+        slot1TextScale: Int = 100,
+        slot2TextScale: Int = 100,
+        slot3TextScale: Int = 100,
+        slot4TextScale: Int = 100
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -260,7 +270,12 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN, customSlot4BarMin)
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX, customSlot4BarMax)
                     dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL, customSlot4BarShowLabel)
-                    dataMap.putInt(KEY_WF_VALUE_TEXT_SCALE, valueTextScale)
+                    dataMap.putInt(KEY_WF_HR_TEXT_SCALE,    hrTextScale)
+                    dataMap.putInt(KEY_WF_KCAL_TEXT_SCALE,  kcalTextScale)
+                    dataMap.putInt(KEY_WF_SLOT1_TEXT_SCALE, slot1TextScale)
+                    dataMap.putInt(KEY_WF_SLOT2_TEXT_SCALE, slot2TextScale)
+                    dataMap.putInt(KEY_WF_SLOT3_TEXT_SCALE, slot3TextScale)
+                    dataMap.putInt(KEY_WF_SLOT4_TEXT_SCALE, slot4TextScale)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

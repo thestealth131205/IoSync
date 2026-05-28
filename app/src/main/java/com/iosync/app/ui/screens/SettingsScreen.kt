@@ -1,6 +1,7 @@
 package com.iosync.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenu
@@ -119,8 +121,13 @@ fun SettingsScreen(
     var customSlot4BarMax        by remember(uiState.customSlot4BarMax)        { mutableStateOf(uiState.customSlot4BarMax.toString()) }
     var customSlot4BarShowLabel  by remember(uiState.customSlot4BarShowLabel)  { mutableStateOf(uiState.customSlot4BarShowLabel) }
 
-    // Schriftgröße für dynamische Werte
-    var wfValueTextScale by remember(uiState.wfValueTextScale) { mutableStateOf(uiState.wfValueTextScale.toFloat()) }
+    // Individuelle Schriftgrößen je Wert
+    var wfHrTextScale    by remember(uiState.wfHrTextScale)    { mutableStateOf(uiState.wfHrTextScale) }
+    var wfKcalTextScale  by remember(uiState.wfKcalTextScale)  { mutableStateOf(uiState.wfKcalTextScale) }
+    var wfSlot1TextScale by remember(uiState.wfSlot1TextScale) { mutableStateOf(uiState.wfSlot1TextScale) }
+    var wfSlot2TextScale by remember(uiState.wfSlot2TextScale) { mutableStateOf(uiState.wfSlot2TextScale) }
+    var wfSlot3TextScale by remember(uiState.wfSlot3TextScale) { mutableStateOf(uiState.wfSlot3TextScale) }
+    var wfSlot4TextScale by remember(uiState.wfSlot4TextScale) { mutableStateOf(uiState.wfSlot4TextScale) }
 
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
@@ -137,7 +144,7 @@ fun SettingsScreen(
         wfShowPhoneBattery, wfShowIoBrokerData, wfShowSecondsRing, wfSecondsRingColor,
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
         wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories,
-        wfValueTextScale
+        wfHrTextScale, wfKcalTextScale
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -161,7 +168,8 @@ fun SettingsScreen(
             showCustomSlots    = showCustomSlots,
             customSlot1Label   = customSlot1Label.trim(),
             customSlot2Label   = customSlot2Label.trim(),
-            valueTextScale     = wfValueTextScale.toInt()
+            hrTextScale        = wfHrTextScale,
+            kcalTextScale      = wfKcalTextScale
         )
     }
 
@@ -606,6 +614,10 @@ fun SettingsScreen(
                         modifier = Modifier.weight(3f)
                     )
                 }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfSlot1TextScale, onSelect = { wfSlot1TextScale = it })
+                }
 
                 // Slot 2
                 Text("Slot 2", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -625,6 +637,10 @@ fun SettingsScreen(
                         modifier = Modifier.weight(3f)
                     )
                 }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfSlot2TextScale, onSelect = { wfSlot2TextScale = it })
+                }
 
                 // Slot 3 (rechts neben Slot 2 auf der Uhr)
                 Text("Slot 3", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -643,6 +659,10 @@ fun SettingsScreen(
                         onSelect = { customSlot3Id = it },
                         modifier = Modifier.weight(3f)
                     )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfSlot3TextScale, onSelect = { wfSlot3TextScale = it })
                 }
 
                 // Slot 4: Balken-Graph (direkt unter der Uhrzeit)
@@ -711,6 +731,10 @@ fun SettingsScreen(
                     checked = customSlot4BarShowLabel,
                     onCheckedChange = { customSlot4BarShowLabel = it }
                 )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfSlot4TextScale, onSelect = { wfSlot4TextScale = it })
+                }
 
                 Button(
                     onClick = {
@@ -727,7 +751,11 @@ fun SettingsScreen(
                             slot4BarColor     = customSlot4BarColor,
                             slot4BarMin       = customSlot4BarMin.toFloatOrNull() ?: 0f,
                             slot4BarMax       = customSlot4BarMax.toFloatOrNull() ?: 100f,
-                            slot4BarShowLabel = customSlot4BarShowLabel
+                            slot4BarShowLabel = customSlot4BarShowLabel,
+                            slot1TextScale    = wfSlot1TextScale,
+                            slot2TextScale    = wfSlot2TextScale,
+                            slot3TextScale    = wfSlot3TextScale,
+                            slot4TextScale    = wfSlot4TextScale
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -756,30 +784,23 @@ fun SettingsScreen(
                 onCheckedChange = { wfShowSecondsRing = it }
             )
 
-            // ── Schriftgröße dynamische Werte ────────────────────────────────
+            // ── Schriftgröße Gesundheitsdaten ─────────────────────────────
             HorizontalDivider(color = Color(0xFF2A2A2A))
             Text(
-                text = "Schriftgröße – dynamische Werte",
+                text = "Schriftgröße – Puls & Kcal",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = "Skaliert alle Wert-Texte auf dem Watchface (Puls, Kcal, Slots, Akku …), nicht Uhrzeit und Datum",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
-            Text(
-                text = "Größe: ${wfValueTextScale.toInt()} %",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Slider(
-                value = wfValueTextScale,
-                onValueChange = { wfValueTextScale = it },
-                valueRange = 50f..200f,
-                steps = 29,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Puls", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfHrTextScale, onSelect = { wfHrTextScale = it })
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Kcal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfKcalTextScale, onSelect = { wfKcalTextScale = it })
+                }
+            }
 
             if (wfShowSecondsRing) {
                 Text(
@@ -877,7 +898,12 @@ fun SettingsScreen(
                         showCustomSlots    = showCustomSlots,
                         customSlot1Label   = customSlot1Label.trim(),
                         customSlot2Label   = customSlot2Label.trim(),
-                        valueTextScale     = wfValueTextScale.toInt()
+                        hrTextScale        = wfHrTextScale,
+                        kcalTextScale      = wfKcalTextScale,
+                        slot1TextScale     = wfSlot1TextScale,
+                        slot2TextScale     = wfSlot2TextScale,
+                        slot3TextScale     = wfSlot3TextScale,
+                        slot4TextScale     = wfSlot4TextScale
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -1429,6 +1455,51 @@ private fun DatapointDropdown(
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+// ── Schriftgröße-Dropdown ──────────────────────────────────────────────────────
+
+private val FONT_SIZE_OPTIONS = listOf(70, 80, 90, 100, 110, 120, 140, 160)
+
+@Composable
+fun FontSizeDropdown(
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFF444444))
+        ) {
+            Text("$selected %", style = MaterialTheme.typography.bodySmall)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color(0xFF1E1E1E))
+        ) {
+            FONT_SIZE_OPTIONS.forEach { size ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "$size %",
+                            color = if (size == selected) NeonYellow else Color.White,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    onClick = {
+                        onSelect(size)
+                        expanded = false
+                    }
+                )
             }
         }
     }

@@ -942,25 +942,33 @@ class IoSyncWatchFaceRenderer(
 
         if (items.isEmpty()) return
 
-        val scaleFactor = config.valueTextScale / 100f
-        val labelSize = radius * 0.070f * scaleFactor
-        val valueSize = radius * 0.130f * scaleFactor
-        val iconSize  = radius * 0.065f * scaleFactor
+        val hrScale   = config.hrTextScale   / 100f
+        val kcalScale = config.kcalTextScale / 100f
+
         val itemWidth = radius * 0.55f
         val totalWidth = items.size * itemWidth
         val startX = cx - totalWidth / 2f + itemWidth / 2f
         val baseY = cy + radius * 0.55f
 
-        healthLabelPaint.textSize = labelSize
-        healthValuePaint.textSize = valueSize
-
         for ((index, item) in items.withIndex()) {
+            val scaleFactor = when (item.icon) {
+                "heart" -> hrScale
+                "flame" -> kcalScale
+                else    -> hrScale
+            }
+            val labelSize = radius * 0.070f * scaleFactor
+            val valueSize = radius * 0.130f * scaleFactor
+            val iconSize  = radius * 0.065f * scaleFactor
+
             val xOffset = when (item.icon) {
                 "heart" -> -radius * 0.12f
                 "flame" -> radius * 0.12f
                 else -> 0f
             }
             val x = startX + index * itemWidth + xOffset
+
+            healthLabelPaint.textSize = labelSize
+            healthValuePaint.textSize = valueSize
 
             // Symbol links vom Label
             val labelWidth = healthLabelPaint.measureText(item.label)
@@ -1045,19 +1053,15 @@ class IoSyncWatchFaceRenderer(
      */
     private fun drawCustomSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float, clockBottomY: Float) {
         val config = WatchFaceConfigCache
-        val scaleFactor = config.valueTextScale / 100f
-        val fontSize = radius * 0.10f * scaleFactor
-        customSlotLabelPaint.textSize = fontSize
-        customSlotValuePaint.textSize = fontSize
 
         val dp4 = 4f * context.resources.displayMetrics.density
         val gap = radius * 0.035f
-        val fm = customSlotValuePaint.fontMetrics
 
         var nextY = clockBottomY + dp4
 
         // ── Slot 4: Balken-Graph ───────────────────────────────────────────
         if (config.customSlot4Label.isNotBlank()) {
+            val slot4Scale = config.slot4TextScale / 100f
             val barW     = radius * 0.88f
             val barH     = radius * 0.055f
             val barLeft  = cx - barW / 2f
@@ -1092,26 +1096,28 @@ class IoSyncWatchFaceRenderer(
 
             // Label + Wert als kleine Überschrift (optional)
             if (config.customSlot4BarShowLabel) {
-                val labelSize = radius * 0.072f * scaleFactor
+                val labelSize = radius * 0.072f * slot4Scale
                 customSlotLabelPaint.textSize = labelSize
                 customSlotLabelPaint.textAlign = Paint.Align.LEFT
                 canvas.drawText(config.customSlot4Label.take(3).uppercase(), barLeft, nextY - labelSize * 0.18f, customSlotLabelPaint)
                 customSlotValuePaint.textSize = labelSize
                 customSlotValuePaint.textAlign = Paint.Align.RIGHT
                 canvas.drawText(config.customSlot4Value, barRight, nextY - labelSize * 0.18f, customSlotValuePaint)
-                customSlotLabelPaint.textSize = fontSize
-                customSlotValuePaint.textSize = fontSize
             }
 
             nextY += barH + dp4 * 1.5f
         }
 
         // ── Slots 1 / 2 / 3 nebeneinander ────────────────────────────────
-        val slotY = nextY - fm.ascent
         val slotSpacing = radius * 0.33f   // Abstand zwischen Slot-Mittelpunkten
 
-        fun drawSlot(label: String, value: String, slotCx: Float) {
+        fun drawSlot(label: String, value: String, slotCx: Float, slotScale: Float) {
             if (label.isBlank()) return
+            val fontSize = radius * 0.10f * slotScale
+            customSlotLabelPaint.textSize = fontSize
+            customSlotValuePaint.textSize = fontSize
+            val fm = customSlotValuePaint.fontMetrics
+            val slotY = nextY - fm.ascent
             val labelText = label.take(3).uppercase()
             customSlotLabelPaint.textAlign = Paint.Align.RIGHT
             canvas.drawText(labelText, slotCx - gap / 2f, slotY, customSlotLabelPaint)
@@ -1123,19 +1129,23 @@ class IoSyncWatchFaceRenderer(
         val hasSlot2 = config.customSlot2Label.isNotBlank()
         val hasSlot1 = config.customSlot1Label.isNotBlank()
 
+        val slot1Scale = config.slot1TextScale / 100f
+        val slot2Scale = config.slot2TextScale / 100f
+        val slot3Scale = config.slot3TextScale / 100f
+
         val slotShift = radius * 0.10f
         if (hasSlot3) {
             // 3 Slots: links, mitte, rechts — etwas nach links verschoben
-            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing - slotShift)
-            drawSlot(config.customSlot2Label, config.customSlot2Value, cx - slotShift)
-            drawSlot(config.customSlot3Label, config.customSlot3Value, cx + slotSpacing - slotShift)
+            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing - slotShift, slot1Scale)
+            drawSlot(config.customSlot2Label, config.customSlot2Value, cx - slotShift, slot2Scale)
+            drawSlot(config.customSlot3Label, config.customSlot3Value, cx + slotSpacing - slotShift, slot3Scale)
         } else if (hasSlot2) {
             // 2 Slots: links und rechts
-            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing / 2f)
-            drawSlot(config.customSlot2Label, config.customSlot2Value, cx + slotSpacing / 2f)
+            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing / 2f, slot1Scale)
+            drawSlot(config.customSlot2Label, config.customSlot2Value, cx + slotSpacing / 2f, slot2Scale)
         } else if (hasSlot1) {
             // 1 Slot: zentriert
-            drawSlot(config.customSlot1Label, config.customSlot1Value, cx)
+            drawSlot(config.customSlot1Label, config.customSlot1Value, cx, slot1Scale)
         }
     }
 
