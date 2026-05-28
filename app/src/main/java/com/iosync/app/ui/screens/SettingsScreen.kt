@@ -122,12 +122,14 @@ fun SettingsScreen(
     var customSlot4BarShowLabel  by remember(uiState.customSlot4BarShowLabel)  { mutableStateOf(uiState.customSlot4BarShowLabel) }
 
     // Individuelle Schriftgrößen je Wert
-    var wfHrTextScale    by remember(uiState.wfHrTextScale)    { mutableStateOf(uiState.wfHrTextScale) }
-    var wfKcalTextScale  by remember(uiState.wfKcalTextScale)  { mutableStateOf(uiState.wfKcalTextScale) }
-    var wfSlot1TextScale by remember(uiState.wfSlot1TextScale) { mutableStateOf(uiState.wfSlot1TextScale) }
-    var wfSlot2TextScale by remember(uiState.wfSlot2TextScale) { mutableStateOf(uiState.wfSlot2TextScale) }
-    var wfSlot3TextScale by remember(uiState.wfSlot3TextScale) { mutableStateOf(uiState.wfSlot3TextScale) }
-    var wfSlot4TextScale by remember(uiState.wfSlot4TextScale) { mutableStateOf(uiState.wfSlot4TextScale) }
+    var wfHrTextScale      by remember(uiState.wfHrTextScale)      { mutableStateOf(uiState.wfHrTextScale) }
+    var wfKcalTextScale    by remember(uiState.wfKcalTextScale)    { mutableStateOf(uiState.wfKcalTextScale) }
+    var wfSlot1TextScale   by remember(uiState.wfSlot1TextScale)   { mutableStateOf(uiState.wfSlot1TextScale) }
+    var wfSlot2TextScale   by remember(uiState.wfSlot2TextScale)   { mutableStateOf(uiState.wfSlot2TextScale) }
+    var wfSlot3TextScale   by remember(uiState.wfSlot3TextScale)   { mutableStateOf(uiState.wfSlot3TextScale) }
+    var wfSlot4TextScale   by remember(uiState.wfSlot4TextScale)   { mutableStateOf(uiState.wfSlot4TextScale) }
+    var wfWeatherTextScale by remember(uiState.wfWeatherTextScale) { mutableStateOf(uiState.wfWeatherTextScale) }
+    var wfSunriseTextScale by remember(uiState.wfSunriseTextScale) { mutableStateOf(uiState.wfSunriseTextScale) }
 
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
@@ -144,7 +146,7 @@ fun SettingsScreen(
         wfShowPhoneBattery, wfShowIoBrokerData, wfShowSecondsRing, wfSecondsRingColor,
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
         wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories,
-        wfHrTextScale, wfKcalTextScale
+        wfHrTextScale, wfKcalTextScale, wfWeatherTextScale, wfSunriseTextScale
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -169,7 +171,9 @@ fun SettingsScreen(
             customSlot1Label   = customSlot1Label.trim(),
             customSlot2Label   = customSlot2Label.trim(),
             hrTextScale        = wfHrTextScale,
-            kcalTextScale      = wfKcalTextScale
+            kcalTextScale      = wfKcalTextScale,
+            weatherTextScale   = wfWeatherTextScale,
+            sunriseTextScale   = wfSunriseTextScale
         )
     }
 
@@ -784,13 +788,23 @@ fun SettingsScreen(
                 onCheckedChange = { wfShowSecondsRing = it }
             )
 
-            // ── Schriftgröße Gesundheitsdaten ─────────────────────────────
+            // ── Schriftgröße Gesundheitsdaten & Wetter ─────────────────────
             HorizontalDivider(color = Color(0xFF2A2A2A))
             Text(
-                text = "Schriftgröße – Puls & Kcal",
+                text = "Schriftgröße – Wetter, Sonne, Puls & Kcal",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Wetter", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfWeatherTextScale, onSelect = { wfWeatherTextScale = it })
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Sonnenauf/-untergang", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfSunriseTextScale, onSelect = { wfSunriseTextScale = it })
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Puls", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -903,7 +917,9 @@ fun SettingsScreen(
                         slot1TextScale     = wfSlot1TextScale,
                         slot2TextScale     = wfSlot2TextScale,
                         slot3TextScale     = wfSlot3TextScale,
-                        slot4TextScale     = wfSlot4TextScale
+                        slot4TextScale     = wfSlot4TextScale,
+                        weatherTextScale   = wfWeatherTextScale,
+                        sunriseTextScale   = wfSunriseTextScale
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),

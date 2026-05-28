@@ -117,6 +117,8 @@ data class MainUiState(
     val wfSlot2TextScale: Int = 100,
     val wfSlot3TextScale: Int = 100,
     val wfSlot4TextScale: Int = 100,
+    val wfWeatherTextScale: Int = 100,
+    val wfSunriseTextScale: Int = 100,
     // Sync-Status-Log für die Konsolenanzeige
     val wearSyncLog: String = ""
 )
@@ -182,12 +184,14 @@ class MainViewModel @Inject constructor(
         val KEY_CUSTOM_SLOT4_BAR_MAX        = stringPreferencesKey("custom_slot4_bar_max")
         val KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL = booleanPreferencesKey("custom_slot4_bar_show_label")
         // Individuelle Schriftgrößen
-        val KEY_WF_HR_TEXT_SCALE    = intPreferencesKey("wf_hr_text_scale")
-        val KEY_WF_KCAL_TEXT_SCALE  = intPreferencesKey("wf_kcal_text_scale")
-        val KEY_WF_SLOT1_TEXT_SCALE = intPreferencesKey("wf_slot1_text_scale")
-        val KEY_WF_SLOT2_TEXT_SCALE = intPreferencesKey("wf_slot2_text_scale")
-        val KEY_WF_SLOT3_TEXT_SCALE = intPreferencesKey("wf_slot3_text_scale")
-        val KEY_WF_SLOT4_TEXT_SCALE = intPreferencesKey("wf_slot4_text_scale")
+        val KEY_WF_HR_TEXT_SCALE       = intPreferencesKey("wf_hr_text_scale")
+        val KEY_WF_KCAL_TEXT_SCALE     = intPreferencesKey("wf_kcal_text_scale")
+        val KEY_WF_SLOT1_TEXT_SCALE    = intPreferencesKey("wf_slot1_text_scale")
+        val KEY_WF_SLOT2_TEXT_SCALE    = intPreferencesKey("wf_slot2_text_scale")
+        val KEY_WF_SLOT3_TEXT_SCALE    = intPreferencesKey("wf_slot3_text_scale")
+        val KEY_WF_SLOT4_TEXT_SCALE    = intPreferencesKey("wf_slot4_text_scale")
+        val KEY_WF_WEATHER_TEXT_SCALE  = intPreferencesKey("wf_weather_text_scale")
+        val KEY_WF_SUNRISE_TEXT_SCALE  = intPreferencesKey("wf_sunrise_text_scale")
         // Wetter-Standort
         val KEY_WEATHER_USE_FIXED   = booleanPreferencesKey("weather_use_fixed")
         val KEY_WEATHER_FIXED_LAT   = stringPreferencesKey("weather_fixed_lat")
@@ -259,12 +263,14 @@ class MainViewModel @Inject constructor(
             val customSlot4BarMin        = prefs[KEY_CUSTOM_SLOT4_BAR_MIN]?.toFloatOrNull() ?: 0f
             val customSlot4BarMax        = prefs[KEY_CUSTOM_SLOT4_BAR_MAX]?.toFloatOrNull() ?: 100f
             val customSlot4BarShowLabel  = prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] ?: true
-            val wfHrTextScale    = prefs[KEY_WF_HR_TEXT_SCALE]    ?: 100
-            val wfKcalTextScale  = prefs[KEY_WF_KCAL_TEXT_SCALE]  ?: 100
-            val wfSlot1TextScale = prefs[KEY_WF_SLOT1_TEXT_SCALE] ?: 100
-            val wfSlot2TextScale = prefs[KEY_WF_SLOT2_TEXT_SCALE] ?: 100
-            val wfSlot3TextScale = prefs[KEY_WF_SLOT3_TEXT_SCALE] ?: 100
-            val wfSlot4TextScale = prefs[KEY_WF_SLOT4_TEXT_SCALE] ?: 100
+            val wfHrTextScale      = prefs[KEY_WF_HR_TEXT_SCALE]      ?: 100
+            val wfKcalTextScale    = prefs[KEY_WF_KCAL_TEXT_SCALE]    ?: 100
+            val wfSlot1TextScale   = prefs[KEY_WF_SLOT1_TEXT_SCALE]   ?: 100
+            val wfSlot2TextScale   = prefs[KEY_WF_SLOT2_TEXT_SCALE]   ?: 100
+            val wfSlot3TextScale   = prefs[KEY_WF_SLOT3_TEXT_SCALE]   ?: 100
+            val wfSlot4TextScale   = prefs[KEY_WF_SLOT4_TEXT_SCALE]   ?: 100
+            val wfWeatherTextScale = prefs[KEY_WF_WEATHER_TEXT_SCALE] ?: 100
+            val wfSunriseTextScale = prefs[KEY_WF_SUNRISE_TEXT_SCALE] ?: 100
             val weatherUseFixed   = prefs[KEY_WEATHER_USE_FIXED]   ?: false
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
@@ -321,12 +327,14 @@ class MainViewModel @Inject constructor(
                     customSlot4BarMin        = customSlot4BarMin,
                     customSlot4BarMax        = customSlot4BarMax,
                     customSlot4BarShowLabel  = customSlot4BarShowLabel,
-                    wfHrTextScale    = wfHrTextScale,
-                    wfKcalTextScale  = wfKcalTextScale,
-                    wfSlot1TextScale = wfSlot1TextScale,
-                    wfSlot2TextScale = wfSlot2TextScale,
-                    wfSlot3TextScale = wfSlot3TextScale,
-                    wfSlot4TextScale = wfSlot4TextScale,
+                    wfHrTextScale      = wfHrTextScale,
+                    wfKcalTextScale    = wfKcalTextScale,
+                    wfSlot1TextScale   = wfSlot1TextScale,
+                    wfSlot2TextScale   = wfSlot2TextScale,
+                    wfSlot3TextScale   = wfSlot3TextScale,
+                    wfSlot4TextScale   = wfSlot4TextScale,
+                    wfWeatherTextScale = wfWeatherTextScale,
+                    wfSunriseTextScale = wfSunriseTextScale,
                     weatherUseFixedLocation = weatherUseFixed,
                     weatherFixedLat   = weatherFixedLat,
                     weatherFixedLon   = weatherFixedLon,
@@ -562,7 +570,9 @@ class MainViewModel @Inject constructor(
         slot1TextScale: Int = _uiState.value.wfSlot1TextScale,
         slot2TextScale: Int = _uiState.value.wfSlot2TextScale,
         slot3TextScale: Int = _uiState.value.wfSlot3TextScale,
-        slot4TextScale: Int = _uiState.value.wfSlot4TextScale
+        slot4TextScale: Int = _uiState.value.wfSlot4TextScale,
+        weatherTextScale: Int = _uiState.value.wfWeatherTextScale,
+        sunriseTextScale: Int = _uiState.value.wfSunriseTextScale
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(wearSyncLog = "Sende Watchface-Konfiguration …") }
@@ -583,12 +593,14 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_SHOW_HEART_RATE]     = showHeartRate
                 prefs[KEY_WF_SHOW_OXYGEN]         = showOxygen
                 prefs[KEY_WF_SHOW_CALORIES]       = showCalories
-                prefs[KEY_WF_HR_TEXT_SCALE]    = hrTextScale
-                prefs[KEY_WF_KCAL_TEXT_SCALE]  = kcalTextScale
-                prefs[KEY_WF_SLOT1_TEXT_SCALE] = slot1TextScale
-                prefs[KEY_WF_SLOT2_TEXT_SCALE] = slot2TextScale
-                prefs[KEY_WF_SLOT3_TEXT_SCALE] = slot3TextScale
-                prefs[KEY_WF_SLOT4_TEXT_SCALE] = slot4TextScale
+                prefs[KEY_WF_HR_TEXT_SCALE]       = hrTextScale
+                prefs[KEY_WF_KCAL_TEXT_SCALE]     = kcalTextScale
+                prefs[KEY_WF_SLOT1_TEXT_SCALE]    = slot1TextScale
+                prefs[KEY_WF_SLOT2_TEXT_SCALE]    = slot2TextScale
+                prefs[KEY_WF_SLOT3_TEXT_SCALE]    = slot3TextScale
+                prefs[KEY_WF_SLOT4_TEXT_SCALE]    = slot4TextScale
+                prefs[KEY_WF_WEATHER_TEXT_SCALE]  = weatherTextScale
+                prefs[KEY_WF_SUNRISE_TEXT_SCALE]  = sunriseTextScale
             }
             _uiState.update {
                 it.copy(
@@ -608,12 +620,14 @@ class MainViewModel @Inject constructor(
                     wfShowHeartRate    = showHeartRate,
                     wfShowOxygen       = showOxygen,
                     wfShowCalories     = showCalories,
-                    wfHrTextScale    = hrTextScale,
-                    wfKcalTextScale  = kcalTextScale,
-                    wfSlot1TextScale = slot1TextScale,
-                    wfSlot2TextScale = slot2TextScale,
-                    wfSlot3TextScale = slot3TextScale,
-                    wfSlot4TextScale = slot4TextScale
+                    wfHrTextScale      = hrTextScale,
+                    wfKcalTextScale    = kcalTextScale,
+                    wfSlot1TextScale   = slot1TextScale,
+                    wfSlot2TextScale   = slot2TextScale,
+                    wfSlot3TextScale   = slot3TextScale,
+                    wfSlot4TextScale   = slot4TextScale,
+                    wfWeatherTextScale = weatherTextScale,
+                    wfSunriseTextScale = sunriseTextScale
                 )
             }
             try {
@@ -631,7 +645,8 @@ class MainViewModel @Inject constructor(
                     showCustomSlots, customSlot1Label, customSlot2Label,
                     customSlot3Label, customSlot4Label, customSlot4BarColor, customSlot4BarMin, customSlot4BarMax,
                     s.customSlot4BarShowLabel,
-                    hrTextScale, kcalTextScale, slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale
+                    hrTextScale, kcalTextScale, slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale,
+                    weatherTextScale, sunriseTextScale
                 )
                 _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -708,7 +723,8 @@ class MainViewModel @Inject constructor(
                     s.showCustomSlots, s.customSlot1Label, s.customSlot2Label,
                     s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
                     s.customSlot4BarShowLabel,
-                    s.wfHrTextScale, s.wfKcalTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale
+                    s.wfHrTextScale, s.wfKcalTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
+                    s.wfWeatherTextScale, s.wfSunriseTextScale
                 )
                 _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -813,7 +829,8 @@ class MainViewModel @Inject constructor(
                     s2.showCustomSlots, s2.customSlot1Label, s2.customSlot2Label,
                     s2.customSlot3Label, s2.customSlot4Label, s2.customSlot4BarColor, s2.customSlot4BarMin, s2.customSlot4BarMax,
                     s2.customSlot4BarShowLabel,
-                    s2.wfHrTextScale, s2.wfKcalTextScale, s2.wfSlot1TextScale, s2.wfSlot2TextScale, s2.wfSlot3TextScale, s2.wfSlot4TextScale
+                    s2.wfHrTextScale, s2.wfKcalTextScale, s2.wfSlot1TextScale, s2.wfSlot2TextScale, s2.wfSlot3TextScale, s2.wfSlot4TextScale,
+                    s2.wfWeatherTextScale, s2.wfSunriseTextScale
                 )
                 _uiState.update { it.copy(wearSyncLog = "Slot-Daten übertragen") }
             }

@@ -72,13 +72,15 @@ private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN        = "wf_custom_slot4_bar_min"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX        = "wf_custom_slot4_bar_max"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL = "wf_custom_slot4_bar_show_label"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
-private const val KEY_WF_HR_TEXT_SCALE      = "wf_hr_text_scale"
-private const val KEY_WF_KCAL_TEXT_SCALE    = "wf_kcal_text_scale"
-private const val KEY_WF_SLOT1_TEXT_SCALE   = "wf_slot1_text_scale"
-private const val KEY_WF_SLOT2_TEXT_SCALE   = "wf_slot2_text_scale"
-private const val KEY_WF_SLOT3_TEXT_SCALE   = "wf_slot3_text_scale"
-private const val KEY_WF_SLOT4_TEXT_SCALE   = "wf_slot4_text_scale"
-private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
+private const val KEY_WF_HR_TEXT_SCALE        = "wf_hr_text_scale"
+private const val KEY_WF_KCAL_TEXT_SCALE      = "wf_kcal_text_scale"
+private const val KEY_WF_SLOT1_TEXT_SCALE     = "wf_slot1_text_scale"
+private const val KEY_WF_SLOT2_TEXT_SCALE     = "wf_slot2_text_scale"
+private const val KEY_WF_SLOT3_TEXT_SCALE     = "wf_slot3_text_scale"
+private const val KEY_WF_SLOT4_TEXT_SCALE     = "wf_slot4_text_scale"
+private const val KEY_WF_WEATHER_TEXT_SCALE   = "wf_weather_text_scale"
+private const val KEY_WF_SUNRISE_TEXT_SCALE   = "wf_sunrise_text_scale"
+private const val PATH_CUSTOM_SLOTS           = "/iosync/watchface/custom_slots"
 
 // ── Aktions-Pille-Konfigurationsschlüssel ─────────────────────────────────────
 private const val KEY_WF_ACTION_PILL_ENABLED     = "wf_action_pill_enabled"
@@ -233,7 +235,9 @@ class WearDataLayerService @Inject constructor(
         slot1TextScale: Int = 100,
         slot2TextScale: Int = 100,
         slot3TextScale: Int = 100,
-        slot4TextScale: Int = 100
+        slot4TextScale: Int = 100,
+        weatherTextScale: Int = 100,
+        sunriseTextScale: Int = 100
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -275,7 +279,9 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt(KEY_WF_SLOT1_TEXT_SCALE, slot1TextScale)
                     dataMap.putInt(KEY_WF_SLOT2_TEXT_SCALE, slot2TextScale)
                     dataMap.putInt(KEY_WF_SLOT3_TEXT_SCALE, slot3TextScale)
-                    dataMap.putInt(KEY_WF_SLOT4_TEXT_SCALE, slot4TextScale)
+                    dataMap.putInt(KEY_WF_SLOT4_TEXT_SCALE,    slot4TextScale)
+                    dataMap.putInt(KEY_WF_WEATHER_TEXT_SCALE, weatherTextScale)
+                    dataMap.putInt(KEY_WF_SUNRISE_TEXT_SCALE, sunriseTextScale)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

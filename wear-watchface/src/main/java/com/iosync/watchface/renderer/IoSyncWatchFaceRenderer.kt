@@ -25,6 +25,7 @@ import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
+import androidx.wear.watchface.complications.rendering.CanvasComplicationDrawable
 import com.iosync.watchface.datalayer.SmartHomeStateCache
 import com.iosync.watchface.datalayer.WatchFaceConfigCache
 import com.iosync.watchface.health.HealthSensorManager
@@ -544,13 +545,14 @@ class IoSyncWatchFaceRenderer(
             // Gesundheitsdaten (Puls, SpO2, Kalorien)
             drawHealthData(canvas, cx, cy, radius)
 
-            // Aktions-Pille bei 6 Uhr (oberhalb des unteren Komplikations-Slots)
-            if (config.actionPillEnabled) {
-                drawActionPill(canvas, cx, cy, radius)
-            }
         }
 
         drawComplications(canvas, zonedDateTime, isAmbient)
+
+        // Aktions-Pille nach Komplikationen — liegt visuell und taktil oben
+        if (!isAmbient && config.actionPillEnabled) {
+            drawActionPill(canvas, cx, cy, radius)
+        }
 
         // Config-Bestätigung anzeigen (2 s nach Empfang)
         if (!isAmbient) {
@@ -804,7 +806,8 @@ class IoSyncWatchFaceRenderer(
         drawWeatherIcon(canvas, circleCx, iconCy, iconSize, config.weatherCondition)
 
         // Temperatur
-        weatherTempPaint.textSize = circleRadius * 0.72f
+        val weatherScale = config.weatherTextScale / 100f
+        weatherTempPaint.textSize = circleRadius * 0.72f * weatherScale
         val tempText = "${config.weatherTemp}°"
         canvas.drawText(tempText, circleCx, circleCy + circleRadius * 0.55f, weatherTempPaint)
     }
@@ -1258,6 +1261,14 @@ class IoSyncWatchFaceRenderer(
         zonedDateTime: ZonedDateTime,
         isAmbient: Boolean
     ) {
+        // Sunrise/Sunset-Komplikation (Slot 2 = links): Schriftgröße aus Config anwenden
+        val sunriseScale = WatchFaceConfigCache.sunriseTextScale / 100f
+        complicationSlotsManager.complicationSlots[2]?.let { slot ->
+            (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
+                textSize  = (20f * sunriseScale).toInt().coerceAtLeast(8)
+                titleSize = (15f * sunriseScale).toInt().coerceAtLeast(6)
+            }
+        }
         complicationSlotsManager.complicationSlots.forEach { (_, slot) ->
             if (slot.enabled) slot.render(canvas, zonedDateTime, renderParameters)
         }
