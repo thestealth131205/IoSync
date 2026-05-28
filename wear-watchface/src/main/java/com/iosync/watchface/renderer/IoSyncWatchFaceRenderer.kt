@@ -678,7 +678,7 @@ class IoSyncWatchFaceRenderer(
         val iconW   = radius * 0.095f
         val iconH   = radius * 0.155f
         val iconCx  = cx + radius * 0.14f
-        val iconTop = cy - radius * 0.63f
+        val iconTop = cy - radius * 0.70f
         val iconBottom = iconTop + iconH
         val iconLeft   = iconCx - iconW / 2f
         val iconRight  = iconCx + iconW / 2f
