@@ -41,7 +41,7 @@ class HealthPassiveDataService : PassiveListenerService() {
 
         // SpO2 (Sauerstoffsättigung)
         try {
-            dataPoints.getData(DataType.SPO2).lastOrNull()?.let { point ->
+            dataPoints.getData(DataType.OXYGEN_SATURATION).lastOrNull()?.let { point ->
                 val o2 = point.value.toInt()
                 if (o2 > 0) {
                     HealthDataCache.spO2 = o2

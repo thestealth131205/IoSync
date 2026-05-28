@@ -53,7 +53,7 @@ class HealthSensorManager private constructor(
                     DataType.CALORIES_DAILY,
                     DataType.STEPS_DAILY
                 )
-                try { dataTypes.add(DataType.SPO2) } catch (_: Exception) { /* nicht auf jedem Gerät verfügbar */ }
+                try { dataTypes.add(DataType.OXYGEN_SATURATION) } catch (_: Exception) { /* nicht auf jedem Gerät verfügbar */ }
                 val config = PassiveListenerConfig.builder()
                     .setDataTypes(dataTypes)
                     .build()
