@@ -78,6 +78,10 @@ private const val KEY_WF_SLOT4_TEXT_SCALE     = "wf_slot4_text_scale"
 private const val KEY_WF_WEATHER_TEXT_SCALE   = "wf_weather_text_scale"
 private const val KEY_WF_SUNRISE_TEXT_SCALE   = "wf_sunrise_text_scale"
 
+// ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
+private const val KEY_WF_BATTERY_RING_COLOR1  = "wf_battery_ring_color1"
+private const val KEY_WF_BATTERY_RING_COLOR2  = "wf_battery_ring_color2"
+
 // ── Custom-Slot-Daten (Echtzeit-Updates der Werte) ──────────────────────────
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
 
@@ -215,6 +219,9 @@ object WatchFaceConfigCache {
     @Volatile var slot4TextScale: Int = 100
     @Volatile var weatherTextScale: Int = 100
     @Volatile var sunriseTextScale: Int = 100
+    // Akku-Ring-Farben (Farbverlauf)
+    @Volatile var batteryRingColor1: String = "cyan"
+    @Volatile var batteryRingColor2: String = "neon_yellow"
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
@@ -258,6 +265,8 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_SLOT4_TEXT_SCALE))   slot4TextScale   = dataMap.getInt(KEY_WF_SLOT4_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_WEATHER_TEXT_SCALE)) weatherTextScale = dataMap.getInt(KEY_WF_WEATHER_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_SUNRISE_TEXT_SCALE)) sunriseTextScale = dataMap.getInt(KEY_WF_SUNRISE_TEXT_SCALE)
+        dataMap.getString(KEY_WF_BATTERY_RING_COLOR1)?.let { batteryRingColor1 = it }
+        dataMap.getString(KEY_WF_BATTERY_RING_COLOR2)?.let { batteryRingColor2 = it }
     }
 }
 

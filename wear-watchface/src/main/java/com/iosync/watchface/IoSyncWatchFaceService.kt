@@ -136,7 +136,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
         val bottomComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_BOTTOM_ID,
-            bounds = RectF(0.42f, 0.64f, 0.76f, 0.81f),
+            bounds = RectF(0.34f, 0.54f, 0.66f, 0.66f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
             supportedTypes = listOf(
                 ComplicationType.RANGED_VALUE,

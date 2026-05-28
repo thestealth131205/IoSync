@@ -25,6 +25,7 @@ playServicesLocation = "21.3.0"
 watchface = "1.2.1"
 watchfaceComplications = "1.2.1"
 splashScreen = "1.0.1"
+healthServices = "1.1.0-alpha03"
 
 [libraries]
 # AndroidX Core
@@ -71,6 +72,9 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+
+# Health Services
+health-services-client = { group = "androidx.health", name = "health-services-client", version.ref = "healthServices" }
 
 # Wearable Data Layer
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }

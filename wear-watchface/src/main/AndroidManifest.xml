@@ -57,6 +57,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Health Services Passive Listener -->
+        <service
+            android:name=".health.HealthPassiveDataService"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <!-- Data Layer listener for complication data -->
         <service
             android:name=".datalayer.WatchFaceDataListenerService"

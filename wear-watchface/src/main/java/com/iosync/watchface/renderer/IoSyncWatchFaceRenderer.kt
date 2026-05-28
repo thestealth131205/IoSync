@@ -1,12 +1,17 @@
 package com.iosync.watchface.renderer
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.SweepGradient
 import android.graphics.Typeface
+import android.os.BatteryManager
 import android.util.Log
 import android.view.SurfaceHolder
 import androidx.wear.watchface.CanvasType
@@ -204,6 +209,41 @@ class IoSyncWatchFaceRenderer(
         style = Paint.Style.FILL
     }
 
+    // ── Akku-Ringe ────────────────────────────────────────────────────────────
+    private val batteryRingBgPaint = Paint().apply {
+        color = Color.argb(50, 255, 255, 255)
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val batteryRingFgPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val batteryPercentPaint = Paint().apply {
+        color = Color.WHITE
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
+    }
+
+    // ── 3D Skeuomorphismus / Eingetiefte Vertiefungen ─────────────────────────
+    private val recessFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(12, 12, 12)
+        style = Paint.Style.FILL
+    }
+    private val recessInnerShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+    }
+    private val recessRimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(38, 255, 255, 255)
+        style = Paint.Style.STROKE
+        strokeWidth = 1.0f
+    }
+    private val recessTempRect = RectF()
+    private val recessShadowAlphas = intArrayOf(55, 30, 14, 6)
+
     // ── Wetter-Kreis ──────────────────────────────────────────────────────────
     private val weatherCircleBgPaint = Paint().apply {
         color = Color.argb(140, 0, 0, 0)
@@ -257,6 +297,7 @@ class IoSyncWatchFaceRenderer(
         textAlign = Paint.Align.CENTER
     }
     private var pillBounds = RectF()
+    private var pillTapBounds = RectF()
     private var lastTapTime = 0L
 
     // ── Config-Bestätigung (2 s Overlay) ───────────────────────────────────────
@@ -461,6 +502,16 @@ class IoSyncWatchFaceRenderer(
             ambientTimePaint.textAlign = Paint.Align.CENTER
             canvas.drawText(timeStr, cx + bx, cy + by + timeFontSize * 0.30f, ambientTimePaint)
         } else {
+            // ── Zifferbereich-Panel (eingetiefte Vertiefung) ───────────────────
+            val clockPanelW  = radius * 0.88f
+            val clockPanelH  = timeFontSize * 0.92f
+            val clockPanelY  = cy - timeFontSize * 0.60f
+            val clockPanelCR = clockPanelH * 0.14f
+            drawEmbossedRecess(canvas,
+                RectF(cx - clockPanelW / 2f, clockPanelY,
+                      cx + clockPanelW / 2f, clockPanelY + clockPanelH),
+                clockPanelCR)
+
             val timeColor = colorFromId(config.timeColorId)
             val dateColor = colorFromId(config.dateColorId)
             timePaint.color    = timeColor
@@ -527,9 +578,16 @@ class IoSyncWatchFaceRenderer(
                 drawIoBrokerData(canvas, cx, cy, radius, weekdayBottomY)
             }
 
-            // Handy-Akkustand (optional, vom Smartphone aktivierbar)
+            // Akku-Ringe: Uhr immer, Handy optional
+            val ringRadius = radius * 0.115f
+            val ringCy     = cy - radius * 0.64f
+            val color1 = colorFromId(config.batteryRingColor1)
+            val color2 = colorFromId(config.batteryRingColor2)
+            drawBatteryRing(canvas, cx - radius * 0.14f, ringCy, ringRadius,
+                getWatchBatteryLevel(), color1, color2)
             if (config.showPhoneBattery) {
-                drawPhoneBattery(canvas, cx, cy, radius, config.phoneBatteryLevel, config.phoneBatteryCharging)
+                drawBatteryRing(canvas, cx + radius * 0.22f, ringCy, ringRadius,
+                    config.phoneBatteryLevel, color1, color2)
             }
 
             // Wetter-Kreis oben links
@@ -661,68 +719,62 @@ class IoSyncWatchFaceRenderer(
     }
 
     /**
-     * Zeichnet den Handy-Akkustand rechts neben dem Uhren-Akku (obere Komplikation).
-     * Symbol: stilisiertes Smartphone-Rechteck (Canvas-gezeichnet), darunter die Prozentzahl.
-     * Grün wenn das Gerät geladen wird, grau sonst. Zeigt "--" wenn noch kein Wert empfangen.
+     * Liest den aktuellen Akkustand der Uhr (0–100) via BatteryManager.
+     * Gibt -1 zurück wenn der Wert nicht verfügbar ist.
      */
-    private fun drawPhoneBattery(
+    private fun getWatchBatteryLevel(): Int = try {
+        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level  = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale  = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
+        if (level >= 0 && scale > 0) level * 100 / scale else -1
+    } catch (e: Exception) { -1 }
+
+    /**
+     * Zeichnet einen kleinen Akku-Ring mit Prozentzahl mittig.
+     * Hintergrundring (gedimmt) + Vordergrundring als Farbverlauf-Bogen von color1→color2.
+     */
+    private fun drawBatteryRing(
         canvas: Canvas,
-        cx: Float,
-        cy: Float,
-        radius: Float,
+        ringCx: Float,
+        ringCy: Float,
+        ringRadius: Float,
         level: Int,
-        isCharging: Boolean
+        color1: Int,
+        color2: Int
     ) {
-        val paint = if (isCharging) batteryChargingPaint else batteryPaint
-        phoneIconStrokePaint.color = paint.color
+        val strokeW = ringRadius * 0.20f
+        batteryRingBgPaint.strokeWidth = strokeW
+        batteryRingFgPaint.strokeWidth = strokeW
 
-        // Icon-Dimensionen und Position (oben mittig-rechts, neben SmartWatch-Akku)
-        val iconW   = radius * 0.095f
-        val iconH   = radius * 0.155f
-        val iconCx  = cx + radius * 0.14f
-        val iconTop = cy - radius * 0.70f
-        val iconBottom = iconTop + iconH
-        val iconLeft   = iconCx - iconW / 2f
-        val iconRight  = iconCx + iconW / 2f
-        val cornerR    = iconW * 0.20f
+        // Vertiefungs-Effekt hinter dem Ring
+        val recessR = ringRadius + strokeW * 1.6f
+        drawEmbossedCircleRecess(canvas, ringCx, ringCy, recessR)
 
-        // Hintergrund-Pill
-        val bgPad = radius * 0.025f
-        canvas.drawRoundRect(
-            RectF(iconLeft - bgPad, iconTop - bgPad, iconRight + bgPad, iconBottom + iconH * 0.22f + bgPad),
-            cornerR + bgPad, cornerR + bgPad, overlayBgPaint
+        val oval = RectF(
+            ringCx - ringRadius, ringCy - ringRadius,
+            ringCx + ringRadius, ringCy + ringRadius
         )
 
-        // Smartphone-Körper (Outline)
-        canvas.drawRoundRect(RectF(iconLeft, iconTop, iconRight, iconBottom), cornerR, cornerR, phoneIconStrokePaint)
+        // Hintergrundring (voller Kreis, gedimmt)
+        canvas.drawArc(oval, -90f, 360f, false, batteryRingBgPaint)
 
-        // Bildschirm-Fläche (helles Innenrechteck)
-        val sInset = iconW * 0.18f
-        canvas.drawRect(
-            iconLeft + sInset,
-            iconTop + iconH * 0.10f,
-            iconRight - sInset,
-            iconBottom - iconH * 0.22f,
-            phoneScreenFillPaint
-        )
-
-        // Home-Button (kleiner Kreis am unteren Innenrand)
-        val homeR  = iconW * 0.13f
-        val homeCy = iconBottom - iconH * 0.11f
-        canvas.drawCircle(iconCx, homeCy, homeR, phoneIconStrokePaint)
-
-        // Ladeblitz bei charging (+) über dem Screen
-        if (isCharging) {
-            paint.textSize = iconH * 0.28f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("+", iconCx, iconTop + iconH * 0.52f, paint)
+        // Füll-Bogen mit Gradient (von 12 Uhr im Uhrzeigersinn)
+        if (level > 0) {
+            val sweepAngle = level / 100f * 360f
+            val shader = SweepGradient(ringCx, ringCy, intArrayOf(color1, color2), null)
+            val matrix = Matrix()
+            matrix.postRotate(-90f, ringCx, ringCy)
+            shader.setLocalMatrix(matrix)
+            batteryRingFgPaint.shader = shader
+            canvas.drawArc(oval, -90f, sweepAngle, false, batteryRingFgPaint)
+            batteryRingFgPaint.shader = null
         }
 
-        // Prozentzahl unterhalb des Icons
-        val levelText = if (level >= 0) "$level%" else "--"
-        paint.textSize = radius * 0.085f
-        paint.textAlign = Paint.Align.CENTER
-        canvas.drawText(levelText, iconCx, iconBottom + radius * 0.115f, paint)
+        // Prozentzahl in der Mitte des Rings
+        val text = if (level >= 0) "$level%" else "--"
+        batteryPercentPaint.textSize = ringRadius * 0.58f
+        val fm = batteryPercentPaint.fontMetrics
+        canvas.drawText(text, ringCx, ringCy - (fm.ascent + fm.descent) / 2f, batteryPercentPaint)
     }
 
     /**
@@ -732,11 +784,20 @@ class IoSyncWatchFaceRenderer(
      */
     private fun drawActionPill(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config   = WatchFaceConfigCache
-        val halfW    = radius * 0.266f   // 30% kürzer als vorher (0.38 * 0.7)
-        val halfH    = radius * 0.055f
-        val centerY  = cy + radius * 0.72f  // etwas weiter unten
+        val halfW    = radius * 0.266f
+        val halfH    = radius * 0.060f
+        // Pille: klar unterhalb der Health-Daten, genug Abstand zum Notification-Dot
+        val centerY  = cy + radius * 0.72f
 
         pillBounds.set(cx - halfW, centerY - halfH, cx + halfW, centerY + halfH)
+        // Tapp-Zone: nach oben/unten/seitlich erweitert für einfaches Antippen
+        val tapPad = radius * 0.06f
+        pillTapBounds.set(
+            pillBounds.left  - tapPad,
+            pillBounds.top   - tapPad,
+            pillBounds.right + tapPad,
+            pillBounds.bottom + tapPad
+        )
 
         val activeColor = colorFromPillId(if (config.actionPillState) config.actionPillColorTrue else config.actionPillColorFalse)
 
@@ -796,9 +857,9 @@ class IoSyncWatchFaceRenderer(
         val circleCx = cx - radius * 0.42f
         val circleCy = cy - radius * 0.50f
 
-        // Hintergrund-Kreis
+        // Hintergrund: Vertiefungs-Effekt + dunkler Kreis
+        drawEmbossedCircleRecess(canvas, circleCx, circleCy, circleRadius * 1.08f)
         canvas.drawCircle(circleCx, circleCy, circleRadius, weatherCircleBgPaint)
-        canvas.drawCircle(circleCx, circleCy, circleRadius, weatherCircleStrokePaint)
 
         // Wettersymbol zeichnen
         val iconSize = circleRadius * 0.50f
@@ -951,7 +1012,16 @@ class IoSyncWatchFaceRenderer(
         val itemWidth = radius * 0.55f
         val totalWidth = items.size * itemWidth
         val startX = cx - totalWidth / 2f + itemWidth / 2f
-        val baseY = cy + radius * 0.55f
+        val baseY = cy + radius * 0.44f
+
+        // ── Gesundheits-Panel-Vertiefung ──────────────────────────────────────
+        val hPanelW  = totalWidth + radius * 0.14f
+        val hPanelH  = radius * 0.40f
+        val hPanelY  = baseY - radius * 0.12f
+        val hPanelCR = hPanelH * 0.28f
+        drawEmbossedRecess(canvas,
+            RectF(cx - hPanelW / 2f, hPanelY, cx + hPanelW / 2f, hPanelY + hPanelH),
+            hPanelCR)
 
         for ((index, item) in items.withIndex()) {
             val scaleFactor = when (item.icon) {
@@ -964,8 +1034,8 @@ class IoSyncWatchFaceRenderer(
             val iconSize  = radius * 0.065f * scaleFactor
 
             val xOffset = when (item.icon) {
-                "heart" -> -radius * 0.12f
-                "flame" -> radius * 0.12f
+                "heart" -> -radius * 0.19f
+                "flame" ->  radius * 0.19f
                 else -> 0f
             }
             val x = startX + index * itemWidth + xOffset
@@ -1172,6 +1242,37 @@ class IoSyncWatchFaceRenderer(
         return Color.rgb(r, g, b)
     }
 
+    // ── 3D Vertiefungs-Helfer ─────────────────────────────────────────────────
+
+    /**
+     * Zeichnet eine skeuomorphische Vertiefung (eingestanzter Panel-Look).
+     * Schichten: 1) Dunkle Basis  2) Innenschatten-Strokes  3) Heller Rand-Reflex
+     * Alle Paints sind Klassen-Member → keine Allokation pro Frame.
+     */
+    private fun drawEmbossedRecess(canvas: Canvas, rect: RectF, cornerRadius: Float) {
+        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, recessFillPaint)
+        for ((i, alpha) in recessShadowAlphas.withIndex()) {
+            val inset = i * 3.2f
+            val cr = (cornerRadius - inset).coerceAtLeast(2f)
+            recessInnerShadowPaint.color = Color.argb(alpha, 0, 0, 0)
+            recessInnerShadowPaint.strokeWidth = 5f
+            recessTempRect.set(
+                rect.left + inset, rect.top + inset,
+                rect.right - inset, rect.bottom - inset
+            )
+            canvas.drawRoundRect(recessTempRect, cr, cr, recessInnerShadowPaint)
+        }
+        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, recessRimPaint)
+    }
+
+    /**
+     * Zeichnet einen Vertiefungs-Kreis (quadratische RectF → vollständiger Radius als Eckenradius).
+     */
+    private fun drawEmbossedCircleRecess(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        recessTempRect.set(cx - radius, cy - radius, cx + radius, cy + radius)
+        drawEmbossedRecess(canvas, recessTempRect, radius)
+    }
+
     /**
      * Zeichnet einen Sekundenring am äußeren Rand des Zifferblatts.
      * Jede Sekunde füllt 6° (360° / 60 s), Startpunkt ist 12 Uhr (−90°).
@@ -1269,8 +1370,9 @@ class IoSyncWatchFaceRenderer(
                 titleSize = (15f * sunriseScale).toInt().coerceAtLeast(6)
             }
         }
-        complicationSlotsManager.complicationSlots.forEach { (_, slot) ->
-            if (slot.enabled) slot.render(canvas, zonedDateTime, renderParameters)
+        // Slot 0 (Uhren-Akku) wird durch drawBatteryRing() ersetzt — nicht nochmal zeichnen
+        complicationSlotsManager.complicationSlots.forEach { (id, slot) ->
+            if (slot.enabled && id != 0) slot.render(canvas, zonedDateTime, renderParameters)
         }
     }
 
@@ -1296,7 +1398,7 @@ class IoSyncWatchFaceRenderer(
 
         val x = tapEvent.xPos.toFloat()
         val y = tapEvent.yPos.toFloat()
-        if (!pillBounds.contains(x, y)) return
+        if (!pillTapBounds.contains(x, y)) return
 
         val now = System.currentTimeMillis()
         if (now - lastTapTime <= DOUBLE_TAP_MS) {

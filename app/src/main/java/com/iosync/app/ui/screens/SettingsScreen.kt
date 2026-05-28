@@ -131,6 +131,10 @@ fun SettingsScreen(
     var wfWeatherTextScale by remember(uiState.wfWeatherTextScale) { mutableStateOf(uiState.wfWeatherTextScale) }
     var wfSunriseTextScale by remember(uiState.wfSunriseTextScale) { mutableStateOf(uiState.wfSunriseTextScale) }
 
+    // Akku-Ring-Farben
+    var wfBatteryRingColor1 by remember(uiState.wfBatteryRingColor1) { mutableStateOf(uiState.wfBatteryRingColor1) }
+    var wfBatteryRingColor2 by remember(uiState.wfBatteryRingColor2) { mutableStateOf(uiState.wfBatteryRingColor2) }
+
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
     var pillColorTrue  by remember(uiState.actionPillColorTrue)  { mutableStateOf(uiState.actionPillColorTrue) }
@@ -146,7 +150,8 @@ fun SettingsScreen(
         wfShowPhoneBattery, wfShowIoBrokerData, wfShowSecondsRing, wfSecondsRingColor,
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
         wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories,
-        wfHrTextScale, wfKcalTextScale, wfWeatherTextScale, wfSunriseTextScale
+        wfHrTextScale, wfKcalTextScale, wfWeatherTextScale, wfSunriseTextScale,
+        wfBatteryRingColor1, wfBatteryRingColor2
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -173,7 +178,9 @@ fun SettingsScreen(
             hrTextScale        = wfHrTextScale,
             kcalTextScale      = wfKcalTextScale,
             weatherTextScale   = wfWeatherTextScale,
-            sunriseTextScale   = wfSunriseTextScale
+            sunriseTextScale   = wfSunriseTextScale,
+            batteryRingColor1  = wfBatteryRingColor1,
+            batteryRingColor2  = wfBatteryRingColor2
         )
     }
 
@@ -541,6 +548,43 @@ fun SettingsScreen(
                 checked = wfShowPhoneBattery,
                 onCheckedChange = { wfShowPhoneBattery = it }
             )
+
+            Spacer(Modifier.height(4.dp))
+
+            // ── Akku-Ring Farbverlauf ─────────────────────────────────────────
+            Text(
+                text = "Akku-Ring: Startfarbe (Uhrzeit 12)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                WatchFaceColorChip(color = Color(0xFF00BCD4), label = "Cyan",       selected = wfBatteryRingColor1 == "cyan",        onClick = { wfBatteryRingColor1 = "cyan" })
+                WatchFaceColorChip(color = Color(0xFFEAFF00), label = "Neon Gelb",  selected = wfBatteryRingColor1 == "neon_yellow", onClick = { wfBatteryRingColor1 = "neon_yellow" })
+                WatchFaceColorChip(color = Color.White,       label = "Weiß",       selected = wfBatteryRingColor1 == "white",       onClick = { wfBatteryRingColor1 = "white" })
+                WatchFaceColorChip(color = Color(0xFF4CAF50), label = "Grün",       selected = wfBatteryRingColor1 == "green",       onClick = { wfBatteryRingColor1 = "green" })
+                WatchFaceColorChip(color = Color(0xFFFF9800), label = "Orange",     selected = wfBatteryRingColor1 == "orange",      onClick = { wfBatteryRingColor1 = "orange" })
+                WatchFaceColorChip(color = Color(0xFF9C27B0), label = "Lila",       selected = wfBatteryRingColor1 == "purple",      onClick = { wfBatteryRingColor1 = "purple" })
+            }
+
+            Text(
+                text = "Akku-Ring: Endfarbe (Füllstand-Ende)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                WatchFaceColorChip(color = Color(0xFFEAFF00), label = "Neon Gelb",  selected = wfBatteryRingColor2 == "neon_yellow", onClick = { wfBatteryRingColor2 = "neon_yellow" })
+                WatchFaceColorChip(color = Color(0xFF00BCD4), label = "Cyan",       selected = wfBatteryRingColor2 == "cyan",        onClick = { wfBatteryRingColor2 = "cyan" })
+                WatchFaceColorChip(color = Color.White,       label = "Weiß",       selected = wfBatteryRingColor2 == "white",       onClick = { wfBatteryRingColor2 = "white" })
+                WatchFaceColorChip(color = Color(0xFF4CAF50), label = "Grün",       selected = wfBatteryRingColor2 == "green",       onClick = { wfBatteryRingColor2 = "green" })
+                WatchFaceColorChip(color = Color(0xFFFF9800), label = "Orange",     selected = wfBatteryRingColor2 == "orange",      onClick = { wfBatteryRingColor2 = "orange" })
+                WatchFaceColorChip(color = Color(0xFF9C27B0), label = "Lila",       selected = wfBatteryRingColor2 == "purple",      onClick = { wfBatteryRingColor2 = "purple" })
+            }
 
             Spacer(Modifier.height(4.dp))
 
@@ -919,7 +963,9 @@ fun SettingsScreen(
                         slot3TextScale     = wfSlot3TextScale,
                         slot4TextScale     = wfSlot4TextScale,
                         weatherTextScale   = wfWeatherTextScale,
-                        sunriseTextScale   = wfSunriseTextScale
+                        sunriseTextScale   = wfSunriseTextScale,
+                        batteryRingColor1  = wfBatteryRingColor1,
+                        batteryRingColor2  = wfBatteryRingColor2
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),

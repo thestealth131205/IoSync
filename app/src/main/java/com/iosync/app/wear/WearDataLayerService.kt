@@ -99,6 +99,10 @@ private const val KEY_PILL_STATE         = "pill_state"
 private const val KEY_BATTERY_LEVEL   = "battery_level"
 private const val KEY_IS_CHARGING     = "is_charging"
 
+// ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
+private const val KEY_WF_BATTERY_RING_COLOR1 = "wf_battery_ring_color1"
+private const val KEY_WF_BATTERY_RING_COLOR2 = "wf_battery_ring_color2"
+
 @Singleton
 class WearDataLayerService @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -237,7 +241,9 @@ class WearDataLayerService @Inject constructor(
         slot3TextScale: Int = 100,
         slot4TextScale: Int = 100,
         weatherTextScale: Int = 100,
-        sunriseTextScale: Int = 100
+        sunriseTextScale: Int = 100,
+        batteryRingColor1: String = "cyan",
+        batteryRingColor2: String = "neon_yellow"
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -282,6 +288,8 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt(KEY_WF_SLOT4_TEXT_SCALE,    slot4TextScale)
                     dataMap.putInt(KEY_WF_WEATHER_TEXT_SCALE, weatherTextScale)
                     dataMap.putInt(KEY_WF_SUNRISE_TEXT_SCALE, sunriseTextScale)
+                    dataMap.putString(KEY_WF_BATTERY_RING_COLOR1, batteryRingColor1)
+                    dataMap.putString(KEY_WF_BATTERY_RING_COLOR2, batteryRingColor2)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
