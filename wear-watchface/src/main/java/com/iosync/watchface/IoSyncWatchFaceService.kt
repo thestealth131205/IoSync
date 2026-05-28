@@ -123,7 +123,7 @@ class IoSyncWatchFaceService : WatchFaceService() {
         val topComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_TOP_ID,
-            bounds = RectF(0.08f, 0.30f, 0.48f, 0.52f),
+            bounds = RectF(0.30f, 0.08f, 0.52f, 0.30f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_WATCH_BATTERY,
             supportedTypes = listOf(
                 ComplicationType.SHORT_TEXT,

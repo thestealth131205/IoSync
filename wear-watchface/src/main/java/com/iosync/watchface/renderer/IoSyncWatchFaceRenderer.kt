@@ -176,7 +176,7 @@ class IoSyncWatchFaceRenderer(
 
     // ── Handy-Akku ────────────────────────────────────────────────────────────
     private val batteryPaint = Paint().apply {
-        color = Color.parseColor("#888888")
+        color = Color.parseColor("#4CAF50")
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         isAntiAlias = true
         textAlign = Paint.Align.CENTER
@@ -673,11 +673,11 @@ class IoSyncWatchFaceRenderer(
         val paint = if (isCharging) batteryChargingPaint else batteryPaint
         phoneIconStrokePaint.color = paint.color
 
-        // Icon-Dimensionen und Position (rechts von der Mitte, auf gleicher Höhe wie Uhren-Akku)
+        // Icon-Dimensionen und Position (oben mittig-rechts, neben SmartWatch-Akku)
         val iconW   = radius * 0.095f
         val iconH   = radius * 0.155f
-        val iconCx  = cx + radius * 0.25f
-        val iconTop = cy - radius * 0.20f
+        val iconCx  = cx + radius * 0.14f
+        val iconTop = cy - radius * 0.63f
         val iconBottom = iconTop + iconH
         val iconLeft   = iconCx - iconW / 2f
         val iconRight  = iconCx + iconW / 2f
@@ -954,8 +954,8 @@ class IoSyncWatchFaceRenderer(
 
         for ((index, item) in items.withIndex()) {
             val xOffset = when (item.icon) {
-                "heart" -> -radius * 0.06f
-                "flame" -> radius * 0.06f
+                "heart" -> -radius * 0.12f
+                "flame" -> radius * 0.12f
                 else -> 0f
             }
             val x = startX + index * itemWidth + xOffset
@@ -1118,11 +1118,12 @@ class IoSyncWatchFaceRenderer(
         val hasSlot2 = config.customSlot2Label.isNotBlank()
         val hasSlot1 = config.customSlot1Label.isNotBlank()
 
+        val slotShift = radius * 0.10f
         if (hasSlot3) {
-            // 3 Slots: links, mitte, rechts
-            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing)
-            drawSlot(config.customSlot2Label, config.customSlot2Value, cx)
-            drawSlot(config.customSlot3Label, config.customSlot3Value, cx + slotSpacing)
+            // 3 Slots: links, mitte, rechts — etwas nach links verschoben
+            drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing - slotShift)
+            drawSlot(config.customSlot2Label, config.customSlot2Value, cx - slotShift)
+            drawSlot(config.customSlot3Label, config.customSlot3Value, cx + slotSpacing - slotShift)
         } else if (hasSlot2) {
             // 2 Slots: links und rechts
             drawSlot(config.customSlot1Label, config.customSlot1Value, cx - slotSpacing / 2f)
