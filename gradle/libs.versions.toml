@@ -25,7 +25,7 @@ playServicesLocation = "21.3.0"
 watchface = "1.2.1"
 watchfaceComplications = "1.2.1"
 splashScreen = "1.0.1"
-healthServices = "1.0.0-alpha04"
+healthServices = "1.1.0-alpha02"
 
 [libraries]
 # AndroidX Core
