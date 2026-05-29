@@ -1730,6 +1730,11 @@ private fun HealthConnectSection(
     val status = uiState.healthConnectStatus
     val loading = uiState.healthConnectLoading
 
+    // Beim ersten Anzeigen automatisch Status laden
+    LaunchedEffect(Unit) {
+        viewModel.refreshHealthConnectStatus()
+    }
+
     // Health-Connect-Berechtigungen anfragen (spezieller Contract)
     val healthPermissionLauncher = rememberLauncherForActivityResult(
         contract = androidx.health.connect.client.PermissionController.createRequestPermissionResultContract()
@@ -1764,24 +1769,24 @@ private fun HealthConnectSection(
                     modifier = Modifier
                         .size(8.dp)
                         .background(
-                            color = if (status.sdkAvailable) Color(0xFF4CAF50) else Color(0xFFF44336),
+                            color = if (loading) Color(0xFFFF9800) else if (status.sdkAvailable) Color(0xFF4CAF50) else Color(0xFFF44336),
                             shape = CircleShape
                         )
                 )
                 Text(
-                    text = viewModel.healthConnectManager.getSdkStatusText(),
+                    text = if (loading) "Wird geladen..." else if (status.sdkAvailable) "Verfügbar" else viewModel.healthConnectManager.getSdkStatusText(),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
 
-        if (!status.sdkAvailable) {
+        if (!status.sdkAvailable && !loading) {
             Text(
                 text = "Health Connect ist auf diesem Gerät nicht verfügbar. Bitte installiere die Health Connect App aus dem Play Store.",
                 style = MaterialTheme.typography.labelSmall,
                 color = Color(0xFFF44336)
             )
-        } else {
+        } else if (status.sdkAvailable) {
             // Berechtigungen anfordern / Status laden
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

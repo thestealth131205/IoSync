@@ -66,16 +66,34 @@ class HealthConnectManager @Inject constructor(
 
     /** Prüft ob Health Connect auf dem Gerät verfügbar ist */
     fun isAvailable(): Boolean {
-        return HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
+        val status = HealthConnectClient.getSdkStatus(context)
+        if (status == HealthConnectClient.SDK_AVAILABLE) return true
+
+        // Fallback: Auf Android 14+ ist Health Connect im System integriert
+        // und getSdkStatus erkennt es manchmal nicht korrekt
+        return try {
+            HealthConnectClient.getOrCreate(context)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /** SDK-Status als lesbaren String */
     fun getSdkStatusText(): String {
-        return when (HealthConnectClient.getSdkStatus(context)) {
-            HealthConnectClient.SDK_AVAILABLE -> "Verfügbar"
-            HealthConnectClient.SDK_UNAVAILABLE -> "Nicht verfügbar"
-            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> "Update erforderlich"
-            else -> "Unbekannt"
+        val status = HealthConnectClient.getSdkStatus(context)
+        if (status == HealthConnectClient.SDK_AVAILABLE) return "Verfügbar"
+
+        // Fallback-Prüfung für Android 14+ (System-integriert)
+        return try {
+            HealthConnectClient.getOrCreate(context)
+            "Verfügbar"
+        } catch (_: Exception) {
+            when (status) {
+                HealthConnectClient.SDK_UNAVAILABLE -> "Nicht verfügbar"
+                HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> "Update erforderlich"
+                else -> "Unbekannt"
+            }
         }
     }
 
