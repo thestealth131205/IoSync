@@ -245,6 +245,10 @@ class MainViewModel @Inject constructor(
     private var batteryPollingJob: Job? = null
     private var weatherPollingJob: Job? = null
     private var healthPollingJob: Job? = null
+    // Letzter bekannter Health-Wert – wird gesendet wenn Health Connect keinen neuen Wert liefert
+    private var lastKnownHr: Int = 0
+    private var lastKnownKcal: Int = 0
+    private var lastKnownO2: Int = 0
 
     init {
         viewModelScope.launch {
@@ -1178,24 +1182,42 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /** Liest Health-Werte aus Health Connect und sendet sie an die Uhr. */
+    /** Liest Health-Werte aus Health Connect und sendet sie an die Uhr.
+     *  Frische Werte überschreiben den lokalen Cache. Fehlende Werte werden
+     *  aus dem Cache gesendet, damit das Watchface nie "--" wegen fehlender
+     *  Hintergrunddaten zeigt. */
     private suspend fun syncHealthValuesToWear() {
         val s = _uiState.value
+        var anyHealthConnect = false
 
-        val hr = if (s.wfHrSource == "healthconnect") {
-            healthConnectManager.readLatestHeartRate() ?: 0
-        } else 0
+        if (s.wfHrSource == "healthconnect") {
+            anyHealthConnect = true
+            val fresh = healthConnectManager.readLatestHeartRate()
+            if (fresh != null && fresh > 0) lastKnownHr = fresh
+        } else {
+            lastKnownHr = 0
+        }
 
-        val kcal = if (s.wfKcalSource == "healthconnect") {
-            healthConnectManager.readTodayCalories() ?: 0
-        } else 0
+        if (s.wfKcalSource == "healthconnect") {
+            anyHealthConnect = true
+            val fresh = healthConnectManager.readTodayCalories()
+            if (fresh != null && fresh > 0) lastKnownKcal = fresh
+        } else {
+            lastKnownKcal = 0
+        }
 
-        val o2 = if (s.wfOxygenSource == "healthconnect") {
-            healthConnectManager.readLatestOxygenSaturation() ?: 0
-        } else 0
+        if (s.wfOxygenSource == "healthconnect") {
+            anyHealthConnect = true
+            val fresh = healthConnectManager.readLatestOxygenSaturation()
+            if (fresh != null && fresh > 0) lastKnownO2 = fresh
+        } else {
+            lastKnownO2 = 0
+        }
 
-        if (hr > 0 || kcal > 0 || o2 > 0) {
-            wearDataLayerService.syncPhoneHealthToWear(hr, o2, kcal)
+        // Immer senden wenn mindestens eine Quelle healthconnect ist,
+        // damit das Watchface den gecachten Wert bekommt
+        if (anyHealthConnect) {
+            wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal)
         }
     }
 

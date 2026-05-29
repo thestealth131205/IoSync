@@ -1008,10 +1008,10 @@ class IoSyncWatchFaceRenderer(
         val phoneDataFresh = (System.currentTimeMillis() - config.phoneHealthLastReceived) < 600_000L
         val items = mutableListOf<HealthItem>()
 
-        // Puls: pro-Typ Quelle mit Fallback auf lokal
+        // Puls: wenn Quelle = healthconnect, ausschließlich Phone-Wert verwenden (kein Sensor-Fallback)
         if (config.showHeartRate) {
-            val hr = if (config.hrSource == "healthconnect" && phoneDataFresh && config.phoneHeartRate > 0) {
-                config.phoneHeartRate
+            val hr = if (config.hrSource == "healthconnect") {
+                if (phoneDataFresh) config.phoneHeartRate else 0
             } else {
                 healthSensorManager.heartRate
             }
@@ -1019,10 +1019,10 @@ class IoSyncWatchFaceRenderer(
             items.add(HealthItem("BPM", hrText, Color.parseColor("#EF5350"), "heart"))
         }
 
-        // Kalorien: pro-Typ Quelle mit Fallback auf lokal
+        // Kalorien: wenn Quelle = healthconnect, ausschließlich Phone-Wert verwenden (kein Sensor-Fallback)
         if (config.showCalories) {
-            val kcal = if (config.kcalSource == "healthconnect" && phoneDataFresh && config.phoneCalories > 0) {
-                config.phoneCalories
+            val kcal = if (config.kcalSource == "healthconnect") {
+                if (phoneDataFresh) config.phoneCalories else 0
             } else {
                 healthSensorManager.calories
             }
@@ -1030,10 +1030,10 @@ class IoSyncWatchFaceRenderer(
             items.add(HealthItem("KCAL", kcalText, Color.parseColor("#FF9800"), "flame"))
         }
 
-        // SpO2: pro-Typ Quelle mit Fallback auf lokal
+        // SpO2: wenn Quelle = healthconnect, ausschließlich Phone-Wert verwenden (kein Sensor-Fallback)
         if (config.showOxygen) {
-            val o2 = if (config.oxygenSource == "healthconnect" && phoneDataFresh && config.phoneSpO2 > 0) {
-                config.phoneSpO2
+            val o2 = if (config.oxygenSource == "healthconnect") {
+                if (phoneDataFresh) config.phoneSpO2 else 0
             } else {
                 healthSensorManager.spO2
             }
