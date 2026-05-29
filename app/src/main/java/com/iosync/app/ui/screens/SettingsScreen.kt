@@ -113,11 +113,8 @@ fun SettingsScreen(
 
     // Pro-Typ Gesundheitsdaten-Quelle
     var wfHrSource         by remember(uiState.wfHrSource)         { mutableStateOf(uiState.wfHrSource) }
-    var wfHrIoBrokerId     by remember(uiState.wfHrIoBrokerId)     { mutableStateOf(uiState.wfHrIoBrokerId) }
     var wfKcalSource       by remember(uiState.wfKcalSource)       { mutableStateOf(uiState.wfKcalSource) }
-    var wfKcalIoBrokerId   by remember(uiState.wfKcalIoBrokerId)   { mutableStateOf(uiState.wfKcalIoBrokerId) }
     var wfOxygenSource     by remember(uiState.wfOxygenSource)     { mutableStateOf(uiState.wfOxygenSource) }
-    var wfOxygenIoBrokerId by remember(uiState.wfOxygenIoBrokerId) { mutableStateOf(uiState.wfOxygenIoBrokerId) }
 
     // Custom ioBroker-Slots
     var showCustomSlots by remember(uiState.showCustomSlots) { mutableStateOf(uiState.showCustomSlots) }
@@ -689,10 +686,7 @@ fun SettingsScreen(
                 HealthSourcePerTypeRow(
                     label = "Puls-Quelle",
                     source = wfHrSource,
-                    onSourceChange = { wfHrSource = it },
-                    ioBrokerId = wfHrIoBrokerId,
-                    onIoBrokerIdChange = { wfHrIoBrokerId = it },
-                    availableStates = uiState.states
+                    onSourceChange = { wfHrSource = it }
                 )
             }
 
@@ -706,10 +700,7 @@ fun SettingsScreen(
                 HealthSourcePerTypeRow(
                     label = "Kcal-Quelle",
                     source = wfKcalSource,
-                    onSourceChange = { wfKcalSource = it },
-                    ioBrokerId = wfKcalIoBrokerId,
-                    onIoBrokerIdChange = { wfKcalIoBrokerId = it },
-                    availableStates = uiState.states
+                    onSourceChange = { wfKcalSource = it }
                 )
             }
 
@@ -723,10 +714,7 @@ fun SettingsScreen(
                 HealthSourcePerTypeRow(
                     label = "SpO2-Quelle",
                     source = wfOxygenSource,
-                    onSourceChange = { wfOxygenSource = it },
-                    ioBrokerId = wfOxygenIoBrokerId,
-                    onIoBrokerIdChange = { wfOxygenIoBrokerId = it },
-                    availableStates = uiState.states
+                    onSourceChange = { wfOxygenSource = it }
                 )
             }
 
@@ -734,9 +722,9 @@ fun SettingsScreen(
             Button(
                 onClick = {
                     viewModel.updateHealthSourceConfig(
-                        hrSource = wfHrSource, hrIoBrokerId = wfHrIoBrokerId.trim(),
-                        kcalSource = wfKcalSource, kcalIoBrokerId = wfKcalIoBrokerId.trim(),
-                        oxygenSource = wfOxygenSource, oxygenIoBrokerId = wfOxygenIoBrokerId.trim()
+                        hrSource = wfHrSource,
+                        kcalSource = wfKcalSource,
+                        oxygenSource = wfOxygenSource
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -1929,19 +1917,16 @@ private fun HealthDataTypeRow(dataType: HealthDataTypeInfo) {
     }
 }
 
-private val HEALTH_SOURCE_PER_TYPE_OPTIONS = listOf("local" to "Lokal (Uhr)", "iobroker" to "ioBroker-Wert")
+private val HEALTH_SOURCE_PER_TYPE_OPTIONS = listOf("local" to "Lokal (Uhr)", "healthconnect" to "Health Connect")
 
 /**
- * Pro-Typ Gesundheitsdaten-Quelle: Dropdown (Lokal/ioBroker) + optional DatapointDropdown
+ * Pro-Typ Gesundheitsdaten-Quelle: Dropdown (Lokal/Health Connect)
  */
 @Composable
 private fun HealthSourcePerTypeRow(
     label: String,
     source: String,
-    onSourceChange: (String) -> Unit,
-    ioBrokerId: String,
-    onIoBrokerIdChange: (String) -> Unit,
-    availableStates: List<SmartHomeState>
+    onSourceChange: (String) -> Unit
 ) {
     Column(modifier = Modifier.padding(start = 16.dp)) {
         Row(
@@ -1954,20 +1939,6 @@ private fun HealthSourcePerTypeRow(
                 selected = source,
                 onSelect = onSourceChange,
                 modifier = Modifier.weight(0.7f)
-            )
-        }
-        if (source == "iobroker") {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "ioBroker-Datenpunkt wählen:",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            DatapointDropdown(
-                selectedId = ioBrokerId,
-                availableStates = availableStates,
-                onSelect = onIoBrokerIdChange,
-                modifier = Modifier.fillMaxWidth()
             )
         }
     }

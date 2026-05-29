@@ -199,6 +199,39 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
+    /** Liest den letzten Herzfrequenz-Wert aus Health Connect (letzte 30 Min). */
+    suspend fun readLatestHeartRate(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(30, ChronoUnit.MINUTES), now)
+            val resp = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, timeRange))
+            resp.records.lastOrNull()?.samples?.lastOrNull()?.beatsPerMinute?.toInt()
+        } catch (_: Exception) { null }
+    }
+
+    /** Liest die Gesamtkalorien der letzten 24h aus Health Connect. */
+    suspend fun readTodayCalories(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val resp = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, timeRange))
+            resp.records.sumOf { it.energy.inKilocalories }.toInt().takeIf { it > 0 }
+        } catch (_: Exception) { null }
+    }
+
+    /** Liest den letzten SpO2-Wert aus Health Connect (letzte 30 Min). */
+    suspend fun readLatestOxygenSaturation(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(30, ChronoUnit.MINUTES), now)
+            val resp = client.readRecords(ReadRecordsRequest(OxygenSaturationRecord::class, timeRange))
+            resp.records.lastOrNull()?.percentage?.value?.toInt()
+        } catch (_: Exception) { null }
+    }
+
     /** Package-Name in lesbaren App-Namen umwandeln */
     private fun getAppLabel(packageName: String): String {
         return try {

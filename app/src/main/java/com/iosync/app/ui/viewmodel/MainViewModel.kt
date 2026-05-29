@@ -127,14 +127,11 @@ data class MainUiState(
     // Akku-Ring-Farben
     val wfBatteryRingColor1: String = "cyan",
     val wfBatteryRingColor2: String = "neon_yellow",
-    // Gesundheitsdaten-Quelle pro Typ: "local" = Uhr-Sensoren, "iobroker" = ioBroker-Datenpunkt
+    // Gesundheitsdaten-Quelle pro Typ: "local" = Uhr-Sensoren, "healthconnect" = Health Connect vom Handy
     val wfHealthDataSource: String = "local",
     val wfHrSource: String = "local",
-    val wfHrIoBrokerId: String = "",
     val wfKcalSource: String = "local",
-    val wfKcalIoBrokerId: String = "",
     val wfOxygenSource: String = "local",
-    val wfOxygenIoBrokerId: String = "",
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 300,
@@ -223,11 +220,8 @@ class MainViewModel @Inject constructor(
         val KEY_WF_HEALTH_DATA_SOURCE  = stringPreferencesKey("wf_health_data_source")
         // Pro-Typ Gesundheitsdaten-Quelle
         val KEY_WF_HR_SOURCE           = stringPreferencesKey("wf_hr_source")
-        val KEY_WF_HR_IOBROKER_ID      = stringPreferencesKey("wf_hr_iobroker_id")
         val KEY_WF_KCAL_SOURCE         = stringPreferencesKey("wf_kcal_source")
-        val KEY_WF_KCAL_IOBROKER_ID    = stringPreferencesKey("wf_kcal_iobroker_id")
         val KEY_WF_OXYGEN_SOURCE       = stringPreferencesKey("wf_oxygen_source")
-        val KEY_WF_OXYGEN_IOBROKER_ID  = stringPreferencesKey("wf_oxygen_iobroker_id")
         // Aktualisierungsintervalle (in Sekunden)
         val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_sec")
         val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_sec")
@@ -314,11 +308,8 @@ class MainViewModel @Inject constructor(
             val wfBatteryRingColor2 = prefs[KEY_WF_BATTERY_RING_COLOR2] ?: "neon_yellow"
             val wfHealthDataSource = prefs[KEY_WF_HEALTH_DATA_SOURCE] ?: "local"
             val wfHrSource         = prefs[KEY_WF_HR_SOURCE]         ?: "local"
-            val wfHrIoBrokerId     = prefs[KEY_WF_HR_IOBROKER_ID]    ?: ""
             val wfKcalSource       = prefs[KEY_WF_KCAL_SOURCE]       ?: "local"
-            val wfKcalIoBrokerId   = prefs[KEY_WF_KCAL_IOBROKER_ID]  ?: ""
             val wfOxygenSource     = prefs[KEY_WF_OXYGEN_SOURCE]     ?: "local"
-            val wfOxygenIoBrokerId = prefs[KEY_WF_OXYGEN_IOBROKER_ID] ?: ""
             val weatherUseFixed   = prefs[KEY_WEATHER_USE_FIXED]   ?: false
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
@@ -392,11 +383,8 @@ class MainViewModel @Inject constructor(
                     wfBatteryRingColor2 = wfBatteryRingColor2,
                     wfHealthDataSource = wfHealthDataSource,
                     wfHrSource         = wfHrSource,
-                    wfHrIoBrokerId     = wfHrIoBrokerId,
                     wfKcalSource       = wfKcalSource,
-                    wfKcalIoBrokerId   = wfKcalIoBrokerId,
                     wfOxygenSource     = wfOxygenSource,
-                    wfOxygenIoBrokerId = wfOxygenIoBrokerId,
                     weatherUseFixedLocation = weatherUseFixed,
                     weatherFixedLat   = weatherFixedLat,
                     weatherFixedLon   = weatherFixedLon,
@@ -410,7 +398,7 @@ class MainViewModel @Inject constructor(
             if (useIoSyncAdapter && ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUseHttps, ioSyncUsername, ioSyncPassword)
             if (wfShowPhoneBattery) startBatteryPolling()
             if (wfShowWeather) startWeatherPolling()
-            if (wfHrSource == "iobroker" || wfKcalSource == "iobroker" || wfOxygenSource == "iobroker") startHealthPolling()
+            if (wfHrSource == "healthconnect" || wfKcalSource == "healthconnect" || wfOxygenSource == "healthconnect") startHealthPolling()
         }
 
         viewModelScope.launch {
@@ -1118,29 +1106,26 @@ class MainViewModel @Inject constructor(
      * Speichert die pro-Typ Gesundheitsdaten-Quellen und startet/stoppt das Health-Polling.
      */
     fun updateHealthSourceConfig(
-        hrSource: String, hrIoBrokerId: String,
-        kcalSource: String, kcalIoBrokerId: String,
-        oxygenSource: String, oxygenIoBrokerId: String
+        hrSource: String,
+        kcalSource: String,
+        oxygenSource: String
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
                 prefs[KEY_WF_HR_SOURCE]          = hrSource
-                prefs[KEY_WF_HR_IOBROKER_ID]     = hrIoBrokerId
                 prefs[KEY_WF_KCAL_SOURCE]        = kcalSource
-                prefs[KEY_WF_KCAL_IOBROKER_ID]   = kcalIoBrokerId
                 prefs[KEY_WF_OXYGEN_SOURCE]      = oxygenSource
-                prefs[KEY_WF_OXYGEN_IOBROKER_ID] = oxygenIoBrokerId
             }
-            // Globale Quelle ableiten: "phone" wenn mindestens ein Typ ioBroker nutzt
-            val anyIoBroker = hrSource == "iobroker" || kcalSource == "iobroker" || oxygenSource == "iobroker"
-            val globalSource = if (anyIoBroker) "phone" else "local"
+            // Globale Quelle ableiten: "phone" wenn mindestens ein Typ Health Connect nutzt
+            val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" || oxygenSource == "healthconnect"
+            val globalSource = if (anyHealthConnect) "phone" else "local"
             dataStore.edit { prefs -> prefs[KEY_WF_HEALTH_DATA_SOURCE] = globalSource }
 
             _uiState.update {
                 it.copy(
-                    wfHrSource = hrSource, wfHrIoBrokerId = hrIoBrokerId,
-                    wfKcalSource = kcalSource, wfKcalIoBrokerId = kcalIoBrokerId,
-                    wfOxygenSource = oxygenSource, wfOxygenIoBrokerId = oxygenIoBrokerId,
+                    wfHrSource = hrSource,
+                    wfKcalSource = kcalSource,
+                    wfOxygenSource = oxygenSource,
                     wfHealthDataSource = globalSource
                 )
             }
@@ -1174,7 +1159,7 @@ class MainViewModel @Inject constructor(
             }
 
             // Health-Polling starten/stoppen
-            if (anyIoBroker) {
+            if (anyHealthConnect) {
                 startHealthPolling()
             } else {
                 healthPollingJob?.cancel()
@@ -1182,7 +1167,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /** Startet das periodische Senden von ioBroker-Health-Daten an die Uhr. */
+    /** Startet das periodische Senden von Health-Connect-Daten an die Uhr. */
     private fun startHealthPolling() {
         healthPollingJob?.cancel()
         healthPollingJob = viewModelScope.launch {
@@ -1193,21 +1178,20 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /** Liest Health-Werte aus ioBroker-States und sendet sie an die Uhr. */
+    /** Liest Health-Werte aus Health Connect und sendet sie an die Uhr. */
     private suspend fun syncHealthValuesToWear() {
         val s = _uiState.value
-        val states = s.ioSyncStates.ifEmpty { s.states }
 
-        val hr = if (s.wfHrSource == "iobroker" && s.wfHrIoBrokerId.isNotBlank()) {
-            states.firstOrNull { it.id == s.wfHrIoBrokerId }?.value?.toDoubleOrNull()?.toInt() ?: 0
+        val hr = if (s.wfHrSource == "healthconnect") {
+            healthConnectManager.readLatestHeartRate() ?: 0
         } else 0
 
-        val kcal = if (s.wfKcalSource == "iobroker" && s.wfKcalIoBrokerId.isNotBlank()) {
-            states.firstOrNull { it.id == s.wfKcalIoBrokerId }?.value?.toDoubleOrNull()?.toInt() ?: 0
+        val kcal = if (s.wfKcalSource == "healthconnect") {
+            healthConnectManager.readTodayCalories() ?: 0
         } else 0
 
-        val o2 = if (s.wfOxygenSource == "iobroker" && s.wfOxygenIoBrokerId.isNotBlank()) {
-            states.firstOrNull { it.id == s.wfOxygenIoBrokerId }?.value?.toDoubleOrNull()?.toInt() ?: 0
+        val o2 = if (s.wfOxygenSource == "healthconnect") {
+            healthConnectManager.readLatestOxygenSaturation() ?: 0
         } else 0
 
         if (hr > 0 || kcal > 0 || o2 > 0) {

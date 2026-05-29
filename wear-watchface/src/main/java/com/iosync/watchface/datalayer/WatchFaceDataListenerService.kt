@@ -248,11 +248,11 @@ object WatchFaceConfigCache {
     @Volatile var batteryRingColor2: String = "neon_yellow"
     // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = vom Smartphone
     @Volatile var healthDataSource: String = "local"
-    // Pro-Typ Quelle: "local" = Uhr-Sensoren, "iobroker" = ioBroker-Datenpunkt via App
+    // Pro-Typ Quelle: "local" = Uhr-Sensoren, "healthconnect" = Health Connect via App
     @Volatile var hrSource: String = "local"
     @Volatile var kcalSource: String = "local"
     @Volatile var oxygenSource: String = "local"
-    // Phone-Health-Daten (wenn Quelle = "iobroker")
+    // Phone-Health-Daten (wenn Quelle = "healthconnect")
     @Volatile var phoneHeartRate: Int = 0
     @Volatile var phoneSpO2: Int = 0
     @Volatile var phoneCalories: Int = 0

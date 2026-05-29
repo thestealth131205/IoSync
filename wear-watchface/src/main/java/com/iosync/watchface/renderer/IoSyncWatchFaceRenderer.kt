@@ -1010,7 +1010,7 @@ class IoSyncWatchFaceRenderer(
 
         // Puls: pro-Typ Quelle mit Fallback auf lokal
         if (config.showHeartRate) {
-            val hr = if (config.hrSource == "iobroker" && phoneDataFresh && config.phoneHeartRate > 0) {
+            val hr = if (config.hrSource == "healthconnect" && phoneDataFresh && config.phoneHeartRate > 0) {
                 config.phoneHeartRate
             } else {
                 healthSensorManager.heartRate
@@ -1021,7 +1021,7 @@ class IoSyncWatchFaceRenderer(
 
         // Kalorien: pro-Typ Quelle mit Fallback auf lokal
         if (config.showCalories) {
-            val kcal = if (config.kcalSource == "iobroker" && phoneDataFresh && config.phoneCalories > 0) {
+            val kcal = if (config.kcalSource == "healthconnect" && phoneDataFresh && config.phoneCalories > 0) {
                 config.phoneCalories
             } else {
                 healthSensorManager.calories
@@ -1032,7 +1032,7 @@ class IoSyncWatchFaceRenderer(
 
         // SpO2: pro-Typ Quelle mit Fallback auf lokal
         if (config.showOxygen) {
-            val o2 = if (config.oxygenSource == "iobroker" && phoneDataFresh && config.phoneSpO2 > 0) {
+            val o2 = if (config.oxygenSource == "healthconnect" && phoneDataFresh && config.phoneSpO2 > 0) {
                 config.phoneSpO2
             } else {
                 healthSensorManager.spO2
@@ -1071,16 +1071,17 @@ class IoSyncWatchFaceRenderer(
             healthValuePaint.textSize = valueSize
 
             if (isSteps) {
-                // Schritte: Symbol + Zahl inline, 15dp nach unten versetzt
+                // Schritte: Symbol + Zahl inline, versetzt
                 val stepsValueSize = radius * 0.105f * scaleFactor
-                val stepsOffsetY = 15f * dp
+                val stepsOffsetX = 12f * dp
+                val stepsOffsetY = 22f * dp
 
                 healthValuePaint.textSize = stepsValueSize
                 healthValuePaint.color    = item.color
 
                 val valueWidth = healthValuePaint.measureText(item.value)
                 val totalW = iconSize + iconSize * 0.35f + valueWidth
-                val leftX = x - totalW / 2f
+                val leftX = x - totalW / 2f + stepsOffsetX
 
                 drawHealthIcon(canvas, leftX + iconSize / 2f, baseY + stepsOffsetY - iconSize * 0.15f, iconSize, "steps")
 
