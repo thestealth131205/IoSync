@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,7 +38,11 @@ class WatchFaceConfigActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         lifecycleScope.launch {
-            editorSession = EditorSession.createOnWatchEditorSession(this@WatchFaceConfigActivity)
+            try {
+                editorSession = EditorSession.createOnWatchEditorSession(this@WatchFaceConfigActivity)
+            } catch (e: Exception) {
+                android.util.Log.w("WatchFaceConfig", "EditorSession nicht verfuegbar: ${e.message}")
+            }
         }
 
         setContent {
