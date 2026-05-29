@@ -497,9 +497,10 @@ class IoSyncWatchFaceRenderer(
         val bx = if (isAmbient) burnInOffsetX else 0f
         val by = if (isAmbient) burnInOffsetY else 0f
 
-        // Uhrzeit — immer zeichnen, kein try-catch nötig
+        // Uhrzeit — in eigenem try-catch damit bei Crash zumindest Fallback gezeigt wird
         var weekdayBottomY: Float = cy + timeFontSize * 0.15f + radius * 0.18f
 
+        try {
         if (isAmbient) {
             ambientTimePaint.textSize  = timeFontSize
             ambientTimePaint.textAlign = Paint.Align.CENTER
@@ -562,11 +563,23 @@ class IoSyncWatchFaceRenderer(
                     cy + timeFontSize * 0.15f + radius * 0.18f
                 }
             }
+        }
+        } catch (e: Exception) {
+            // Fallback: Uhrzeit immer anzeigen
+            Log.e("WatchFaceRenderer", "Time-Render-Fehler", e)
+            timePaint.color = Color.parseColor("#E8E8E8")
+            timePaint.textSize = timeFontSize
+            timePaint.textAlign = Paint.Align.CENTER
+            canvas.drawText(timeStr, cx, cy + timeFontSize * 0.30f, timePaint)
+            timePaint.textAlign = Paint.Align.LEFT
+        }
 
+        // Alle weiteren Elemente werden UNABHÄNGIG von der Uhrzeit gezeichnet
+        if (!isAmbient) {
             // ioBroker-Datenpunkte (optional, vom Smartphone aktivierbar)
             try { if (config.showIoBrokerData) drawIoBrokerData(canvas, cx, cy, radius, weekdayBottomY) } catch (e: Exception) { Log.e("WatchFaceRenderer", "ioBroker-Fehler", e) }
 
-            // Layout oben: Watch-Akku (links) — Wetter (Mitte) — Phone-Akku (rechts)
+            // Layout oben: Watch-Akku (links) �� Wetter (Mitte) — Phone-Akku (rechts)
             try {
                 val watchBatteryScale = config.watchBatteryTextScale / 100f
                 val baseRingRadius = radius * 0.115f
@@ -592,7 +605,6 @@ class IoSyncWatchFaceRenderer(
 
             // Gesundheitsdaten (SpO2 etc.)
             try { drawHealthData(canvas, cx, cy, radius) } catch (e: Exception) { Log.e("WatchFaceRenderer", "HealthData-Fehler", e) }
-
         }
 
         try { drawComplications(canvas, zonedDateTime, isAmbient) } catch (e: Exception) { Log.e("WatchFaceRenderer", "Complications-Fehler", e) }
@@ -602,29 +614,31 @@ class IoSyncWatchFaceRenderer(
 
         // Config-Bestätigung anzeigen (2 s nach Empfang)
         if (!isAmbient) {
-            val elapsed = System.currentTimeMillis() - config.lastConfigReceivedAt
-            if (elapsed in 0 until CONFIRM_DURATION_MS) {
-                val alpha = ((1f - elapsed.toFloat() / CONFIRM_DURATION_MS) * 255).toInt()
-                val text = "Config empfangen"
-                confirmPaint.textSize = radius * 0.10f
-                confirmPaint.alpha = alpha
-                confirmBgPaint.alpha = (alpha * 0.78f).toInt()
-                val textY = cy - radius * 0.72f
-                val textBounds = Rect()
-                confirmPaint.getTextBounds(text, 0, text.length, textBounds)
-                val padH = radius * 0.06f
-                val padV = radius * 0.03f
-                canvas.drawRoundRect(
-                    RectF(
-                        cx - textBounds.width() / 2f - padH,
-                        textY + textBounds.top - padV,
-                        cx + textBounds.width() / 2f + padH,
-                        textY + textBounds.bottom + padV
-                    ),
-                    radius * 0.03f, radius * 0.03f, confirmBgPaint
-                )
-                canvas.drawText(text, cx, textY, confirmPaint)
-            }
+            try {
+                val elapsed = System.currentTimeMillis() - config.lastConfigReceivedAt
+                if (elapsed in 0 until CONFIRM_DURATION_MS) {
+                    val alpha = ((1f - elapsed.toFloat() / CONFIRM_DURATION_MS) * 255).toInt()
+                    val text = "Config empfangen"
+                    confirmPaint.textSize = radius * 0.10f
+                    confirmPaint.alpha = alpha
+                    confirmBgPaint.alpha = (alpha * 0.78f).toInt()
+                    val textY = cy - radius * 0.72f
+                    val textBounds = Rect()
+                    confirmPaint.getTextBounds(text, 0, text.length, textBounds)
+                    val padH = radius * 0.06f
+                    val padV = radius * 0.03f
+                    canvas.drawRoundRect(
+                        RectF(
+                            cx - textBounds.width() / 2f - padH,
+                            textY + textBounds.top - padV,
+                            cx + textBounds.width() / 2f + padH,
+                            textY + textBounds.bottom + padV
+                        ),
+                        radius * 0.03f, radius * 0.03f, confirmBgPaint
+                    )
+                    canvas.drawText(text, cx, textY, confirmPaint)
+                }
+            } catch (e: Exception) { Log.e("WatchFaceRenderer", "ConfirmOverlay-Fehler", e) }
         }
     }
 
@@ -1366,12 +1380,16 @@ class IoSyncWatchFaceRenderer(
         isAmbient: Boolean
     ) {
         // Sunrise/Sunset-Komplikation (Slot 2 = links): Schriftgröße aus Config anwenden
-        val sunriseScale = WatchFaceConfigCache.sunriseTextScale / 100f
-        complicationSlotsManager.complicationSlots[2]?.let { slot ->
-            (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
-                textSize  = (30f * sunriseScale).toInt().coerceAtLeast(8)
-                titleSize = (22f * sunriseScale).toInt().coerceAtLeast(6)
+        try {
+            val sunriseScale = WatchFaceConfigCache.sunriseTextScale / 100f
+            complicationSlotsManager.complicationSlots[2]?.let { slot ->
+                (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
+                    textSize  = (30f * sunriseScale).toInt().coerceAtLeast(8)
+                    titleSize = (22f * sunriseScale).toInt().coerceAtLeast(6)
+                }
             }
+        } catch (e: Exception) {
+            Log.e("WatchFaceRenderer", "SunriseScale-Fehler", e)
         }
         // Slot 0 (Uhren-Akku) wird durch drawBatteryRing() ersetzt — nicht nochmal zeichnen
         complicationSlotsManager.complicationSlots.forEach { (id, slot) ->
