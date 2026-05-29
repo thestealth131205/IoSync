@@ -178,18 +178,18 @@ class IoSyncWatchFaceService : WatchFaceService() {
             textSizeSp = 18
         )
 
-        // Native Komplikation: Schritte (mittig zwischen Slots und Pille)
+        // Native Komplikation: Schritte (Bildschirmmitte, 3dp nach oben)
         val stepsComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_STEPS_ID,
-            bounds = RectF(0.25f, 0.72f, 0.75f, 0.82f),
+            bounds = RectF(0.20f, 0.43f, 0.80f, 0.55f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
             supportedTypes = listOf(
                 ComplicationType.SHORT_TEXT,
                 ComplicationType.RANGED_VALUE,
                 ComplicationType.SMALL_IMAGE
             ),
-            textSizeSp = 18,
+            textSizeSp = 22,
             defaultType = ComplicationType.SHORT_TEXT
         )
 

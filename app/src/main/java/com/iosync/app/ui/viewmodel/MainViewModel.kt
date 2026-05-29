@@ -14,6 +14,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iosync.app.BuildConfig
 import com.iosync.app.data.model.SmartHomeState
+import com.iosync.app.data.health.HealthConnectManager
+import com.iosync.app.data.health.HealthConnectStatus
 import com.iosync.app.data.network.DynamicBaseUrl
 import com.iosync.app.data.network.IoSyncClient
 import com.iosync.app.data.network.SmartHomeWebSocketService
@@ -127,11 +129,14 @@ data class MainUiState(
     val wfBatteryRingColor2: String = "neon_yellow",
     // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = Smartphone
     val wfHealthDataSource: String = "local",
-    // Aktualisierungsintervalle (in Minuten)
-    val batteryPollIntervalMin: Int = 1,
-    val slotPollIntervalMin: Int = 5,
+    // Aktualisierungsintervalle (in Sekunden)
+    val batteryPollIntervalSec: Int = 60,
+    val slotPollIntervalSec: Int = 300,
     // Sync-Status-Log für die Konsolenanzeige
-    val wearSyncLog: String = ""
+    val wearSyncLog: String = "",
+    // Health Connect Status
+    val healthConnectStatus: HealthConnectStatus = HealthConnectStatus(),
+    val healthConnectLoading: Boolean = false
 )
 
 @HiltViewModel
@@ -142,7 +147,8 @@ class MainViewModel @Inject constructor(
     private val wearDataLayerService: WearDataLayerService,
     private val ioSyncClient: IoSyncClient,
     private val dynamicBaseUrl: DynamicBaseUrl,
-    private val weatherService: WeatherService
+    private val weatherService: WeatherService,
+    val healthConnectManager: HealthConnectManager
 ) : ViewModel() {
 
     companion object {
@@ -209,9 +215,9 @@ class MainViewModel @Inject constructor(
         val KEY_WF_BATTERY_RING_COLOR1 = stringPreferencesKey("wf_battery_ring_color1")
         val KEY_WF_BATTERY_RING_COLOR2 = stringPreferencesKey("wf_battery_ring_color2")
         val KEY_WF_HEALTH_DATA_SOURCE  = stringPreferencesKey("wf_health_data_source")
-        // Aktualisierungsintervalle (in Minuten)
-        val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_min")
-        val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_min")
+        // Aktualisierungsintervalle (in Sekunden)
+        val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_sec")
+        val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_sec")
         // Wetter-Standort
         val KEY_WEATHER_USE_FIXED   = booleanPreferencesKey("weather_use_fixed")
         val KEY_WEATHER_FIXED_LAT   = stringPreferencesKey("weather_fixed_lat")
@@ -297,8 +303,8 @@ class MainViewModel @Inject constructor(
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
             val weatherFixedCity  = prefs[KEY_WEATHER_FIXED_CITY]  ?: ""
-            val batteryPollInterval = prefs[KEY_BATTERY_POLL_INTERVAL] ?: 1
-            val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 5
+            val batteryPollInterval = prefs[KEY_BATTERY_POLL_INTERVAL] ?: 60
+            val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 300
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -369,8 +375,8 @@ class MainViewModel @Inject constructor(
                     weatherFixedLat   = weatherFixedLat,
                     weatherFixedLon   = weatherFixedLon,
                     weatherFixedCity  = weatherFixedCity,
-                    batteryPollIntervalMin = batteryPollInterval,
-                    slotPollIntervalMin    = slotPollInterval
+                    batteryPollIntervalSec = batteryPollInterval,
+                    slotPollIntervalSec    = slotPollInterval
                 )
             }
 
@@ -398,6 +404,16 @@ class MainViewModel @Inject constructor(
         }
 
         refresh()
+    }
+
+    // ── Health Connect ────────────────────────────────────────────────────
+
+    fun refreshHealthConnectStatus() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(healthConnectLoading = true) }
+            val status = healthConnectManager.queryStatus()
+            _uiState.update { it.copy(healthConnectStatus = status, healthConnectLoading = false) }
+        }
     }
 
     // ── Daten laden ─────────────────────────────────────────────────────────
@@ -565,7 +581,7 @@ class MainViewModel @Inject constructor(
                         if (_uiState.value.showCustomSlots) syncCustomSlotValues()
                     }
                     .onFailure { /* Fehler werden im IoSyncClient geloggt */ }
-                delay(_uiState.value.slotPollIntervalMin * 60_000L)
+                delay(_uiState.value.slotPollIntervalSec * 1_000L)
             }
         }
     }
@@ -802,13 +818,13 @@ class MainViewModel @Inject constructor(
     // ── Aktualisierungsintervalle ─────────────────────────────────────────────
 
     /** Speichert die Polling-Intervalle und startet die Jobs mit neuem Intervall neu. */
-    fun updatePollIntervals(batteryMin: Int, slotMin: Int) {
+    fun updatePollIntervals(batterySec: Int, slotSec: Int) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
-                prefs[KEY_BATTERY_POLL_INTERVAL] = batteryMin
-                prefs[KEY_SLOT_POLL_INTERVAL]    = slotMin
+                prefs[KEY_BATTERY_POLL_INTERVAL] = batterySec
+                prefs[KEY_SLOT_POLL_INTERVAL]    = slotSec
             }
-            _uiState.update { it.copy(batteryPollIntervalMin = batteryMin, slotPollIntervalMin = slotMin) }
+            _uiState.update { it.copy(batteryPollIntervalSec = batterySec, slotPollIntervalSec = slotSec) }
             // Laufende Jobs mit neuem Intervall neu starten
             if (batteryPollingJob?.isActive == true) startBatteryPolling()
             if (ioSyncPollingJob?.isActive == true) {
@@ -949,7 +965,7 @@ class MainViewModel @Inject constructor(
         batteryPollingJob = viewModelScope.launch {
             while (true) {
                 sendPhoneBattery()
-                delay(_uiState.value.batteryPollIntervalMin * 60_000L)
+                delay(_uiState.value.batteryPollIntervalSec * 1_000L)
             }
         }
     }

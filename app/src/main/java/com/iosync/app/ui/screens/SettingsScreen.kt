@@ -65,6 +65,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.network.GeocodingResult
 import com.iosync.app.ui.theme.NeonYellow
+import com.iosync.app.data.health.HealthConnectStatus
+import com.iosync.app.data.health.HealthDataTypeInfo
 import com.iosync.app.ui.viewmodel.MainUiState
 import com.iosync.app.ui.viewmodel.MainViewModel
 
@@ -141,8 +143,8 @@ fun SettingsScreen(
     var wfBatteryRingColor2 by remember(uiState.wfBatteryRingColor2) { mutableStateOf(uiState.wfBatteryRingColor2) }
 
     // Aktualisierungsintervalle
-    var batteryPollInterval by remember(uiState.batteryPollIntervalMin) { mutableStateOf(uiState.batteryPollIntervalMin) }
-    var slotPollInterval   by remember(uiState.slotPollIntervalMin)    { mutableStateOf(uiState.slotPollIntervalMin) }
+    var batteryPollInterval by remember(uiState.batteryPollIntervalSec) { mutableStateOf(uiState.batteryPollIntervalSec) }
+    var slotPollInterval   by remember(uiState.slotPollIntervalSec)    { mutableStateOf(uiState.slotPollIntervalSec) }
 
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
@@ -1217,6 +1219,11 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
 
+            // ── Gesundheitsdaten (Health Connect) ────────────────────────────
+            HealthConnectSection(viewModel = viewModel, uiState = uiState)
+
+            Spacer(Modifier.height(16.dp))
+
             // ── Über IoSync ──────────────────────────────────────────────────
             Text(
                 text = "Über IoSync",
@@ -1663,7 +1670,13 @@ fun FontSizeDropdown(
     }
 }
 
-private val INTERVAL_OPTIONS = listOf(1, 3, 5, 10, 15, 30, 60)
+// Intervall-Optionen in Sekunden
+private val INTERVAL_OPTIONS_SEC = listOf(30, 60, 180, 300, 600, 900, 1800, 3600)
+
+private fun formatInterval(sec: Int): String = when {
+    sec < 60 -> "$sec s"
+    else -> "${sec / 60} min"
+}
 
 @Composable
 fun IntervalDropdown(
@@ -1680,29 +1693,199 @@ fun IntervalDropdown(
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
             border = BorderStroke(1.dp, Color(0xFF444444))
         ) {
-            Text("$selected min", style = MaterialTheme.typography.bodySmall)
+            Text(formatInterval(selected), style = MaterialTheme.typography.bodySmall)
         }
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.background(Color(0xFF1E1E1E))
         ) {
-            INTERVAL_OPTIONS.forEach { min ->
+            INTERVAL_OPTIONS_SEC.forEach { sec ->
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = "$min min",
-                            color = if (min == selected) NeonYellow else Color.White,
+                            text = formatInterval(sec),
+                            color = if (sec == selected) NeonYellow else Color.White,
                             style = MaterialTheme.typography.bodySmall
                         )
                     },
                     onClick = {
-                        onSelect(min)
+                        onSelect(sec)
                         expanded = false
                     }
                 )
             }
         }
+    }
+}
+
+// ── Health Connect Bereich ──────────────────────────────────────────────────
+
+@Composable
+private fun HealthConnectSection(
+    viewModel: MainViewModel,
+    uiState: MainUiState
+) {
+    val context = LocalContext.current
+    val status = uiState.healthConnectStatus
+    val loading = uiState.healthConnectLoading
+
+    // Health-Connect-Berechtigungen anfragen (spezieller Contract)
+    val healthPermissionLauncher = rememberLauncherForActivityResult(
+        contract = androidx.health.connect.client.PermissionController.createRequestPermissionResultContract()
+    ) {
+        // Nach Berechtigungsanfrage Status neu laden
+        viewModel.refreshHealthConnectStatus()
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Gesundheitsdaten (Health Connect)",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Text(
+            text = "Health Connect verbindet Google Fit, Samsung Health und andere Gesundheits-Apps.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+
+        // Status-Anzeige
+        DetailCard(label = "Status") {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(
+                            color = if (status.sdkAvailable) Color(0xFF4CAF50) else Color(0xFFF44336),
+                            shape = CircleShape
+                        )
+                )
+                Text(
+                    text = viewModel.healthConnectManager.getSdkStatusText(),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+
+        if (!status.sdkAvailable) {
+            Text(
+                text = "Health Connect ist auf diesem Gerät nicht verfügbar. Bitte installiere die Health Connect App aus dem Play Store.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFFF44336)
+            )
+        } else {
+            // Berechtigungen anfordern / Status laden
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Button(
+                    onClick = { viewModel.refreshHealthConnectStatus() },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2A2A2A),
+                        contentColor = Color.White
+                    ),
+                    enabled = !loading
+                ) {
+                    if (loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = NeonYellow
+                        )
+                    } else {
+                        Text("Status prüfen", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        healthPermissionLauncher.launch(viewModel.healthConnectManager.allPermissions)
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonYellow,
+                        contentColor = Color(0xFF1A1A00)
+                    )
+                ) {
+                    Text("Berechtigungen", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
+            // Datentypen-Liste anzeigen
+            if (status.dataTypes.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Verfügbare Datentypen",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                status.dataTypes.forEach { dataType ->
+                    HealthDataTypeRow(dataType)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HealthDataTypeRow(dataType: HealthDataTypeInfo) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = Color(0xFF1A1A1A),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = dataType.displayName,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White
+            )
+            if (dataType.available && dataType.sources.isNotEmpty()) {
+                Text(
+                    text = dataType.sources.joinToString(", "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NeonYellow.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else if (dataType.available) {
+                Text(
+                    text = "Berechtigt (keine Daten in 24h)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(
+                    color = when {
+                        dataType.available && dataType.sources.isNotEmpty() -> Color(0xFF4CAF50)
+                        dataType.available -> Color(0xFFFF9800)
+                        else -> Color(0xFF666666)
+                    },
+                    shape = CircleShape
+                )
+        )
     }
 }
 

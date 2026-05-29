@@ -138,6 +138,9 @@ dependencies {
     // Location (für Wetter-Standortabfrage)
     implementation(libs.play.services.location)
 
+    // Health Connect (Google Fit + Drittanbieter-Gesundheitsdaten)
+    implementation(libs.health.connect.client)
+
     // Test
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

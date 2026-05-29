@@ -26,6 +26,7 @@ watchface = "1.2.1"
 watchfaceComplications = "1.2.1"
 splashScreen = "1.0.1"
 healthServices = "1.0.0"
+healthConnect = "1.1.0-alpha07"
 
 [libraries]
 # AndroidX Core
@@ -75,6 +76,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 
 # Health Services
 health-services-client = { group = "androidx.health", name = "health-services-client", version.ref = "healthServices" }
+health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
 
 # Wearable Data Layer
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
