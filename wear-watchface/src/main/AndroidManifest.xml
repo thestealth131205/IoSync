@@ -44,6 +44,11 @@
             <meta-data
                 android:name="android.service.wallpaper"
                 android:resource="@xml/watch_face" />
+
+            <!-- Zeigt dem System, dass ein On-Watch-Editor existiert -->
+            <meta-data
+                android:name="com.google.android.wearable.watchface.wearableConfigurationAction"
+                android:value="com.google.android.wearable.watchface.CONFIG_WATCH_FACE" />
         </service>
 
         <!-- Watch Face Configuration Activity -->
@@ -51,6 +56,11 @@
             android:name=".WatchFaceConfigActivity"
             android:exported="true"
             android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="com.google.android.wearable.watchface.CONFIG_WATCH_FACE" />
+                <category android:name="com.google.android.wearable.watchface.category.WEARABLE_CONFIGURATION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="androidx.wear.watchface.editor.action.WATCH_FACE_EDITOR" />
                 <category android:name="com.google.android.wearable.watchface.category.WEARABLE_CONFIGURATION" />
