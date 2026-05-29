@@ -1073,8 +1073,8 @@ class IoSyncWatchFaceRenderer(
             if (isSteps) {
                 // Schritte: Symbol + Zahl inline, versetzt
                 val stepsValueSize = radius * 0.105f * scaleFactor
-                val stepsOffsetX = 12f * dp
-                val stepsOffsetY = 22f * dp
+                val stepsOffsetX = 52f * dp
+                val stepsOffsetY = 37f * dp
 
                 healthValuePaint.textSize = stepsValueSize
                 healthValuePaint.color    = item.color

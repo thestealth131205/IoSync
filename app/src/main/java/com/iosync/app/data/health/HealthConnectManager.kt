@@ -61,8 +61,9 @@ class HealthConnectManager @Inject constructor(
         Triple("Training", HealthPermission.getReadPermission(ExerciseSessionRecord::class), ExerciseSessionRecord::class)
     )
 
-    /** Alle benötigten Berechtigungen */
-    val allPermissions: Set<String> = supportedTypes.map { it.second }.toSet()
+    /** Alle benötigten Berechtigungen (inkl. Hintergrund-Lesezugriff für Watchface-Sync) */
+    val allPermissions: Set<String> = supportedTypes.map { it.second }.toSet() +
+        setOf("android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND")
 
     /** Prüft ob Health Connect auf dem Gerät verfügbar ist */
     fun isAvailable(): Boolean {
