@@ -303,8 +303,6 @@ class IoSyncWatchFaceRenderer(
     private var pillPressedAt = 0L
     private val PILL_PRESS_DURATION_MS = 300L
 
-    private val PATH_HEART_RATE_REFRESH = "/iosync/watchface/hr_refresh"
-
     // ── Config-Bestätigung (2 s Overlay) ───────────────────────────────────────
     private val confirmPaint = Paint().apply {
         color = Color.parseColor("#EAFF00")
@@ -1009,7 +1007,20 @@ class IoSyncWatchFaceRenderer(
         val usePhone = config.healthDataSource == "phone"
         val items = mutableListOf<HealthItem>()
 
-        // Puls, Kcal und Schritte werden jetzt als native Complications gerendert (Slots 4, 5 & 6)
+        // Puls: Sensor-Daten der Uhr oder vom Smartphone
+        if (config.showHeartRate) {
+            val hr = if (usePhone) config.phoneHeartRate else healthSensorManager.heartRate
+            val hrText = if (hr > 0) "$hr" else "--"
+            items.add(HealthItem("BPM", hrText, Color.parseColor("#EF5350"), "heart"))
+        }
+
+        // Kalorien: Sensor-Daten der Uhr oder vom Smartphone
+        if (config.showCalories) {
+            val kcal = if (usePhone) config.phoneCalories else healthSensorManager.calories
+            val kcalText = if (kcal > 0) "$kcal" else "--"
+            items.add(HealthItem("KCAL", kcalText, Color.parseColor("#FF9800"), "flame"))
+        }
+
         if (config.showOxygen) {
             val o2 = if (usePhone) config.phoneSpO2 else healthSensorManager.spO2
             val o2Text = if (o2 > 0) "$o2%" else "--%"
@@ -1018,6 +1029,8 @@ class IoSyncWatchFaceRenderer(
 
         if (items.isEmpty()) return
 
+        val hrScale    = config.hrTextScale / 100f
+        val kcalScale  = config.kcalTextScale / 100f
         val stepsScale = config.stepsTextScale / 100f
 
         val itemWidth  = radius * 0.80f
@@ -1027,8 +1040,10 @@ class IoSyncWatchFaceRenderer(
 
         for ((index, item) in items.withIndex()) {
             val scaleFactor = when (item.icon) {
+                "heart" -> hrScale
+                "flame" -> kcalScale
                 "steps" -> stepsScale
-                else    -> stepsScale
+                else    -> 1f
             }
             val isSteps   = item.icon == "steps"
             val labelSize = radius * 0.070f * scaleFactor

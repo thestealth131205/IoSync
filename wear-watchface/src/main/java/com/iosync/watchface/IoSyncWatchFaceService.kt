@@ -41,8 +41,6 @@ class IoSyncWatchFaceService : WatchFaceService() {
         const val COMPLICATION_TOP_ID = 0
         const val COMPLICATION_LEFT_ID = 2
         const val COMPLICATION_RIGHT_ID = 3
-        const val COMPLICATION_HEART_RATE_ID = 4
-        const val COMPLICATION_CALORIES_ID = 5
         const val COMPLICATION_STEPS_ID = 6
     }
 
@@ -152,32 +150,6 @@ class IoSyncWatchFaceService : WatchFaceService() {
             textSizeSp = 20
         )
 
-        // Native Komplikation: Puls (links unten)
-        val heartRateComplication = buildComplicationSlot(
-            context = context,
-            id = COMPLICATION_HEART_RATE_ID,
-            bounds = RectF(0.05f, 0.68f, 0.40f, 0.88f),
-            supportedTypes = listOf(
-                ComplicationType.SHORT_TEXT,
-                ComplicationType.RANGED_VALUE,
-                ComplicationType.SMALL_IMAGE
-            ),
-            textSizeSp = 18
-        )
-
-        // Native Komplikation: Kalorien (rechts unten)
-        val caloriesComplication = buildComplicationSlot(
-            context = context,
-            id = COMPLICATION_CALORIES_ID,
-            bounds = RectF(0.60f, 0.68f, 0.95f, 0.88f),
-            supportedTypes = listOf(
-                ComplicationType.SHORT_TEXT,
-                ComplicationType.RANGED_VALUE,
-                ComplicationType.SMALL_IMAGE
-            ),
-            textSizeSp = 18
-        )
-
         // Native Komplikation: Schritte (zwischen ioBroker-Slots und Pille)
         val stepsComplication = buildComplicationSlot(
             context = context,
@@ -197,8 +169,6 @@ class IoSyncWatchFaceService : WatchFaceService() {
             complicationSlotCollection = listOf(
                 topComplication,
                 leftComplication,
-                heartRateComplication,
-                caloriesComplication,
                 stepsComplication
             ),
             currentUserStyleRepository = currentUserStyleRepository
