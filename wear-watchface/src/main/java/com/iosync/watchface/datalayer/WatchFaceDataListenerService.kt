@@ -81,6 +81,9 @@ private const val KEY_WF_SUNRISE_TEXT_SCALE        = "wf_sunrise_text_scale"
 private const val KEY_WF_WATCH_BATTERY_TEXT_SCALE  = "wf_watch_battery_text_scale"
 private const val KEY_WF_STEPS_TEXT_SCALE          = "wf_steps_text_scale"
 private const val KEY_WF_HEALTH_DATA_SOURCE        = "wf_health_data_source"
+private const val KEY_WF_HR_SOURCE                 = "wf_hr_source"
+private const val KEY_WF_KCAL_SOURCE               = "wf_kcal_source"
+private const val KEY_WF_OXYGEN_SOURCE             = "wf_oxygen_source"
 
 // ── Phone-Health-Daten (vom Smartphone gesendet) ────────────────────────────
 private const val PATH_PHONE_HEALTH          = "/iosync/watchface/phone_health"
@@ -159,6 +162,7 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     if (dataMap.containsKey(KEY_PHONE_HEART_RATE)) WatchFaceConfigCache.phoneHeartRate = dataMap.getInt(KEY_PHONE_HEART_RATE)
                     if (dataMap.containsKey(KEY_PHONE_SPO2))       WatchFaceConfigCache.phoneSpO2      = dataMap.getInt(KEY_PHONE_SPO2)
                     if (dataMap.containsKey(KEY_PHONE_CALORIES))   WatchFaceConfigCache.phoneCalories   = dataMap.getInt(KEY_PHONE_CALORIES)
+                    WatchFaceConfigCache.phoneHealthLastReceived = System.currentTimeMillis()
                     Log.d(TAG, "Phone-Health-Daten empfangen: HR=${WatchFaceConfigCache.phoneHeartRate}, SpO2=${WatchFaceConfigCache.phoneSpO2}, kcal=${WatchFaceConfigCache.phoneCalories}")
                 }
                 PATH_ACTION_PILL_STATE -> {
@@ -244,10 +248,15 @@ object WatchFaceConfigCache {
     @Volatile var batteryRingColor2: String = "neon_yellow"
     // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = vom Smartphone
     @Volatile var healthDataSource: String = "local"
-    // Phone-Health-Daten (wenn Quelle = "phone")
+    // Pro-Typ Quelle: "local" = Uhr-Sensoren, "iobroker" = ioBroker-Datenpunkt via App
+    @Volatile var hrSource: String = "local"
+    @Volatile var kcalSource: String = "local"
+    @Volatile var oxygenSource: String = "local"
+    // Phone-Health-Daten (wenn Quelle = "iobroker")
     @Volatile var phoneHeartRate: Int = 0
     @Volatile var phoneSpO2: Int = 0
     @Volatile var phoneCalories: Int = 0
+    @Volatile var phoneHealthLastReceived: Long = 0L
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
@@ -297,6 +306,9 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_BATTERY_RING_COLOR1)?.let { batteryRingColor1 = it }
         dataMap.getString(KEY_WF_BATTERY_RING_COLOR2)?.let { batteryRingColor2 = it }
         dataMap.getString(KEY_WF_HEALTH_DATA_SOURCE)?.let { healthDataSource = it }
+        dataMap.getString(KEY_WF_HR_SOURCE)?.let { hrSource = it }
+        dataMap.getString(KEY_WF_KCAL_SOURCE)?.let { kcalSource = it }
+        dataMap.getString(KEY_WF_OXYGEN_SOURCE)?.let { oxygenSource = it }
     }
 }
 

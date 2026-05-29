@@ -84,7 +84,14 @@ private const val KEY_WF_SUNRISE_TEXT_SCALE        = "wf_sunrise_text_scale"
 private const val KEY_WF_WATCH_BATTERY_TEXT_SCALE = "wf_watch_battery_text_scale"
 private const val KEY_WF_STEPS_TEXT_SCALE         = "wf_steps_text_scale"
 private const val KEY_WF_HEALTH_DATA_SOURCE      = "wf_health_data_source"
+private const val KEY_WF_HR_SOURCE               = "wf_hr_source"
+private const val KEY_WF_KCAL_SOURCE             = "wf_kcal_source"
+private const val KEY_WF_OXYGEN_SOURCE           = "wf_oxygen_source"
 private const val PATH_CUSTOM_SLOTS           = "/iosync/watchface/custom_slots"
+private const val PATH_PHONE_HEALTH           = "/iosync/watchface/phone_health"
+private const val KEY_PHONE_HEART_RATE        = "phone_heart_rate"
+private const val KEY_PHONE_SPO2              = "phone_spo2"
+private const val KEY_PHONE_CALORIES          = "phone_calories"
 
 // ── Aktions-Pille-Konfigurationsschlüssel ─────────────────────────────────────
 private const val KEY_WF_ACTION_PILL_ENABLED     = "wf_action_pill_enabled"
@@ -251,7 +258,10 @@ class WearDataLayerService @Inject constructor(
         watchBatteryTextScale: Int = 100,
         batteryRingColor1: String = "cyan",
         batteryRingColor2: String = "neon_yellow",
-        healthDataSource: String = "local"
+        healthDataSource: String = "local",
+        hrSource: String = "local",
+        kcalSource: String = "local",
+        oxygenSource: String = "local"
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -302,6 +312,9 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_BATTERY_RING_COLOR1, batteryRingColor1)
                     dataMap.putString(KEY_WF_BATTERY_RING_COLOR2, batteryRingColor2)
                     dataMap.putString(KEY_WF_HEALTH_DATA_SOURCE, healthDataSource)
+                    dataMap.putString(KEY_WF_HR_SOURCE, hrSource)
+                    dataMap.putString(KEY_WF_KCAL_SOURCE, kcalSource)
+                    dataMap.putString(KEY_WF_OXYGEN_SOURCE, oxygenSource)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
@@ -384,6 +397,26 @@ class WearDataLayerService @Inject constructor(
                 Log.d(TAG, "Custom-Slot-Daten an Wear OS übertragen")
             } catch (e: Exception) {
                 Log.e(TAG, "syncCustomSlotsToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt Gesundheitsdaten (vom Smartphone / ioBroker) an das Watchface.
+     */
+    suspend fun syncPhoneHealthToWear(heartRate: Int, spO2: Int, calories: Int) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_PHONE_HEALTH).apply {
+                    dataMap.putInt(KEY_PHONE_HEART_RATE, heartRate)
+                    dataMap.putInt(KEY_PHONE_SPO2, spO2)
+                    dataMap.putInt(KEY_PHONE_CALORIES, calories)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Phone-Health-Daten an Wear OS übertragen: HR=$heartRate, SpO2=$spO2, kcal=$calories")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncPhoneHealthToWear fehlgeschlagen", e)
             }
         }
     }

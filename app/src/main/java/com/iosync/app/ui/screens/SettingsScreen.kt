@@ -111,6 +111,14 @@ fun SettingsScreen(
     var wfShowSteps     by remember(uiState.wfShowSteps)     { mutableStateOf(uiState.wfShowSteps) }
     var wfHealthDataSource by remember(uiState.wfHealthDataSource) { mutableStateOf(uiState.wfHealthDataSource) }
 
+    // Pro-Typ Gesundheitsdaten-Quelle
+    var wfHrSource         by remember(uiState.wfHrSource)         { mutableStateOf(uiState.wfHrSource) }
+    var wfHrIoBrokerId     by remember(uiState.wfHrIoBrokerId)     { mutableStateOf(uiState.wfHrIoBrokerId) }
+    var wfKcalSource       by remember(uiState.wfKcalSource)       { mutableStateOf(uiState.wfKcalSource) }
+    var wfKcalIoBrokerId   by remember(uiState.wfKcalIoBrokerId)   { mutableStateOf(uiState.wfKcalIoBrokerId) }
+    var wfOxygenSource     by remember(uiState.wfOxygenSource)     { mutableStateOf(uiState.wfOxygenSource) }
+    var wfOxygenIoBrokerId by remember(uiState.wfOxygenIoBrokerId) { mutableStateOf(uiState.wfOxygenIoBrokerId) }
+
     // Custom ioBroker-Slots
     var showCustomSlots by remember(uiState.showCustomSlots) { mutableStateOf(uiState.showCustomSlots) }
     var customSlot1Id    by remember(uiState.customSlot1Id)    { mutableStateOf(uiState.customSlot1Id) }
@@ -162,8 +170,7 @@ fun SettingsScreen(
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
         wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories, wfShowSteps,
         wfHrTextScale, wfKcalTextScale, wfStepsTextScale, wfWeatherTextScale, wfSunriseTextScale, wfWatchBatteryTextScale,
-        wfBatteryRingColor1, wfBatteryRingColor2,
-        wfHealthDataSource
+        wfBatteryRingColor1, wfBatteryRingColor2
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -195,8 +202,7 @@ fun SettingsScreen(
             sunriseTextScale   = wfSunriseTextScale,
             watchBatteryTextScale = wfWatchBatteryTextScale,
             batteryRingColor1  = wfBatteryRingColor1,
-            batteryRingColor2  = wfBatteryRingColor2,
-            healthDataSource   = wfHealthDataSource
+            batteryRingColor2  = wfBatteryRingColor2
         )
     }
 
@@ -675,42 +681,71 @@ fun SettingsScreen(
 
             WatchFaceToggleRow(
                 text = "Puls anzeigen",
-                subText = "Herzfrequenz vom Sensor der Uhr",
+                subText = "Herzfrequenz auf dem Watchface",
                 checked = wfShowHeartRate,
                 onCheckedChange = { wfShowHeartRate = it }
             )
-            WatchFaceToggleRow(
-                text = "Oxygen (SpO2) anzeigen",
-                subText = "Sauerstoffsättigung (falls Sensor vorhanden)",
-                checked = wfShowOxygen,
-                onCheckedChange = { wfShowOxygen = it }
-            )
+            if (wfShowHeartRate) {
+                HealthSourcePerTypeRow(
+                    label = "Puls-Quelle",
+                    source = wfHrSource,
+                    onSourceChange = { wfHrSource = it },
+                    ioBrokerId = wfHrIoBrokerId,
+                    onIoBrokerIdChange = { wfHrIoBrokerId = it },
+                    availableStates = uiState.states
+                )
+            }
+
             WatchFaceToggleRow(
                 text = "Kalorien anzeigen",
-                subText = "Geschätzt aus Schrittzähler der Uhr",
+                subText = "Kalorien auf dem Watchface",
                 checked = wfShowCalories,
                 onCheckedChange = { wfShowCalories = it }
             )
-
-            // ── Datenquelle für Gesundheitsdaten ────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Datenquelle", style = MaterialTheme.typography.bodyMedium, color = Color.White)
-                    Text(
-                        "Lokal = Uhr-Sensoren, Smartphone = via Data Layer",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                HealthSourceDropdown(
-                    selected = wfHealthDataSource,
-                    onSelect = { wfHealthDataSource = it },
-                    modifier = Modifier.weight(0.6f)
+            if (wfShowCalories) {
+                HealthSourcePerTypeRow(
+                    label = "Kcal-Quelle",
+                    source = wfKcalSource,
+                    onSourceChange = { wfKcalSource = it },
+                    ioBrokerId = wfKcalIoBrokerId,
+                    onIoBrokerIdChange = { wfKcalIoBrokerId = it },
+                    availableStates = uiState.states
                 )
+            }
+
+            WatchFaceToggleRow(
+                text = "Oxygen (SpO2) anzeigen",
+                subText = "Sauerstoffsättigung auf dem Watchface",
+                checked = wfShowOxygen,
+                onCheckedChange = { wfShowOxygen = it }
+            )
+            if (wfShowOxygen) {
+                HealthSourcePerTypeRow(
+                    label = "SpO2-Quelle",
+                    source = wfOxygenSource,
+                    onSourceChange = { wfOxygenSource = it },
+                    ioBrokerId = wfOxygenIoBrokerId,
+                    onIoBrokerIdChange = { wfOxygenIoBrokerId = it },
+                    availableStates = uiState.states
+                )
+            }
+
+            // Speichern-Button für Health-Quellen
+            Button(
+                onClick = {
+                    viewModel.updateHealthSourceConfig(
+                        hrSource = wfHrSource, hrIoBrokerId = wfHrIoBrokerId.trim(),
+                        kcalSource = wfKcalSource, kcalIoBrokerId = wfKcalIoBrokerId.trim(),
+                        oxygenSource = wfOxygenSource, oxygenIoBrokerId = wfOxygenIoBrokerId.trim()
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NeonYellow,
+                    contentColor = Color(0xFF1A1A00)
+                )
+            ) {
+                Text("Health-Quellen speichern & übertragen", style = MaterialTheme.typography.labelLarge)
             }
 
             Spacer(Modifier.height(4.dp))
@@ -1891,6 +1926,92 @@ private fun HealthDataTypeRow(dataType: HealthDataTypeInfo) {
                     shape = CircleShape
                 )
         )
+    }
+}
+
+private val HEALTH_SOURCE_PER_TYPE_OPTIONS = listOf("local" to "Lokal (Uhr)", "iobroker" to "ioBroker-Wert")
+
+/**
+ * Pro-Typ Gesundheitsdaten-Quelle: Dropdown (Lokal/ioBroker) + optional DatapointDropdown
+ */
+@Composable
+private fun HealthSourcePerTypeRow(
+    label: String,
+    source: String,
+    onSourceChange: (String) -> Unit,
+    ioBrokerId: String,
+    onIoBrokerIdChange: (String) -> Unit,
+    availableStates: List<SmartHomeState>
+) {
+    Column(modifier = Modifier.padding(start = 16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = Color.White, modifier = Modifier.weight(1f))
+            HealthSourcePerTypeDropdown(
+                selected = source,
+                onSelect = onSourceChange,
+                modifier = Modifier.weight(0.7f)
+            )
+        }
+        if (source == "iobroker") {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "ioBroker-Datenpunkt wählen:",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            DatapointDropdown(
+                selectedId = ioBrokerId,
+                availableStates = availableStates,
+                onSelect = onIoBrokerIdChange,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun HealthSourcePerTypeDropdown(
+    selected: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayName = HEALTH_SOURCE_PER_TYPE_OPTIONS.firstOrNull { it.first == selected }?.second ?: selected
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFF444444))
+        ) {
+            Text(displayName, style = MaterialTheme.typography.bodySmall)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color(0xFF1E1E1E))
+        ) {
+            HEALTH_SOURCE_PER_TYPE_OPTIONS.forEach { (value, lbl) ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = lbl,
+                            color = if (value == selected) NeonYellow else Color.White,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    onClick = {
+                        onSelect(value)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
 

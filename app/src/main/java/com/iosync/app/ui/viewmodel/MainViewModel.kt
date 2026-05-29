@@ -127,8 +127,14 @@ data class MainUiState(
     // Akku-Ring-Farben
     val wfBatteryRingColor1: String = "cyan",
     val wfBatteryRingColor2: String = "neon_yellow",
-    // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = Smartphone
+    // Gesundheitsdaten-Quelle pro Typ: "local" = Uhr-Sensoren, "iobroker" = ioBroker-Datenpunkt
     val wfHealthDataSource: String = "local",
+    val wfHrSource: String = "local",
+    val wfHrIoBrokerId: String = "",
+    val wfKcalSource: String = "local",
+    val wfKcalIoBrokerId: String = "",
+    val wfOxygenSource: String = "local",
+    val wfOxygenIoBrokerId: String = "",
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 300,
@@ -215,6 +221,13 @@ class MainViewModel @Inject constructor(
         val KEY_WF_BATTERY_RING_COLOR1 = stringPreferencesKey("wf_battery_ring_color1")
         val KEY_WF_BATTERY_RING_COLOR2 = stringPreferencesKey("wf_battery_ring_color2")
         val KEY_WF_HEALTH_DATA_SOURCE  = stringPreferencesKey("wf_health_data_source")
+        // Pro-Typ Gesundheitsdaten-Quelle
+        val KEY_WF_HR_SOURCE           = stringPreferencesKey("wf_hr_source")
+        val KEY_WF_HR_IOBROKER_ID      = stringPreferencesKey("wf_hr_iobroker_id")
+        val KEY_WF_KCAL_SOURCE         = stringPreferencesKey("wf_kcal_source")
+        val KEY_WF_KCAL_IOBROKER_ID    = stringPreferencesKey("wf_kcal_iobroker_id")
+        val KEY_WF_OXYGEN_SOURCE       = stringPreferencesKey("wf_oxygen_source")
+        val KEY_WF_OXYGEN_IOBROKER_ID  = stringPreferencesKey("wf_oxygen_iobroker_id")
         // Aktualisierungsintervalle (in Sekunden)
         val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_sec")
         val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_sec")
@@ -237,6 +250,7 @@ class MainViewModel @Inject constructor(
     private var ioSyncPollingJob: Job? = null
     private var batteryPollingJob: Job? = null
     private var weatherPollingJob: Job? = null
+    private var healthPollingJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -299,6 +313,12 @@ class MainViewModel @Inject constructor(
             val wfBatteryRingColor1 = prefs[KEY_WF_BATTERY_RING_COLOR1] ?: "cyan"
             val wfBatteryRingColor2 = prefs[KEY_WF_BATTERY_RING_COLOR2] ?: "neon_yellow"
             val wfHealthDataSource = prefs[KEY_WF_HEALTH_DATA_SOURCE] ?: "local"
+            val wfHrSource         = prefs[KEY_WF_HR_SOURCE]         ?: "local"
+            val wfHrIoBrokerId     = prefs[KEY_WF_HR_IOBROKER_ID]    ?: ""
+            val wfKcalSource       = prefs[KEY_WF_KCAL_SOURCE]       ?: "local"
+            val wfKcalIoBrokerId   = prefs[KEY_WF_KCAL_IOBROKER_ID]  ?: ""
+            val wfOxygenSource     = prefs[KEY_WF_OXYGEN_SOURCE]     ?: "local"
+            val wfOxygenIoBrokerId = prefs[KEY_WF_OXYGEN_IOBROKER_ID] ?: ""
             val weatherUseFixed   = prefs[KEY_WEATHER_USE_FIXED]   ?: false
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
@@ -371,6 +391,12 @@ class MainViewModel @Inject constructor(
                     wfBatteryRingColor1 = wfBatteryRingColor1,
                     wfBatteryRingColor2 = wfBatteryRingColor2,
                     wfHealthDataSource = wfHealthDataSource,
+                    wfHrSource         = wfHrSource,
+                    wfHrIoBrokerId     = wfHrIoBrokerId,
+                    wfKcalSource       = wfKcalSource,
+                    wfKcalIoBrokerId   = wfKcalIoBrokerId,
+                    wfOxygenSource     = wfOxygenSource,
+                    wfOxygenIoBrokerId = wfOxygenIoBrokerId,
                     weatherUseFixedLocation = weatherUseFixed,
                     weatherFixedLat   = weatherFixedLat,
                     weatherFixedLon   = weatherFixedLon,
@@ -384,6 +410,7 @@ class MainViewModel @Inject constructor(
             if (useIoSyncAdapter && ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUseHttps, ioSyncUsername, ioSyncPassword)
             if (wfShowPhoneBattery) startBatteryPolling()
             if (wfShowWeather) startWeatherPolling()
+            if (wfHrSource == "iobroker" || wfKcalSource == "iobroker" || wfOxygenSource == "iobroker") startHealthPolling()
         }
 
         viewModelScope.launch {
@@ -626,7 +653,10 @@ class MainViewModel @Inject constructor(
         watchBatteryTextScale: Int = _uiState.value.wfWatchBatteryTextScale,
         batteryRingColor1: String = _uiState.value.wfBatteryRingColor1,
         batteryRingColor2: String = _uiState.value.wfBatteryRingColor2,
-        healthDataSource: String = _uiState.value.wfHealthDataSource
+        healthDataSource: String = _uiState.value.wfHealthDataSource,
+        hrSource: String = _uiState.value.wfHrSource,
+        kcalSource: String = _uiState.value.wfKcalSource,
+        oxygenSource: String = _uiState.value.wfOxygenSource
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(wearSyncLog = "Sende Watchface-Konfiguration …") }
@@ -714,7 +744,8 @@ class MainViewModel @Inject constructor(
                     hrTextScale, kcalTextScale, stepsTextScale, slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale,
                     weatherTextScale, sunriseTextScale, watchBatteryTextScale,
                     batteryRingColor1, batteryRingColor2,
-                    healthDataSource
+                    healthDataSource,
+                    hrSource, kcalSource, oxygenSource
                 )
                 _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -794,7 +825,8 @@ class MainViewModel @Inject constructor(
                     s.wfHrTextScale, s.wfKcalTextScale, s.wfStepsTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
                     s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
                     s.wfBatteryRingColor1, s.wfBatteryRingColor2,
-                    s.wfHealthDataSource
+                    s.wfHealthDataSource,
+                    s.wfHrSource, s.wfKcalSource, s.wfOxygenSource
                 )
                 _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -921,7 +953,8 @@ class MainViewModel @Inject constructor(
                     s2.wfHrTextScale, s2.wfKcalTextScale, s2.wfStepsTextScale, s2.wfSlot1TextScale, s2.wfSlot2TextScale, s2.wfSlot3TextScale, s2.wfSlot4TextScale,
                     s2.wfWeatherTextScale, s2.wfSunriseTextScale, s2.wfWatchBatteryTextScale,
                     s2.wfBatteryRingColor1, s2.wfBatteryRingColor2,
-                    s2.wfHealthDataSource
+                    s2.wfHealthDataSource,
+                    s2.wfHrSource, s2.wfKcalSource, s2.wfOxygenSource
                 )
                 _uiState.update { it.copy(wearSyncLog = "Slot-Daten übertragen") }
             }
@@ -1076,6 +1109,109 @@ class MainViewModel @Inject constructor(
             // Sofort neue Wetterdaten abrufen
             weatherService.fetchWeather()
                 .onSuccess { wearDataLayerService.syncWeatherToWear(it.temperature, it.condition) }
+        }
+    }
+
+    // ── Gesundheitsdaten-Quelle pro Typ ──────────────────────────────────────
+
+    /**
+     * Speichert die pro-Typ Gesundheitsdaten-Quellen und startet/stoppt das Health-Polling.
+     */
+    fun updateHealthSourceConfig(
+        hrSource: String, hrIoBrokerId: String,
+        kcalSource: String, kcalIoBrokerId: String,
+        oxygenSource: String, oxygenIoBrokerId: String
+    ) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_WF_HR_SOURCE]          = hrSource
+                prefs[KEY_WF_HR_IOBROKER_ID]     = hrIoBrokerId
+                prefs[KEY_WF_KCAL_SOURCE]        = kcalSource
+                prefs[KEY_WF_KCAL_IOBROKER_ID]   = kcalIoBrokerId
+                prefs[KEY_WF_OXYGEN_SOURCE]      = oxygenSource
+                prefs[KEY_WF_OXYGEN_IOBROKER_ID] = oxygenIoBrokerId
+            }
+            // Globale Quelle ableiten: "phone" wenn mindestens ein Typ ioBroker nutzt
+            val anyIoBroker = hrSource == "iobroker" || kcalSource == "iobroker" || oxygenSource == "iobroker"
+            val globalSource = if (anyIoBroker) "phone" else "local"
+            dataStore.edit { prefs -> prefs[KEY_WF_HEALTH_DATA_SOURCE] = globalSource }
+
+            _uiState.update {
+                it.copy(
+                    wfHrSource = hrSource, wfHrIoBrokerId = hrIoBrokerId,
+                    wfKcalSource = kcalSource, wfKcalIoBrokerId = kcalIoBrokerId,
+                    wfOxygenSource = oxygenSource, wfOxygenIoBrokerId = oxygenIoBrokerId,
+                    wfHealthDataSource = globalSource
+                )
+            }
+
+            // Config an Uhr übertragen (damit sie weiß welche Quellen pro Typ gelten)
+            try {
+                if (!wearDataLayerService.isWatchConnected()) {
+                    _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
+                    return@launch
+                }
+                val s = _uiState.value
+                wearDataLayerService.syncWatchFaceConfigToWear(
+                    s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
+                    s.wfShowPhoneBattery, s.wfShowIoBrokerData, s.wfShowSecondsRing,
+                    s.wfSecondsRingColor, s.wfSecondsRingWidth, s.wfSecondsGlowWidth, s.wfSecondsNumberColor,
+                    s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
+                    s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
+                    s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories,
+                    s.wfShowSteps, s.showCustomSlots, s.customSlot1Label, s.customSlot2Label,
+                    s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
+                    s.customSlot4BarShowLabel,
+                    s.wfHrTextScale, s.wfKcalTextScale, s.wfStepsTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
+                    s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
+                    s.wfBatteryRingColor1, s.wfBatteryRingColor2,
+                    globalSource,
+                    hrSource, kcalSource, oxygenSource
+                )
+                _uiState.update { it.copy(wearSyncLog = "Health-Quellen-Konfiguration übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+
+            // Health-Polling starten/stoppen
+            if (anyIoBroker) {
+                startHealthPolling()
+            } else {
+                healthPollingJob?.cancel()
+            }
+        }
+    }
+
+    /** Startet das periodische Senden von ioBroker-Health-Daten an die Uhr. */
+    private fun startHealthPolling() {
+        healthPollingJob?.cancel()
+        healthPollingJob = viewModelScope.launch {
+            while (true) {
+                syncHealthValuesToWear()
+                delay(_uiState.value.slotPollIntervalSec * 1_000L)
+            }
+        }
+    }
+
+    /** Liest Health-Werte aus ioBroker-States und sendet sie an die Uhr. */
+    private suspend fun syncHealthValuesToWear() {
+        val s = _uiState.value
+        val states = s.ioSyncStates.ifEmpty { s.states }
+
+        val hr = if (s.wfHrSource == "iobroker" && s.wfHrIoBrokerId.isNotBlank()) {
+            states.firstOrNull { it.id == s.wfHrIoBrokerId }?.value?.toDoubleOrNull()?.toInt() ?: 0
+        } else 0
+
+        val kcal = if (s.wfKcalSource == "iobroker" && s.wfKcalIoBrokerId.isNotBlank()) {
+            states.firstOrNull { it.id == s.wfKcalIoBrokerId }?.value?.toDoubleOrNull()?.toInt() ?: 0
+        } else 0
+
+        val o2 = if (s.wfOxygenSource == "iobroker" && s.wfOxygenIoBrokerId.isNotBlank()) {
+            states.firstOrNull { it.id == s.wfOxygenIoBrokerId }?.value?.toDoubleOrNull()?.toInt() ?: 0
+        } else 0
+
+        if (hr > 0 || kcal > 0 || o2 > 0) {
+            wearDataLayerService.syncPhoneHealthToWear(hr, o2, kcal)
         }
     }
 

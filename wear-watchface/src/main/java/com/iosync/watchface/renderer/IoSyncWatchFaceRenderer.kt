@@ -1004,25 +1004,39 @@ class IoSyncWatchFaceRenderer(
 
     private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
-        val usePhone = config.healthDataSource == "phone"
+        // Daten gelten als "frisch" wenn in den letzten 10 Minuten empfangen
+        val phoneDataFresh = (System.currentTimeMillis() - config.phoneHealthLastReceived) < 600_000L
         val items = mutableListOf<HealthItem>()
 
-        // Puls: Sensor-Daten der Uhr oder vom Smartphone
+        // Puls: pro-Typ Quelle mit Fallback auf lokal
         if (config.showHeartRate) {
-            val hr = if (usePhone) config.phoneHeartRate else healthSensorManager.heartRate
+            val hr = if (config.hrSource == "iobroker" && phoneDataFresh && config.phoneHeartRate > 0) {
+                config.phoneHeartRate
+            } else {
+                healthSensorManager.heartRate
+            }
             val hrText = if (hr > 0) "$hr" else "--"
             items.add(HealthItem("BPM", hrText, Color.parseColor("#EF5350"), "heart"))
         }
 
-        // Kalorien: Sensor-Daten der Uhr oder vom Smartphone
+        // Kalorien: pro-Typ Quelle mit Fallback auf lokal
         if (config.showCalories) {
-            val kcal = if (usePhone) config.phoneCalories else healthSensorManager.calories
+            val kcal = if (config.kcalSource == "iobroker" && phoneDataFresh && config.phoneCalories > 0) {
+                config.phoneCalories
+            } else {
+                healthSensorManager.calories
+            }
             val kcalText = if (kcal > 0) "$kcal" else "--"
             items.add(HealthItem("KCAL", kcalText, Color.parseColor("#FF9800"), "flame"))
         }
 
+        // SpO2: pro-Typ Quelle mit Fallback auf lokal
         if (config.showOxygen) {
-            val o2 = if (usePhone) config.phoneSpO2 else healthSensorManager.spO2
+            val o2 = if (config.oxygenSource == "iobroker" && phoneDataFresh && config.phoneSpO2 > 0) {
+                config.phoneSpO2
+            } else {
+                healthSensorManager.spO2
+            }
             val o2Text = if (o2 > 0) "$o2%" else "--%"
             items.add(HealthItem("OXYGEN", o2Text, Color.parseColor("#42A5F5"), "oxygen"))
         }
