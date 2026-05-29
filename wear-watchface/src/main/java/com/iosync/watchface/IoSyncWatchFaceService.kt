@@ -182,14 +182,14 @@ class IoSyncWatchFaceService : WatchFaceService() {
         val stepsComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_STEPS_ID,
-            bounds = RectF(0.25f, 0.72f, 0.75f, 0.82f),
+            bounds = RectF(0.30f, 0.71f, 0.70f, 0.83f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
             supportedTypes = listOf(
                 ComplicationType.SHORT_TEXT,
                 ComplicationType.RANGED_VALUE,
                 ComplicationType.SMALL_IMAGE
             ),
-            textSizeSp = 18,
+            textSizeSp = 20,
             defaultType = ComplicationType.SHORT_TEXT
         )
 
