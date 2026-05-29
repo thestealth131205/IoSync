@@ -65,17 +65,18 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
-        <!-- Health Connect Berechtigungs-Deklaration -->
-        <activity
-            android:name="androidx.health.connect.client.PermissionController"
-            android:exported="true">
+        <!-- Health Connect: Berechtigungs-Rationale → leitet auf MainActivity -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <activity-alias
-            android:name="ViewPermissionUsageActivity"
+            android:name="ViewPermissionUsageActivityHC"
             android:exported="true"
             android:targetActivity=".MainActivity"
             android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
