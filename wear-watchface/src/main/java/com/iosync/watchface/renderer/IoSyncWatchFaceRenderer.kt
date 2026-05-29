@@ -1393,7 +1393,7 @@ class IoSyncWatchFaceRenderer(
         }
         // Slot 0 (Uhren-Akku) wird durch drawBatteryRing() ersetzt — nicht nochmal zeichnen
         complicationSlotsManager.complicationSlots.forEach { (id, slot) ->
-            if (slot.enabled && id != 0) {
+            if (id != 0 && slot.enabled) {
                 try {
                     slot.render(canvas, zonedDateTime, renderParameters)
                 } catch (e: Exception) {
@@ -1409,8 +1409,14 @@ class IoSyncWatchFaceRenderer(
         zonedDateTime: ZonedDateTime,
         sharedAssets: SharedAssets
     ) {
-        complicationSlotsManager.complicationSlots.forEach { (_, slot) ->
-            if (slot.enabled) slot.renderHighlightLayer(canvas, zonedDateTime, renderParameters)
+        complicationSlotsManager.complicationSlots.forEach { (id, slot) ->
+            if (slot.enabled) {
+                try {
+                    slot.renderHighlightLayer(canvas, zonedDateTime, renderParameters)
+                } catch (e: Exception) {
+                    Log.e("WatchFaceRenderer", "HighlightLayer Slot $id Fehler", e)
+                }
+            }
         }
     }
 
