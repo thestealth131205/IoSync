@@ -921,7 +921,7 @@ fun SettingsScreen(
             // ── Schriftgröße Gesundheitsdaten & Wetter ─────────────────────
             HorizontalDivider(color = Color(0xFF2A2A2A))
             Text(
-                text = "Schriftgröße – Wetter, Sonne, Puls & Kcal",
+                text = "Schriftgröße – Wetter, Sonne, Puls, Kcal & Schritte",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -949,6 +949,10 @@ fun SettingsScreen(
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Akku-Ringe (Uhr)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     FontSizeDropdown(selected = wfWatchBatteryTextScale, onSelect = { wfWatchBatteryTextScale = it })
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Schritte", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfStepsTextScale, onSelect = { wfStepsTextScale = it })
                 }
             }
 
