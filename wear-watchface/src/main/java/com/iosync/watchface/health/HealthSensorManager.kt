@@ -1,7 +1,10 @@
 package com.iosync.watchface.health
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.health.services.client.HealthServices
 import androidx.health.services.client.data.PassiveListenerConfig
 import androidx.health.services.client.data.DataType
@@ -45,7 +48,25 @@ class HealthSensorManager private constructor(
     val spO2: Int get() = HealthDataCache.spO2
 
     fun start() {
-        if (isNoop || passiveMonitoringClient == null || scope == null) return
+        if (isNoop || passiveMonitoringClient == null || scope == null || context == null) return
+
+        // Runtime-Permission-Prüfung: ohne BODY_SENSORS liefert Health Services keine Daten,
+        // und ohne ACTIVITY_RECOGNITION fehlen Schritte/Kalorien.
+        val hasBodySensors = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.BODY_SENSORS
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasActivityRecognition = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACTIVITY_RECOGNITION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasBodySensors) {
+            Log.w(TAG, "BODY_SENSORS-Berechtigung fehlt – Passive Listener wird nicht gestartet")
+            return
+        }
+        if (!hasActivityRecognition) {
+            Log.w(TAG, "ACTIVITY_RECOGNITION-Berechtigung fehlt – Schritte/Kalorien werden ggf. nicht geliefert")
+        }
+
         scope.launch {
             try {
                 val dataTypes = mutableSetOf(

@@ -23,9 +23,11 @@ import com.iosync.app.data.network.WeatherService
 import com.iosync.app.data.network.WebSocketStatus
 import com.iosync.app.data.repository.RepoResult
 import com.iosync.app.data.repository.SmartHomeRepository
+import com.iosync.app.di.ApplicationScope
 import com.iosync.app.wear.WearDataLayerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -135,6 +137,7 @@ data class MainUiState(
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 300,
+    val healthPollIntervalSec: Int = 60,
     // Sync-Status-Log für die Konsolenanzeige
     val wearSyncLog: String = "",
     // Health Connect Status
@@ -151,7 +154,8 @@ class MainViewModel @Inject constructor(
     private val ioSyncClient: IoSyncClient,
     private val dynamicBaseUrl: DynamicBaseUrl,
     private val weatherService: WeatherService,
-    val healthConnectManager: HealthConnectManager
+    val healthConnectManager: HealthConnectManager,
+    @ApplicationScope private val applicationScope: CoroutineScope
 ) : ViewModel() {
 
     companion object {
@@ -225,6 +229,7 @@ class MainViewModel @Inject constructor(
         // Aktualisierungsintervalle (in Sekunden)
         val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_sec")
         val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_sec")
+        val KEY_HEALTH_POLL_INTERVAL   = intPreferencesKey("health_poll_interval_sec")
         // Wetter-Standort
         val KEY_WEATHER_USE_FIXED   = booleanPreferencesKey("weather_use_fixed")
         val KEY_WEATHER_FIXED_LAT   = stringPreferencesKey("weather_fixed_lat")
@@ -320,6 +325,7 @@ class MainViewModel @Inject constructor(
             val weatherFixedCity  = prefs[KEY_WEATHER_FIXED_CITY]  ?: ""
             val batteryPollInterval = prefs[KEY_BATTERY_POLL_INTERVAL] ?: 60
             val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 300
+            val healthPollInterval = prefs[KEY_HEALTH_POLL_INTERVAL] ?: 60
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -394,7 +400,8 @@ class MainViewModel @Inject constructor(
                     weatherFixedLon   = weatherFixedLon,
                     weatherFixedCity  = weatherFixedCity,
                     batteryPollIntervalSec = batteryPollInterval,
-                    slotPollIntervalSec    = slotPollInterval
+                    slotPollIntervalSec    = slotPollInterval,
+                    healthPollIntervalSec  = healthPollInterval
                 )
             }
 
@@ -842,15 +849,17 @@ class MainViewModel @Inject constructor(
     // ── Aktualisierungsintervalle ─────────────────────────────────────────────
 
     /** Speichert die Polling-Intervalle und startet die Jobs mit neuem Intervall neu. */
-    fun updatePollIntervals(batterySec: Int, slotSec: Int) {
+    fun updatePollIntervals(batterySec: Int, slotSec: Int, healthSec: Int = _uiState.value.healthPollIntervalSec) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
                 prefs[KEY_BATTERY_POLL_INTERVAL] = batterySec
                 prefs[KEY_SLOT_POLL_INTERVAL]    = slotSec
+                prefs[KEY_HEALTH_POLL_INTERVAL]  = healthSec
             }
-            _uiState.update { it.copy(batteryPollIntervalSec = batterySec, slotPollIntervalSec = slotSec) }
+            _uiState.update { it.copy(batteryPollIntervalSec = batterySec, slotPollIntervalSec = slotSec, healthPollIntervalSec = healthSec) }
             // Laufende Jobs mit neuem Intervall neu starten
             if (batteryPollingJob?.isActive == true) startBatteryPolling()
+            if (healthPollingJob?.isActive == true) startHealthPolling()
             if (ioSyncPollingJob?.isActive == true) {
                 val s = _uiState.value
                 if (s.ioSyncHost.isNotBlank()) startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
@@ -1171,13 +1180,15 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /** Startet das periodische Senden von Health-Connect-Daten an die Uhr. */
+    /** Startet das periodische Senden von Health-Connect-Daten an die Uhr.
+     *  Läuft auf [applicationScope], damit der Job nicht mit dem ViewModel
+     *  stirbt (Activity zerstört, Speicherdruck, Rotation). */
     private fun startHealthPolling() {
         healthPollingJob?.cancel()
-        healthPollingJob = viewModelScope.launch {
+        healthPollingJob = applicationScope.launch {
             while (true) {
                 syncHealthValuesToWear()
-                delay(_uiState.value.slotPollIntervalSec * 1_000L)
+                delay(_uiState.value.healthPollIntervalSec * 1_000L)
             }
         }
     }
@@ -1185,7 +1196,8 @@ class MainViewModel @Inject constructor(
     /** Liest Health-Werte aus Health Connect und sendet sie an die Uhr.
      *  Frische Werte überschreiben den lokalen Cache. Fehlende Werte werden
      *  aus dem Cache gesendet, damit das Watchface nie "--" wegen fehlender
-     *  Hintergrunddaten zeigt. */
+     *  Hintergrunddaten zeigt. Bei Wechsel auf "local" bleibt der Cache erhalten;
+     *  es wird einfach nichts mehr ans Watchface gesendet. */
     private suspend fun syncHealthValuesToWear() {
         val s = _uiState.value
         var anyHealthConnect = false
@@ -1194,29 +1206,22 @@ class MainViewModel @Inject constructor(
             anyHealthConnect = true
             val fresh = healthConnectManager.readLatestHeartRate()
             if (fresh != null && fresh > 0) lastKnownHr = fresh
-        } else {
-            lastKnownHr = 0
         }
 
         if (s.wfKcalSource == "healthconnect") {
             anyHealthConnect = true
             val fresh = healthConnectManager.readTodayCalories()
             if (fresh != null && fresh > 0) lastKnownKcal = fresh
-        } else {
-            lastKnownKcal = 0
         }
 
         if (s.wfOxygenSource == "healthconnect") {
             anyHealthConnect = true
             val fresh = healthConnectManager.readLatestOxygenSaturation()
             if (fresh != null && fresh > 0) lastKnownO2 = fresh
-        } else {
-            lastKnownO2 = 0
         }
 
-        // Immer senden wenn mindestens eine Quelle healthconnect ist,
-        // damit das Watchface den gecachten Wert bekommt
-        if (anyHealthConnect) {
+        // Nur senden wenn mindestens eine Quelle healthconnect ist und ein Cache-Wert > 0 existiert
+        if (anyHealthConnect && (lastKnownHr > 0 || lastKnownO2 > 0 || lastKnownKcal > 0)) {
             wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal)
         }
     }

@@ -1004,8 +1004,8 @@ class IoSyncWatchFaceRenderer(
 
     private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
-        // Daten gelten als "frisch" wenn in den letzten 10 Minuten empfangen
-        val phoneDataFresh = (System.currentTimeMillis() - config.phoneHealthLastReceived) < 600_000L
+        // Daten gelten als "frisch" wenn in den letzten 30 Minuten empfangen
+        val phoneDataFresh = (System.currentTimeMillis() - config.phoneHealthLastReceived) < 1_800_000L
         val items = mutableListOf<HealthItem>()
 
         // Puls: wenn Quelle = healthconnect, ausschließlich Phone-Wert verwenden (kein Sensor-Fallback)

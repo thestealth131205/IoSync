@@ -200,12 +200,12 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
-    /** Liest den letzten Herzfrequenz-Wert aus Health Connect (letzte 30 Min). */
+    /** Liest den letzten Herzfrequenz-Wert aus Health Connect (letzte 24h). */
     suspend fun readLatestHeartRate(): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
-            val timeRange = TimeRangeFilter.between(now.minus(30, ChronoUnit.MINUTES), now)
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, timeRange))
             resp.records.lastOrNull()?.samples?.lastOrNull()?.beatsPerMinute?.toInt()
         } catch (_: Exception) { null }
@@ -222,12 +222,12 @@ class HealthConnectManager @Inject constructor(
         } catch (_: Exception) { null }
     }
 
-    /** Liest den letzten SpO2-Wert aus Health Connect (letzte 30 Min). */
+    /** Liest den letzten SpO2-Wert aus Health Connect (letzte 24h). */
     suspend fun readLatestOxygenSaturation(): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
-            val timeRange = TimeRangeFilter.between(now.minus(30, ChronoUnit.MINUTES), now)
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(OxygenSaturationRecord::class, timeRange))
             resp.records.lastOrNull()?.percentage?.value?.toInt()
         } catch (_: Exception) { null }

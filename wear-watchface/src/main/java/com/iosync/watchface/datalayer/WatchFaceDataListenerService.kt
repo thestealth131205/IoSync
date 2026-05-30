@@ -159,11 +159,18 @@ class WatchFaceDataListenerService : WearableListenerService() {
                 }
                 PATH_PHONE_HEALTH -> {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
-                    if (dataMap.containsKey(KEY_PHONE_HEART_RATE)) WatchFaceConfigCache.phoneHeartRate = dataMap.getInt(KEY_PHONE_HEART_RATE)
-                    if (dataMap.containsKey(KEY_PHONE_SPO2))       WatchFaceConfigCache.phoneSpO2      = dataMap.getInt(KEY_PHONE_SPO2)
-                    if (dataMap.containsKey(KEY_PHONE_CALORIES))   WatchFaceConfigCache.phoneCalories   = dataMap.getInt(KEY_PHONE_CALORIES)
-                    WatchFaceConfigCache.phoneHealthLastReceived = System.currentTimeMillis()
-                    Log.d(TAG, "Phone-Health-Daten empfangen: HR=${WatchFaceConfigCache.phoneHeartRate}, SpO2=${WatchFaceConfigCache.phoneSpO2}, kcal=${WatchFaceConfigCache.phoneCalories}")
+                    val newHr   = if (dataMap.containsKey(KEY_PHONE_HEART_RATE)) dataMap.getInt(KEY_PHONE_HEART_RATE) else WatchFaceConfigCache.phoneHeartRate
+                    val newSpO2 = if (dataMap.containsKey(KEY_PHONE_SPO2))       dataMap.getInt(KEY_PHONE_SPO2)       else WatchFaceConfigCache.phoneSpO2
+                    val newKcal = if (dataMap.containsKey(KEY_PHONE_CALORIES))   dataMap.getInt(KEY_PHONE_CALORIES)   else WatchFaceConfigCache.phoneCalories
+                    WatchFaceConfigCache.phoneHeartRate = newHr
+                    WatchFaceConfigCache.phoneSpO2      = newSpO2
+                    WatchFaceConfigCache.phoneCalories  = newKcal
+                    // Frische-Marker nur setzen wenn mindestens ein Wert > 0,
+                    // sonst würden 0-Updates die "frisch"-Logik austricksen
+                    if (newHr > 0 || newSpO2 > 0 || newKcal > 0) {
+                        WatchFaceConfigCache.phoneHealthLastReceived = System.currentTimeMillis()
+                    }
+                    Log.d(TAG, "Phone-Health-Daten empfangen: HR=$newHr, SpO2=$newSpO2, kcal=$newKcal")
                 }
                 PATH_ACTION_PILL_STATE -> {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
