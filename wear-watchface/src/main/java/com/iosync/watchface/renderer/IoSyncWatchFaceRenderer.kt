@@ -499,6 +499,8 @@ class IoSyncWatchFaceRenderer(
             drawTickMarks(canvas, cx, cy, radius)
         }
 
+        if (isAmbient) updateBurnInProtection()
+
         val bx = if (isAmbient) burnInOffsetX else 0f
         val by = if (isAmbient) burnInOffsetY else 0f
 
@@ -600,7 +602,7 @@ class IoSyncWatchFaceRenderer(
             }
 
             // Gesundheitsdaten (Puls, SpO2, Kalorien)
-            drawHealthData(canvas, cx, cy, radius)
+            drawHealthData(canvas, cx, cy, radius, bx, by)
 
         }
 
@@ -1002,7 +1004,7 @@ class IoSyncWatchFaceRenderer(
     // Label, Value, Color, IconType
     private data class HealthItem(val label: String, val value: String, val color: Int, val icon: String)
 
-    private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+    private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float, bx: Float = 0f, by: Float = 0f) {
         val config = WatchFaceConfigCache
         // Daten gelten als "frisch" wenn in den letzten 30 Minuten empfangen
         val phoneDataFresh = (System.currentTimeMillis() - config.phoneHealthLastReceived) < 1_800_000L
@@ -1049,8 +1051,8 @@ class IoSyncWatchFaceRenderer(
 
         val itemWidth  = radius * 0.80f
         val totalWidth = items.size * itemWidth
-        val startX     = cx - totalWidth / 2f + itemWidth / 2f
-        val baseY      = cy + radius * 0.44f
+        val startX     = cx - totalWidth / 2f + itemWidth / 2f + bx
+        val baseY      = cy + radius * 0.44f + by
 
         for ((index, item) in items.withIndex()) {
             val scaleFactor = when (item.icon) {
@@ -1065,7 +1067,11 @@ class IoSyncWatchFaceRenderer(
             val iconSize  = radius * 0.065f * scaleFactor
 
             val dp = context.resources.displayMetrics.density
-            val x = startX + index * itemWidth
+            val x = startX + index * itemWidth + when (item.icon) {
+                "heart" -> -5f * dp
+                "flame" -> 5f * dp
+                else    -> 0f
+            }
 
             healthLabelPaint.textSize = labelSize
             healthValuePaint.textSize = valueSize
@@ -1073,8 +1079,8 @@ class IoSyncWatchFaceRenderer(
             if (isSteps) {
                 // Schritte: Symbol + Zahl inline, versetzt
                 val stepsValueSize = radius * 0.105f * scaleFactor
-                val stepsOffsetX = 52f * dp
-                val stepsOffsetY = 37f * dp
+                val stepsOffsetX = 82f * dp
+                val stepsOffsetY = 34f * dp
 
                 healthValuePaint.textSize = stepsValueSize
                 healthValuePaint.color    = item.color

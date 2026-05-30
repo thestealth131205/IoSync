@@ -16,6 +16,7 @@ import com.iosync.app.BuildConfig
 import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.health.HealthConnectManager
 import com.iosync.app.data.health.HealthConnectStatus
+import com.iosync.app.data.health.HealthSyncService
 import com.iosync.app.data.network.DynamicBaseUrl
 import com.iosync.app.data.network.IoSyncClient
 import com.iosync.app.data.network.SmartHomeWebSocketService
@@ -23,11 +24,9 @@ import com.iosync.app.data.network.WeatherService
 import com.iosync.app.data.network.WebSocketStatus
 import com.iosync.app.data.repository.RepoResult
 import com.iosync.app.data.repository.SmartHomeRepository
-import com.iosync.app.di.ApplicationScope
 import com.iosync.app.wear.WearDataLayerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -154,8 +153,7 @@ class MainViewModel @Inject constructor(
     private val ioSyncClient: IoSyncClient,
     private val dynamicBaseUrl: DynamicBaseUrl,
     private val weatherService: WeatherService,
-    val healthConnectManager: HealthConnectManager,
-    @ApplicationScope private val applicationScope: CoroutineScope
+    val healthConnectManager: HealthConnectManager
 ) : ViewModel() {
 
     companion object {
@@ -249,11 +247,6 @@ class MainViewModel @Inject constructor(
     private var ioSyncPollingJob: Job? = null
     private var batteryPollingJob: Job? = null
     private var weatherPollingJob: Job? = null
-    private var healthPollingJob: Job? = null
-    // Letzter bekannter Health-Wert – wird gesendet wenn Health Connect keinen neuen Wert liefert
-    private var lastKnownHr: Int = 0
-    private var lastKnownKcal: Int = 0
-    private var lastKnownO2: Int = 0
 
     init {
         viewModelScope.launch {
@@ -409,7 +402,7 @@ class MainViewModel @Inject constructor(
             if (useIoSyncAdapter && ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUseHttps, ioSyncUsername, ioSyncPassword)
             if (wfShowPhoneBattery) startBatteryPolling()
             if (wfShowWeather) startWeatherPolling()
-            if (wfHrSource == "healthconnect" || wfKcalSource == "healthconnect" || wfOxygenSource == "healthconnect") startHealthPolling()
+            if (wfHrSource == "healthconnect" || wfKcalSource == "healthconnect" || wfOxygenSource == "healthconnect") HealthSyncService.start(context)
         }
 
         viewModelScope.launch {
@@ -859,7 +852,11 @@ class MainViewModel @Inject constructor(
             _uiState.update { it.copy(batteryPollIntervalSec = batterySec, slotPollIntervalSec = slotSec, healthPollIntervalSec = healthSec) }
             // Laufende Jobs mit neuem Intervall neu starten
             if (batteryPollingJob?.isActive == true) startBatteryPolling()
-            if (healthPollingJob?.isActive == true) startHealthPolling()
+            // Health-Sync-Service mit neuem Intervall neu starten, falls eine Quelle Health Connect nutzt
+            val s0 = _uiState.value
+            if (s0.wfHrSource == "healthconnect" || s0.wfKcalSource == "healthconnect" || s0.wfOxygenSource == "healthconnect") {
+                HealthSyncService.start(context)
+            }
             if (ioSyncPollingJob?.isActive == true) {
                 val s = _uiState.value
                 if (s.ioSyncHost.isNotBlank()) startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
@@ -1171,58 +1168,12 @@ class MainViewModel @Inject constructor(
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
 
-            // Health-Polling starten/stoppen
+            // Health-Sync-Service starten/stoppen (läuft als Foreground-Service im Hintergrund)
             if (anyHealthConnect) {
-                startHealthPolling()
+                HealthSyncService.start(context)
             } else {
-                healthPollingJob?.cancel()
+                HealthSyncService.stop(context)
             }
-        }
-    }
-
-    /** Startet das periodische Senden von Health-Connect-Daten an die Uhr.
-     *  Läuft auf [applicationScope], damit der Job nicht mit dem ViewModel
-     *  stirbt (Activity zerstört, Speicherdruck, Rotation). */
-    private fun startHealthPolling() {
-        healthPollingJob?.cancel()
-        healthPollingJob = applicationScope.launch {
-            while (true) {
-                syncHealthValuesToWear()
-                delay(_uiState.value.healthPollIntervalSec * 1_000L)
-            }
-        }
-    }
-
-    /** Liest Health-Werte aus Health Connect und sendet sie an die Uhr.
-     *  Frische Werte überschreiben den lokalen Cache. Fehlende Werte werden
-     *  aus dem Cache gesendet, damit das Watchface nie "--" wegen fehlender
-     *  Hintergrunddaten zeigt. Bei Wechsel auf "local" bleibt der Cache erhalten;
-     *  es wird einfach nichts mehr ans Watchface gesendet. */
-    private suspend fun syncHealthValuesToWear() {
-        val s = _uiState.value
-        var anyHealthConnect = false
-
-        if (s.wfHrSource == "healthconnect") {
-            anyHealthConnect = true
-            val fresh = healthConnectManager.readLatestHeartRate()
-            if (fresh != null && fresh > 0) lastKnownHr = fresh
-        }
-
-        if (s.wfKcalSource == "healthconnect") {
-            anyHealthConnect = true
-            val fresh = healthConnectManager.readTodayCalories()
-            if (fresh != null && fresh > 0) lastKnownKcal = fresh
-        }
-
-        if (s.wfOxygenSource == "healthconnect") {
-            anyHealthConnect = true
-            val fresh = healthConnectManager.readLatestOxygenSaturation()
-            if (fresh != null && fresh > 0) lastKnownO2 = fresh
-        }
-
-        // Nur senden wenn mindestens eine Quelle healthconnect ist und ein Cache-Wert > 0 existiert
-        if (anyHealthConnect && (lastKnownHr > 0 || lastKnownO2 > 0 || lastKnownKcal > 0)) {
-            wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal)
         }
     }
 

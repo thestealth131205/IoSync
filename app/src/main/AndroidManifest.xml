@@ -66,6 +66,12 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <!-- Health-Sync Background Service (überträgt Health-Connect-Daten ans Watchface) -->
+        <service
+            android:name=".data.health.HealthSyncService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
         <!-- Health Connect: Berechtigungs-Rationale → leitet auf MainActivity -->
         <activity-alias
             android:name="ViewPermissionUsageActivity"
