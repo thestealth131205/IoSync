@@ -150,6 +150,7 @@ fun SettingsScreen(
     // Aktualisierungsintervalle
     var batteryPollInterval by remember(uiState.batteryPollIntervalSec) { mutableStateOf(uiState.batteryPollIntervalSec) }
     var slotPollInterval   by remember(uiState.slotPollIntervalSec)    { mutableStateOf(uiState.slotPollIntervalSec) }
+    var healthPollInterval by remember(uiState.healthPollIntervalSec)  { mutableStateOf(uiState.healthPollIntervalSec) }
 
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
@@ -205,10 +206,10 @@ fun SettingsScreen(
 
     // ── Intervall-Änderungen speichern ───────────────────────────────────────
     var intervalInitialized by remember { mutableStateOf(false) }
-    LaunchedEffect(batteryPollInterval, slotPollInterval) {
+    LaunchedEffect(batteryPollInterval, slotPollInterval, healthPollInterval) {
         if (!intervalInitialized) { intervalInitialized = true; return@LaunchedEffect }
         delay(400)
-        viewModel.updatePollIntervals(batteryPollInterval, slotPollInterval)
+        viewModel.updatePollIntervals(batteryPollInterval, slotPollInterval, healthPollInterval)
     }
 
     Scaffold(
@@ -715,6 +716,25 @@ fun SettingsScreen(
                     label = "SpO2-Quelle",
                     source = wfOxygenSource,
                     onSourceChange = { wfOxygenSource = it }
+                )
+            }
+
+            // Abfrage-Intervall für Health-Connect-Werte (Puls/Kcal/SpO2)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "Health-Intervall (Puls/Kcal)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+                IntervalDropdown(
+                    selected = healthPollInterval,
+                    onSelect = { healthPollInterval = it },
+                    modifier = Modifier.width(120.dp),
+                    options = HEALTH_INTERVAL_OPTIONS_SEC
                 )
             }
 
@@ -1695,6 +1715,8 @@ fun FontSizeDropdown(
 
 // Intervall-Optionen in Sekunden
 private val INTERVAL_OPTIONS_SEC = listOf(30, 60, 180, 300, 600, 900, 1800, 3600)
+// Intervall-Optionen für Health-Connect-Werte (Puls/Kcal/SpO2)
+private val HEALTH_INTERVAL_OPTIONS_SEC = listOf(15, 30, 120, 240, 600, 900, 1800)
 
 private fun formatInterval(sec: Int): String = when {
     sec < 60 -> "$sec s"
@@ -1705,7 +1727,8 @@ private fun formatInterval(sec: Int): String = when {
 fun IntervalDropdown(
     selected: Int,
     onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    options: List<Int> = INTERVAL_OPTIONS_SEC
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
@@ -1723,7 +1746,7 @@ fun IntervalDropdown(
             onDismissRequest = { expanded = false },
             modifier = Modifier.background(Color(0xFF1E1E1E))
         ) {
-            INTERVAL_OPTIONS_SEC.forEach { sec ->
+            options.forEach { sec ->
                 DropdownMenuItem(
                     text = {
                         Text(
