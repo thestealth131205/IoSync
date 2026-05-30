@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -51,8 +52,15 @@ class HealthSyncService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                startForeground(NOTIFICATION_ID, buildNotification())
-                startPolling()
+                try {
+                    startForeground(NOTIFICATION_ID, buildNotification())
+                    startPolling()
+                } catch (e: Exception) {
+                    // Foreground-Start kann fehlschlagen (z. B. App im Hintergrund auf
+                    // Android 12+). Service sauber beenden statt die App abstürzen zu lassen.
+                    Log.w("HealthSyncService", "Foreground-Start fehlgeschlagen: ${e.message}")
+                    stopSelf()
+                }
             }
             ACTION_STOP -> {
                 pollJob?.cancel()
