@@ -298,6 +298,7 @@ class IoSyncWatchFaceRenderer(
     }
     private var pillBounds = RectF()
     private var pillTapBounds = RectF()
+    private var weatherTapBounds = RectF()
     private var lastTapTime = 0L
     private var pillPressed = false
     private var pillPressedAt = 0L
@@ -875,6 +876,17 @@ class IoSyncWatchFaceRenderer(
         val circleCx = cx
         val circleCy = cy - radius * 0.64f
 
+        // Tap-Bereich für Wetter-App-Start merken (etwas größer als der Kreis).
+        // Seiten/oben großzügig, unten (Richtung kcal) klein, damit kcal nicht getroffen wird.
+        val weatherTapPad = circleRadius * 0.40f
+        val weatherTapPadBottom = circleRadius * 0.05f
+        weatherTapBounds.set(
+            circleCx - circleRadius - weatherTapPad,
+            circleCy - circleRadius - weatherTapPad,
+            circleCx + circleRadius + weatherTapPad,
+            circleCy + circleRadius + weatherTapPadBottom
+        )
+
         // Hintergrund: Vertiefungs-Effekt + dunkler Kreis
         drawEmbossedCircleRecess(canvas, circleCx, circleCy, circleRadius * 1.08f)
         canvas.drawCircle(circleCx, circleCy, circleRadius, weatherCircleBgPaint)
@@ -1079,8 +1091,8 @@ class IoSyncWatchFaceRenderer(
             if (isSteps) {
                 // Schritte: Symbol + Zahl inline, versetzt
                 val stepsValueSize = radius * 0.105f * scaleFactor
-                val stepsOffsetX = 82f * dp
-                val stepsOffsetY = 34f * dp
+                val stepsOffsetX = 102f * dp
+                val stepsOffsetY = 29f * dp
 
                 healthValuePaint.textSize = stepsValueSize
                 healthValuePaint.color    = item.color
@@ -1458,6 +1470,12 @@ class IoSyncWatchFaceRenderer(
         val y = tapEvent.yPos.toFloat()
         val config = WatchFaceConfigCache
 
+        // ── Wetter-Anzeige: tippen öffnet die Wetter-App ─────────────────────
+        if (tapType == TapType.UP && config.showWeather && weatherTapBounds.contains(x, y)) {
+            openWeatherApp()
+            return
+        }
+
         // ── Aktions-Pille ────────────────────────────────────────────────────
         if (!config.actionPillEnabled) return
 
@@ -1483,6 +1501,47 @@ class IoSyncWatchFaceRenderer(
             lastTapTime = now
         }
         pillPressed = false
+    }
+
+    /**
+     * Öffnet die auf der Uhr installierte Wetter-App.
+     * Probiert zuerst bekannte Wetter-Pakete, sonst die erste startbare App,
+     * deren Paketname "weather" enthält.
+     */
+    private fun openWeatherApp() {
+        val pm = context.packageManager
+
+        fun launch(pkg: String): Boolean {
+            val intent = pm.getLaunchIntentForPackage(pkg) ?: return false
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            return try {
+                context.startActivity(intent)
+                true
+            } catch (e: Exception) {
+                Log.w(TAG_PILL, "Wetter-App-Start fehlgeschlagen ($pkg): ${e.message}")
+                false
+            }
+        }
+
+        val knownPackages = listOf(
+            "com.mobvoi.companion.weather",
+            "com.mobvoi.wear.weather",
+            "com.google.android.apps.weather",
+            "com.google.android.gms.weather"
+        )
+        for (pkg in knownPackages) {
+            if (launch(pkg)) return
+        }
+
+        // Fallback: erste startbare App mit "weather" im Paketnamen
+        val mainIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val candidate = pm.queryIntentActivities(mainIntent, 0)
+            .firstOrNull { it.activityInfo.packageName.contains("weather", ignoreCase = true) }
+        if (candidate != null) {
+            launch(candidate.activityInfo.packageName)
+        } else {
+            Log.w(TAG_PILL, "Keine Wetter-App auf der Uhr gefunden")
+        }
     }
 
     override fun onDestroy() {
