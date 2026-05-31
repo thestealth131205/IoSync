@@ -1478,7 +1478,6 @@ class IoSyncWatchFaceRenderer(
             (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
                 textSize  = (22f * stepsCompScale).toInt().coerceAtLeast(8)
                 titleSize = (16f * stepsCompScale).toInt().coerceAtLeast(6)
-                iconSize  = (18f * stepsCompScale).toInt().coerceAtLeast(6)
             }
         }
         complicationSlotsManager.complicationSlots.forEach { (_, slot) ->
