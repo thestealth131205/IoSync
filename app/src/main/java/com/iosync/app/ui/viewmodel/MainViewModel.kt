@@ -836,7 +836,7 @@ class MainViewModel @Inject constructor(
                     s.customSlot4BarShowLabel,
                     s.wfHrTextScale, s.wfKcalTextScale, s.wfStepsTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
                     s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
-                    s.wfBatteryRingColor1, s.wfBatteryRingColor2,
+                    s.wfBatteryRingColor1, s.wfBatteryRingColor2, s.wfBatteryRingStrokeScale,
                     s.wfHealthDataSource,
                     s.wfHrSource, s.wfKcalSource, s.wfOxygenSource,
                     s.wfHrComplication, s.wfKcalComplication, s.wfOxygenComplication
@@ -971,7 +971,7 @@ class MainViewModel @Inject constructor(
                     s2.customSlot4BarShowLabel,
                     s2.wfHrTextScale, s2.wfKcalTextScale, s2.wfStepsTextScale, s2.wfSlot1TextScale, s2.wfSlot2TextScale, s2.wfSlot3TextScale, s2.wfSlot4TextScale,
                     s2.wfWeatherTextScale, s2.wfSunriseTextScale, s2.wfWatchBatteryTextScale,
-                    s2.wfBatteryRingColor1, s2.wfBatteryRingColor2,
+                    s2.wfBatteryRingColor1, s2.wfBatteryRingColor2, s2.wfBatteryRingStrokeScale,
                     s2.wfHealthDataSource,
                     s2.wfHrSource, s2.wfKcalSource, s2.wfOxygenSource,
                     s2.wfHrComplication, s2.wfKcalComplication, s2.wfOxygenComplication
@@ -1190,7 +1190,7 @@ class MainViewModel @Inject constructor(
                     s.customSlot4BarShowLabel,
                     s.wfHrTextScale, s.wfKcalTextScale, s.wfStepsTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
                     s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
-                    s.wfBatteryRingColor1, s.wfBatteryRingColor2,
+                    s.wfBatteryRingColor1, s.wfBatteryRingColor2, s.wfBatteryRingStrokeScale,
                     globalSource,
                     hrSource, kcalSource, oxygenSource,
                     hrComplication, kcalComplication, oxygenComplication
