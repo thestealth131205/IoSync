@@ -114,8 +114,9 @@ private const val KEY_BATTERY_LEVEL   = "battery_level"
 private const val KEY_IS_CHARGING     = "is_charging"
 
 // ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
-private const val KEY_WF_BATTERY_RING_COLOR1 = "wf_battery_ring_color1"
-private const val KEY_WF_BATTERY_RING_COLOR2 = "wf_battery_ring_color2"
+private const val KEY_WF_BATTERY_RING_COLOR1       = "wf_battery_ring_color1"
+private const val KEY_WF_BATTERY_RING_COLOR2       = "wf_battery_ring_color2"
+private const val KEY_WF_BATTERY_RING_STROKE_SCALE = "wf_battery_ring_stroke_scale"
 
 @Singleton
 class WearDataLayerService @Inject constructor(
@@ -261,6 +262,7 @@ class WearDataLayerService @Inject constructor(
         watchBatteryTextScale: Int = 100,
         batteryRingColor1: String = "cyan",
         batteryRingColor2: String = "neon_yellow",
+        batteryRingStrokeScale: Int = 100,
         healthDataSource: String = "local",
         hrSource: String = "local",
         kcalSource: String = "local",
@@ -317,6 +319,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt(KEY_WF_WATCH_BATTERY_TEXT_SCALE, watchBatteryTextScale)
                     dataMap.putString(KEY_WF_BATTERY_RING_COLOR1, batteryRingColor1)
                     dataMap.putString(KEY_WF_BATTERY_RING_COLOR2, batteryRingColor2)
+                    dataMap.putInt(KEY_WF_BATTERY_RING_STROKE_SCALE, batteryRingStrokeScale)
                     dataMap.putString(KEY_WF_HEALTH_DATA_SOURCE, healthDataSource)
                     dataMap.putString(KEY_WF_HR_SOURCE, hrSource)
                     dataMap.putString(KEY_WF_KCAL_SOURCE, kcalSource)

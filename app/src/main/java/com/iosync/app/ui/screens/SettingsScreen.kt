@@ -147,9 +147,10 @@ fun SettingsScreen(
     var wfSunriseTextScale by remember(uiState.wfSunriseTextScale) { mutableStateOf(uiState.wfSunriseTextScale) }
     var wfWatchBatteryTextScale by remember(uiState.wfWatchBatteryTextScale) { mutableStateOf(uiState.wfWatchBatteryTextScale) }
 
-    // Akku-Ring-Farben
-    var wfBatteryRingColor1 by remember(uiState.wfBatteryRingColor1) { mutableStateOf(uiState.wfBatteryRingColor1) }
-    var wfBatteryRingColor2 by remember(uiState.wfBatteryRingColor2) { mutableStateOf(uiState.wfBatteryRingColor2) }
+    // Akku-Ring-Farben und Ringbreite
+    var wfBatteryRingColor1       by remember(uiState.wfBatteryRingColor1)       { mutableStateOf(uiState.wfBatteryRingColor1) }
+    var wfBatteryRingColor2       by remember(uiState.wfBatteryRingColor2)       { mutableStateOf(uiState.wfBatteryRingColor2) }
+    var wfBatteryRingStrokeScale  by remember(uiState.wfBatteryRingStrokeScale)  { mutableStateOf(uiState.wfBatteryRingStrokeScale.toFloat()) }
 
     // Aktualisierungsintervalle
     var batteryPollInterval by remember(uiState.batteryPollIntervalSec) { mutableStateOf(uiState.batteryPollIntervalSec) }
@@ -172,7 +173,7 @@ fun SettingsScreen(
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
         wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories, wfShowSteps,
         wfHrTextScale, wfKcalTextScale, wfStepsTextScale, wfWeatherTextScale, wfSunriseTextScale, wfWatchBatteryTextScale,
-        wfBatteryRingColor1, wfBatteryRingColor2
+        wfBatteryRingColor1, wfBatteryRingColor2, wfBatteryRingStrokeScale
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -203,8 +204,9 @@ fun SettingsScreen(
             weatherTextScale   = wfWeatherTextScale,
             sunriseTextScale   = wfSunriseTextScale,
             watchBatteryTextScale = wfWatchBatteryTextScale,
-            batteryRingColor1  = wfBatteryRingColor1,
-            batteryRingColor2  = wfBatteryRingColor2
+            batteryRingColor1       = wfBatteryRingColor1,
+            batteryRingColor2       = wfBatteryRingColor2,
+            batteryRingStrokeScale  = wfBatteryRingStrokeScale.toInt()
         )
     }
 
@@ -618,6 +620,19 @@ fun SettingsScreen(
                 WatchFaceColorChip(color = Color(0xFF9C27B0), label = "Lila",       selected = wfBatteryRingColor2 == "purple",      onClick = { wfBatteryRingColor2 = "purple" })
             }
 
+            Text(
+                text = "Akku-Ring Breite: ${wfBatteryRingStrokeScale.toInt()}%",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Slider(
+                value = wfBatteryRingStrokeScale,
+                onValueChange = { wfBatteryRingStrokeScale = it },
+                valueRange = 30f..200f,
+                steps = 16,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Spacer(Modifier.height(8.dp))
 
             // ── Aktualisierungsintervalle ──────────────────────────────────────
@@ -1008,6 +1023,10 @@ fun SettingsScreen(
                     Text("Akku-Ringe (Uhr)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     FontSizeDropdown(selected = wfWatchBatteryTextScale, onSelect = { wfWatchBatteryTextScale = it })
                 }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Schritte", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfStepsTextScale, onSelect = { wfStepsTextScale = it })
+                }
             }
 
             if (wfShowSecondsRing) {
@@ -1117,9 +1136,10 @@ fun SettingsScreen(
                         weatherTextScale   = wfWeatherTextScale,
                         sunriseTextScale   = wfSunriseTextScale,
                         watchBatteryTextScale = wfWatchBatteryTextScale,
-                        batteryRingColor1  = wfBatteryRingColor1,
-                        batteryRingColor2  = wfBatteryRingColor2,
-                        healthDataSource   = wfHealthDataSource
+                        batteryRingColor1       = wfBatteryRingColor1,
+                        batteryRingColor2       = wfBatteryRingColor2,
+                        batteryRingStrokeScale  = wfBatteryRingStrokeScale.toInt(),
+                        healthDataSource        = wfHealthDataSource
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),

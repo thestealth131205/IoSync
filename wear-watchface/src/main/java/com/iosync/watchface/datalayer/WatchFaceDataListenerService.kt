@@ -96,8 +96,9 @@ private const val KEY_PHONE_SPO2             = "phone_spo2"
 private const val KEY_PHONE_CALORIES         = "phone_calories"
 
 // ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
-private const val KEY_WF_BATTERY_RING_COLOR1  = "wf_battery_ring_color1"
-private const val KEY_WF_BATTERY_RING_COLOR2  = "wf_battery_ring_color2"
+private const val KEY_WF_BATTERY_RING_COLOR1       = "wf_battery_ring_color1"
+private const val KEY_WF_BATTERY_RING_COLOR2       = "wf_battery_ring_color2"
+private const val KEY_WF_BATTERY_RING_STROKE_SCALE = "wf_battery_ring_stroke_scale"
 
 // ── Custom-Slot-Daten (Echtzeit-Updates der Werte) ──────────────────────────
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
@@ -254,9 +255,10 @@ object WatchFaceConfigCache {
     @Volatile var weatherTextScale: Int = 100
     @Volatile var sunriseTextScale: Int = 100
     @Volatile var watchBatteryTextScale: Int = 100
-    // Akku-Ring-Farben (Farbverlauf)
+    // Akku-Ring-Farben (Farbverlauf) und Ringbreite
     @Volatile var batteryRingColor1: String = "cyan"
     @Volatile var batteryRingColor2: String = "neon_yellow"
+    @Volatile var batteryRingStrokeScale: Int = 100
     // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = vom Smartphone
     @Volatile var healthDataSource: String = "local"
     // Pro-Typ Quelle: "local" = Uhr-Sensoren, "healthconnect" = Health Connect via App
@@ -320,6 +322,7 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_WATCH_BATTERY_TEXT_SCALE)) watchBatteryTextScale = dataMap.getInt(KEY_WF_WATCH_BATTERY_TEXT_SCALE)
         dataMap.getString(KEY_WF_BATTERY_RING_COLOR1)?.let { batteryRingColor1 = it }
         dataMap.getString(KEY_WF_BATTERY_RING_COLOR2)?.let { batteryRingColor2 = it }
+        if (dataMap.containsKey(KEY_WF_BATTERY_RING_STROKE_SCALE)) batteryRingStrokeScale = dataMap.getInt(KEY_WF_BATTERY_RING_STROKE_SCALE)
         dataMap.getString(KEY_WF_HEALTH_DATA_SOURCE)?.let { healthDataSource = it }
         dataMap.getString(KEY_WF_HR_SOURCE)?.let { hrSource = it }
         dataMap.getString(KEY_WF_KCAL_SOURCE)?.let { kcalSource = it }

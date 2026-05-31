@@ -125,9 +125,10 @@ data class MainUiState(
     val wfWeatherTextScale: Int = 100,
     val wfSunriseTextScale: Int = 100,
     val wfWatchBatteryTextScale: Int = 100,
-    // Akku-Ring-Farben
+    // Akku-Ring-Farben und Ringbreite
     val wfBatteryRingColor1: String = "cyan",
     val wfBatteryRingColor2: String = "neon_yellow",
+    val wfBatteryRingStrokeScale: Int = 100,
     // Gesundheitsdaten-Quelle pro Typ: "local" = Uhr-Sensoren, "healthconnect" = Health Connect vom Handy
     val wfHealthDataSource: String = "local",
     val wfHrSource: String = "local",
@@ -220,9 +221,10 @@ class MainViewModel @Inject constructor(
         val KEY_WF_WEATHER_TEXT_SCALE  = intPreferencesKey("wf_weather_text_scale")
         val KEY_WF_SUNRISE_TEXT_SCALE        = intPreferencesKey("wf_sunrise_text_scale")
         val KEY_WF_WATCH_BATTERY_TEXT_SCALE = intPreferencesKey("wf_watch_battery_text_scale")
-        val KEY_WF_BATTERY_RING_COLOR1 = stringPreferencesKey("wf_battery_ring_color1")
-        val KEY_WF_BATTERY_RING_COLOR2 = stringPreferencesKey("wf_battery_ring_color2")
-        val KEY_WF_HEALTH_DATA_SOURCE  = stringPreferencesKey("wf_health_data_source")
+        val KEY_WF_BATTERY_RING_COLOR1       = stringPreferencesKey("wf_battery_ring_color1")
+        val KEY_WF_BATTERY_RING_COLOR2       = stringPreferencesKey("wf_battery_ring_color2")
+        val KEY_WF_BATTERY_RING_STROKE_SCALE = intPreferencesKey("wf_battery_ring_stroke_scale")
+        val KEY_WF_HEALTH_DATA_SOURCE        = stringPreferencesKey("wf_health_data_source")
         // Pro-Typ Gesundheitsdaten-Quelle
         val KEY_WF_HR_SOURCE           = stringPreferencesKey("wf_hr_source")
         val KEY_WF_KCAL_SOURCE         = stringPreferencesKey("wf_kcal_source")
@@ -313,8 +315,9 @@ class MainViewModel @Inject constructor(
             val wfWeatherTextScale = prefs[KEY_WF_WEATHER_TEXT_SCALE] ?: 100
             val wfSunriseTextScale = prefs[KEY_WF_SUNRISE_TEXT_SCALE] ?: 100
             val wfWatchBatteryTextScale = prefs[KEY_WF_WATCH_BATTERY_TEXT_SCALE] ?: 100
-            val wfBatteryRingColor1 = prefs[KEY_WF_BATTERY_RING_COLOR1] ?: "cyan"
-            val wfBatteryRingColor2 = prefs[KEY_WF_BATTERY_RING_COLOR2] ?: "neon_yellow"
+            val wfBatteryRingColor1       = prefs[KEY_WF_BATTERY_RING_COLOR1]       ?: "cyan"
+            val wfBatteryRingColor2       = prefs[KEY_WF_BATTERY_RING_COLOR2]       ?: "neon_yellow"
+            val wfBatteryRingStrokeScale  = prefs[KEY_WF_BATTERY_RING_STROKE_SCALE] ?: 100
             val wfHealthDataSource = prefs[KEY_WF_HEALTH_DATA_SOURCE] ?: "local"
             val wfHrSource         = prefs[KEY_WF_HR_SOURCE]         ?: "local"
             val wfKcalSource       = prefs[KEY_WF_KCAL_SOURCE]       ?: "local"
@@ -392,8 +395,9 @@ class MainViewModel @Inject constructor(
                     wfWeatherTextScale = wfWeatherTextScale,
                     wfSunriseTextScale = wfSunriseTextScale,
                     wfWatchBatteryTextScale = wfWatchBatteryTextScale,
-                    wfBatteryRingColor1 = wfBatteryRingColor1,
-                    wfBatteryRingColor2 = wfBatteryRingColor2,
+                    wfBatteryRingColor1       = wfBatteryRingColor1,
+                    wfBatteryRingColor2       = wfBatteryRingColor2,
+                    wfBatteryRingStrokeScale  = wfBatteryRingStrokeScale,
                     wfHealthDataSource = wfHealthDataSource,
                     wfHrSource         = wfHrSource,
                     wfKcalSource       = wfKcalSource,
@@ -658,6 +662,7 @@ class MainViewModel @Inject constructor(
         watchBatteryTextScale: Int = _uiState.value.wfWatchBatteryTextScale,
         batteryRingColor1: String = _uiState.value.wfBatteryRingColor1,
         batteryRingColor2: String = _uiState.value.wfBatteryRingColor2,
+        batteryRingStrokeScale: Int = _uiState.value.wfBatteryRingStrokeScale,
         healthDataSource: String = _uiState.value.wfHealthDataSource,
         hrSource: String = _uiState.value.wfHrSource,
         kcalSource: String = _uiState.value.wfKcalSource,
@@ -693,9 +698,10 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_WEATHER_TEXT_SCALE]  = weatherTextScale
                 prefs[KEY_WF_SUNRISE_TEXT_SCALE]        = sunriseTextScale
                 prefs[KEY_WF_WATCH_BATTERY_TEXT_SCALE] = watchBatteryTextScale
-                prefs[KEY_WF_BATTERY_RING_COLOR1] = batteryRingColor1
-                prefs[KEY_WF_BATTERY_RING_COLOR2] = batteryRingColor2
-                prefs[KEY_WF_HEALTH_DATA_SOURCE]  = healthDataSource
+                prefs[KEY_WF_BATTERY_RING_COLOR1]       = batteryRingColor1
+                prefs[KEY_WF_BATTERY_RING_COLOR2]       = batteryRingColor2
+                prefs[KEY_WF_BATTERY_RING_STROKE_SCALE] = batteryRingStrokeScale
+                prefs[KEY_WF_HEALTH_DATA_SOURCE]        = healthDataSource
             }
             _uiState.update {
                 it.copy(
@@ -726,8 +732,9 @@ class MainViewModel @Inject constructor(
                     wfWeatherTextScale = weatherTextScale,
                     wfSunriseTextScale = sunriseTextScale,
                     wfWatchBatteryTextScale = watchBatteryTextScale,
-                    wfBatteryRingColor1 = batteryRingColor1,
-                    wfBatteryRingColor2 = batteryRingColor2,
+                    wfBatteryRingColor1       = batteryRingColor1,
+                    wfBatteryRingColor2       = batteryRingColor2,
+                    wfBatteryRingStrokeScale  = batteryRingStrokeScale,
                     wfHealthDataSource = healthDataSource
                 )
             }
@@ -748,7 +755,7 @@ class MainViewModel @Inject constructor(
                     s.customSlot4BarShowLabel,
                     hrTextScale, kcalTextScale, stepsTextScale, slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale,
                     weatherTextScale, sunriseTextScale, watchBatteryTextScale,
-                    batteryRingColor1, batteryRingColor2,
+                    batteryRingColor1, batteryRingColor2, batteryRingStrokeScale,
                     healthDataSource,
                     hrSource, kcalSource, oxygenSource
                 )

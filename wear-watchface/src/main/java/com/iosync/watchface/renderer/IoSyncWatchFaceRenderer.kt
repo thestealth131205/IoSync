@@ -757,7 +757,7 @@ class IoSyncWatchFaceRenderer(
         color1: Int,
         color2: Int
     ) {
-        val strokeW = ringRadius * 0.20f
+        val strokeW = ringRadius * 0.20f * (WatchFaceConfigCache.batteryRingStrokeScale / 100f)
         batteryRingBgPaint.strokeWidth = strokeW
         batteryRingFgPaint.strokeWidth = strokeW
 
@@ -897,14 +897,14 @@ class IoSyncWatchFaceRenderer(
 
         // Wettersymbol zeichnen
         val iconSize = circleRadius * 0.50f
-        val iconCy = circleCy - circleRadius * 0.18f
+        val iconCy = circleCy - circleRadius * 0.18f - 5f * density
         drawWeatherIcon(canvas, circleCx, iconCy, iconSize, config.weatherCondition)
 
         // Temperatur
         val weatherScale = config.weatherTextScale / 100f
         weatherTempPaint.textSize = circleRadius * 0.72f * weatherScale
         val tempText = "${config.weatherTemp}°"
-        canvas.drawText(tempText, circleCx, circleCy + circleRadius * 0.55f, weatherTempPaint)
+        canvas.drawText(tempText, circleCx, circleCy + circleRadius * 0.55f + 5f * density, weatherTempPaint)
     }
 
     /**
