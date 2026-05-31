@@ -31,6 +31,9 @@ import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import androidx.wear.watchface.complications.rendering.CanvasComplicationDrawable
+import androidx.wear.watchface.complications.data.LongTextComplicationData
+import androidx.wear.watchface.complications.data.RangedValueComplicationData
+import androidx.wear.watchface.complications.data.ShortTextComplicationData
 import com.iosync.watchface.datalayer.SmartHomeStateCache
 import com.iosync.watchface.datalayer.WatchFaceConfigCache
 import com.iosync.watchface.health.HealthSensorManager
@@ -874,7 +877,8 @@ class IoSyncWatchFaceRenderer(
         val config = WatchFaceConfigCache
         val circleRadius = radius * 0.18f
         val circleCx = cx
-        val circleCy = cy - radius * 0.64f
+        // ca. 15dp nach oben verschoben (Platz für Steps-Anzeige darunter)
+        val circleCy = cy - radius * 0.64f - 15f * density
 
         // Tap-Bereich für Wetter-App-Start merken (etwas größer als der Kreis).
         // Seiten/oben großzügig, unten (Richtung kcal) klein, damit kcal nicht getroffen wird.
@@ -1016,41 +1020,65 @@ class IoSyncWatchFaceRenderer(
     // Label, Value, Color, IconType
     private data class HealthItem(val label: String, val value: String, val color: Int, val icon: String)
 
+    /**
+     * Liest den aktuellen Zahlenwert einer Komplikation aus dem angegebenen Slot.
+     * @param slotIdStr Slot-ID als String ("" = keine Komplikation gewählt)
+     * @return Ganzzahliger Wert oder null, wenn nichts gewählt/lesbar ist.
+     */
+    private fun readComplicationNumber(slotIdStr: String): Int? {
+        val id = slotIdStr.toIntOrNull() ?: return null
+        val slot = complicationSlotsManager.complicationSlots[id] ?: return null
+        val data = slot.complicationData.value
+        val now = java.time.Instant.now()
+        val raw: CharSequence? = when (data) {
+            is RangedValueComplicationData -> return data.value.toInt()
+            is ShortTextComplicationData   -> data.text.getTextAt(context.resources, now)
+            is LongTextComplicationData    -> data.text.getTextAt(context.resources, now)
+            else -> null
+        }
+        val str = raw?.toString() ?: return null
+        val num = Regex("-?\\d+([.,]\\d+)?").find(str)?.value?.replace(',', '.')?.toFloatOrNull() ?: return null
+        return num.toInt()
+    }
+
     private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float, bx: Float = 0f, by: Float = 0f) {
         val config = WatchFaceConfigCache
         // Daten gelten als "frisch" wenn in den letzten 30 Minuten empfangen
         val phoneDataFresh = (System.currentTimeMillis() - config.phoneHealthLastReceived) < 1_800_000L
         val items = mutableListOf<HealthItem>()
 
-        // Puls: wenn Quelle = healthconnect, ausschließlich Phone-Wert verwenden (kein Sensor-Fallback)
+        // Puls: Komplikation (falls gewählt) > Health Connect > lokaler Sensor
         if (config.showHeartRate) {
-            val hr = if (config.hrSource == "healthconnect") {
-                if (phoneDataFresh) config.phoneHeartRate else 0
-            } else {
-                healthSensorManager.heartRate
-            }
+            val hr = readComplicationNumber(config.hrComplication)
+                ?: if (config.hrSource == "healthconnect") {
+                    if (phoneDataFresh) config.phoneHeartRate else 0
+                } else {
+                    healthSensorManager.heartRate
+                }
             val hrText = if (hr > 0) "$hr" else "--"
             items.add(HealthItem("BPM", hrText, Color.parseColor("#EF5350"), "heart"))
         }
 
-        // Kalorien: wenn Quelle = healthconnect, ausschließlich Phone-Wert verwenden (kein Sensor-Fallback)
+        // Kalorien: Komplikation (falls gewählt) > Health Connect > lokaler Sensor
         if (config.showCalories) {
-            val kcal = if (config.kcalSource == "healthconnect") {
-                if (phoneDataFresh) config.phoneCalories else 0
-            } else {
-                healthSensorManager.calories
-            }
+            val kcal = readComplicationNumber(config.kcalComplication)
+                ?: if (config.kcalSource == "healthconnect") {
+                    if (phoneDataFresh) config.phoneCalories else 0
+                } else {
+                    healthSensorManager.calories
+                }
             val kcalText = if (kcal > 0) "$kcal" else "--"
             items.add(HealthItem("KCAL", kcalText, Color.parseColor("#FF9800"), "flame"))
         }
 
-        // SpO2: wenn Quelle = healthconnect, ausschließlich Phone-Wert verwenden (kein Sensor-Fallback)
+        // SpO2: Komplikation (falls gewählt) > Health Connect > lokaler Sensor
         if (config.showOxygen) {
-            val o2 = if (config.oxygenSource == "healthconnect") {
-                if (phoneDataFresh) config.phoneSpO2 else 0
-            } else {
-                healthSensorManager.spO2
-            }
+            val o2 = readComplicationNumber(config.oxygenComplication)
+                ?: if (config.oxygenSource == "healthconnect") {
+                    if (phoneDataFresh) config.phoneSpO2 else 0
+                } else {
+                    healthSensorManager.spO2
+                }
             val o2Text = if (o2 > 0) "$o2%" else "--%"
             items.add(HealthItem("OXYGEN", o2Text, Color.parseColor("#42A5F5"), "oxygen"))
         }

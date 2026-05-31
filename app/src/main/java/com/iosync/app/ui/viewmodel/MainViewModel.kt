@@ -133,6 +133,9 @@ data class MainUiState(
     val wfHrSource: String = "local",
     val wfKcalSource: String = "local",
     val wfOxygenSource: String = "local",
+    val wfHrComplication: String = "",
+    val wfKcalComplication: String = "",
+    val wfOxygenComplication: String = "",
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 300,
@@ -224,6 +227,10 @@ class MainViewModel @Inject constructor(
         val KEY_WF_HR_SOURCE           = stringPreferencesKey("wf_hr_source")
         val KEY_WF_KCAL_SOURCE         = stringPreferencesKey("wf_kcal_source")
         val KEY_WF_OXYGEN_SOURCE       = stringPreferencesKey("wf_oxygen_source")
+        // Pro-Typ gewählte Komplikation (Slot-ID als String, "" = keine)
+        val KEY_WF_HR_COMPLICATION     = stringPreferencesKey("wf_hr_complication")
+        val KEY_WF_KCAL_COMPLICATION   = stringPreferencesKey("wf_kcal_complication")
+        val KEY_WF_OXYGEN_COMPLICATION = stringPreferencesKey("wf_oxygen_complication")
         // Aktualisierungsintervalle (in Sekunden)
         val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_sec")
         val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_sec")
@@ -312,6 +319,9 @@ class MainViewModel @Inject constructor(
             val wfHrSource         = prefs[KEY_WF_HR_SOURCE]         ?: "local"
             val wfKcalSource       = prefs[KEY_WF_KCAL_SOURCE]       ?: "local"
             val wfOxygenSource     = prefs[KEY_WF_OXYGEN_SOURCE]     ?: "local"
+            val wfHrComplication     = prefs[KEY_WF_HR_COMPLICATION]     ?: ""
+            val wfKcalComplication   = prefs[KEY_WF_KCAL_COMPLICATION]   ?: ""
+            val wfOxygenComplication = prefs[KEY_WF_OXYGEN_COMPLICATION] ?: ""
             val weatherUseFixed   = prefs[KEY_WEATHER_USE_FIXED]   ?: false
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
@@ -388,6 +398,9 @@ class MainViewModel @Inject constructor(
                     wfHrSource         = wfHrSource,
                     wfKcalSource       = wfKcalSource,
                     wfOxygenSource     = wfOxygenSource,
+                    wfHrComplication     = wfHrComplication,
+                    wfKcalComplication   = wfKcalComplication,
+                    wfOxygenComplication = wfOxygenComplication,
                     weatherUseFixedLocation = weatherUseFixed,
                     weatherFixedLat   = weatherFixedLat,
                     weatherFixedLon   = weatherFixedLon,
@@ -818,7 +831,8 @@ class MainViewModel @Inject constructor(
                     s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
                     s.wfBatteryRingColor1, s.wfBatteryRingColor2,
                     s.wfHealthDataSource,
-                    s.wfHrSource, s.wfKcalSource, s.wfOxygenSource
+                    s.wfHrSource, s.wfKcalSource, s.wfOxygenSource,
+                    s.wfHrComplication, s.wfKcalComplication, s.wfOxygenComplication
                 )
                 _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -952,7 +966,8 @@ class MainViewModel @Inject constructor(
                     s2.wfWeatherTextScale, s2.wfSunriseTextScale, s2.wfWatchBatteryTextScale,
                     s2.wfBatteryRingColor1, s2.wfBatteryRingColor2,
                     s2.wfHealthDataSource,
-                    s2.wfHrSource, s2.wfKcalSource, s2.wfOxygenSource
+                    s2.wfHrSource, s2.wfKcalSource, s2.wfOxygenSource,
+                    s2.wfHrComplication, s2.wfKcalComplication, s2.wfOxygenComplication
                 )
                 _uiState.update { it.copy(wearSyncLog = "Slot-Daten übertragen") }
             }
@@ -1118,13 +1133,19 @@ class MainViewModel @Inject constructor(
     fun updateHealthSourceConfig(
         hrSource: String,
         kcalSource: String,
-        oxygenSource: String
+        oxygenSource: String,
+        hrComplication: String = "",
+        kcalComplication: String = "",
+        oxygenComplication: String = ""
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
                 prefs[KEY_WF_HR_SOURCE]          = hrSource
                 prefs[KEY_WF_KCAL_SOURCE]        = kcalSource
                 prefs[KEY_WF_OXYGEN_SOURCE]      = oxygenSource
+                prefs[KEY_WF_HR_COMPLICATION]    = hrComplication
+                prefs[KEY_WF_KCAL_COMPLICATION]  = kcalComplication
+                prefs[KEY_WF_OXYGEN_COMPLICATION] = oxygenComplication
             }
             // Globale Quelle ableiten: "phone" wenn mindestens ein Typ Health Connect nutzt
             val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" || oxygenSource == "healthconnect"
@@ -1136,6 +1157,9 @@ class MainViewModel @Inject constructor(
                     wfHrSource = hrSource,
                     wfKcalSource = kcalSource,
                     wfOxygenSource = oxygenSource,
+                    wfHrComplication = hrComplication,
+                    wfKcalComplication = kcalComplication,
+                    wfOxygenComplication = oxygenComplication,
                     wfHealthDataSource = globalSource
                 )
             }
@@ -1161,7 +1185,8 @@ class MainViewModel @Inject constructor(
                     s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
                     s.wfBatteryRingColor1, s.wfBatteryRingColor2,
                     globalSource,
-                    hrSource, kcalSource, oxygenSource
+                    hrSource, kcalSource, oxygenSource,
+                    hrComplication, kcalComplication, oxygenComplication
                 )
                 _uiState.update { it.copy(wearSyncLog = "Health-Quellen-Konfiguration übertragen") }
             } catch (e: Exception) {

@@ -84,6 +84,10 @@ private const val KEY_WF_HEALTH_DATA_SOURCE        = "wf_health_data_source"
 private const val KEY_WF_HR_SOURCE                 = "wf_hr_source"
 private const val KEY_WF_KCAL_SOURCE               = "wf_kcal_source"
 private const val KEY_WF_OXYGEN_SOURCE             = "wf_oxygen_source"
+// Pro-Typ gewählte Komplikation (Slot-ID als String, "" = keine)
+private const val KEY_WF_HR_COMPLICATION           = "wf_hr_complication"
+private const val KEY_WF_KCAL_COMPLICATION         = "wf_kcal_complication"
+private const val KEY_WF_OXYGEN_COMPLICATION       = "wf_oxygen_complication"
 
 // ── Phone-Health-Daten (vom Smartphone gesendet) ────────────────────────────
 private const val PATH_PHONE_HEALTH          = "/iosync/watchface/phone_health"
@@ -259,6 +263,10 @@ object WatchFaceConfigCache {
     @Volatile var hrSource: String = "local"
     @Volatile var kcalSource: String = "local"
     @Volatile var oxygenSource: String = "local"
+    // Pro-Typ gewählte Komplikation (Slot-ID als String, "" = keine → normale Quelle)
+    @Volatile var hrComplication: String = ""
+    @Volatile var kcalComplication: String = ""
+    @Volatile var oxygenComplication: String = ""
     // Phone-Health-Daten (wenn Quelle = "healthconnect")
     @Volatile var phoneHeartRate: Int = 0
     @Volatile var phoneSpO2: Int = 0
@@ -316,6 +324,9 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_HR_SOURCE)?.let { hrSource = it }
         dataMap.getString(KEY_WF_KCAL_SOURCE)?.let { kcalSource = it }
         dataMap.getString(KEY_WF_OXYGEN_SOURCE)?.let { oxygenSource = it }
+        dataMap.getString(KEY_WF_HR_COMPLICATION)?.let { hrComplication = it }
+        dataMap.getString(KEY_WF_KCAL_COMPLICATION)?.let { kcalComplication = it }
+        dataMap.getString(KEY_WF_OXYGEN_COMPLICATION)?.let { oxygenComplication = it }
     }
 }
 

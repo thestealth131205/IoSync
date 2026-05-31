@@ -87,6 +87,9 @@ private const val KEY_WF_HEALTH_DATA_SOURCE      = "wf_health_data_source"
 private const val KEY_WF_HR_SOURCE               = "wf_hr_source"
 private const val KEY_WF_KCAL_SOURCE             = "wf_kcal_source"
 private const val KEY_WF_OXYGEN_SOURCE           = "wf_oxygen_source"
+private const val KEY_WF_HR_COMPLICATION         = "wf_hr_complication"
+private const val KEY_WF_KCAL_COMPLICATION       = "wf_kcal_complication"
+private const val KEY_WF_OXYGEN_COMPLICATION     = "wf_oxygen_complication"
 private const val PATH_CUSTOM_SLOTS           = "/iosync/watchface/custom_slots"
 private const val PATH_PHONE_HEALTH           = "/iosync/watchface/phone_health"
 private const val KEY_PHONE_HEART_RATE        = "phone_heart_rate"
@@ -261,7 +264,10 @@ class WearDataLayerService @Inject constructor(
         healthDataSource: String = "local",
         hrSource: String = "local",
         kcalSource: String = "local",
-        oxygenSource: String = "local"
+        oxygenSource: String = "local",
+        hrComplication: String = "",
+        kcalComplication: String = "",
+        oxygenComplication: String = ""
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -315,6 +321,9 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_HR_SOURCE, hrSource)
                     dataMap.putString(KEY_WF_KCAL_SOURCE, kcalSource)
                     dataMap.putString(KEY_WF_OXYGEN_SOURCE, oxygenSource)
+                    dataMap.putString(KEY_WF_HR_COMPLICATION, hrComplication)
+                    dataMap.putString(KEY_WF_KCAL_COMPLICATION, kcalComplication)
+                    dataMap.putString(KEY_WF_OXYGEN_COMPLICATION, oxygenComplication)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

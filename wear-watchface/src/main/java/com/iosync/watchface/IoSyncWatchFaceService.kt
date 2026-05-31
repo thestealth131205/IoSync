@@ -150,11 +150,11 @@ class IoSyncWatchFaceService : WatchFaceService() {
             textSizeSp = 20
         )
 
-        // Native Komplikation: Schritte (zwischen ioBroker-Slots und Pille)
+        // Native Komplikation: Schritte (mittig zentriert, direkt unter dem Wetter-Kreis)
         val stepsComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_STEPS_ID,
-            bounds = RectF(0.289f, 0.738f, 0.889f, 0.818f),
+            bounds = RectF(0.25f, 0.24f, 0.75f, 0.33f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
             supportedTypes = listOf(
                 ComplicationType.SHORT_TEXT,

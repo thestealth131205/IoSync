@@ -115,6 +115,10 @@ fun SettingsScreen(
     var wfHrSource         by remember(uiState.wfHrSource)         { mutableStateOf(uiState.wfHrSource) }
     var wfKcalSource       by remember(uiState.wfKcalSource)       { mutableStateOf(uiState.wfKcalSource) }
     var wfOxygenSource     by remember(uiState.wfOxygenSource)     { mutableStateOf(uiState.wfOxygenSource) }
+    // Pro-Typ gewählte Komplikation (Slot-ID als String, "" = keine)
+    var wfHrComplication     by remember(uiState.wfHrComplication)     { mutableStateOf(uiState.wfHrComplication) }
+    var wfKcalComplication   by remember(uiState.wfKcalComplication)   { mutableStateOf(uiState.wfKcalComplication) }
+    var wfOxygenComplication by remember(uiState.wfOxygenComplication) { mutableStateOf(uiState.wfOxygenComplication) }
 
     // Custom ioBroker-Slots
     var showCustomSlots by remember(uiState.showCustomSlots) { mutableStateOf(uiState.showCustomSlots) }
@@ -687,7 +691,9 @@ fun SettingsScreen(
                 HealthSourcePerTypeRow(
                     label = "Puls-Quelle",
                     source = wfHrSource,
-                    onSourceChange = { wfHrSource = it }
+                    onSourceChange = { wfHrSource = it },
+                    complication = wfHrComplication,
+                    onComplicationChange = { wfHrComplication = it }
                 )
             }
 
@@ -701,7 +707,9 @@ fun SettingsScreen(
                 HealthSourcePerTypeRow(
                     label = "Kcal-Quelle",
                     source = wfKcalSource,
-                    onSourceChange = { wfKcalSource = it }
+                    onSourceChange = { wfKcalSource = it },
+                    complication = wfKcalComplication,
+                    onComplicationChange = { wfKcalComplication = it }
                 )
             }
 
@@ -715,7 +723,9 @@ fun SettingsScreen(
                 HealthSourcePerTypeRow(
                     label = "SpO2-Quelle",
                     source = wfOxygenSource,
-                    onSourceChange = { wfOxygenSource = it }
+                    onSourceChange = { wfOxygenSource = it },
+                    complication = wfOxygenComplication,
+                    onComplicationChange = { wfOxygenComplication = it }
                 )
             }
 
@@ -744,7 +754,10 @@ fun SettingsScreen(
                     viewModel.updateHealthSourceConfig(
                         hrSource = wfHrSource,
                         kcalSource = wfKcalSource,
-                        oxygenSource = wfOxygenSource
+                        oxygenSource = wfOxygenSource,
+                        hrComplication = wfHrComplication,
+                        kcalComplication = wfKcalComplication,
+                        oxygenComplication = wfOxygenComplication
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -1942,14 +1955,26 @@ private fun HealthDataTypeRow(dataType: HealthDataTypeInfo) {
 
 private val HEALTH_SOURCE_PER_TYPE_OPTIONS = listOf("local" to "Lokal (Uhr)", "healthconnect" to "Health Connect")
 
+// Komplikations-Slots des Watchface (die einzigen auf der Uhr vorhandenen Komplikationen).
+// "" = keine → es gilt die normale Quelle (Lokal/Health Connect).
+private val COMPLICATION_OPTIONS = listOf(
+    "" to "Aus",
+    "0" to "ID - 0 (Oben)",
+    "2" to "ID - 2 (Links)",
+    "6" to "ID - 6 (Schritte)"
+)
+
 /**
- * Pro-Typ Gesundheitsdaten-Quelle: Dropdown (Lokal/Health Connect)
+ * Pro-Typ Gesundheitsdaten-Quelle: Dropdown (Lokal/Health Connect) + Komplikations-Dropdown.
+ * Ist eine Komplikation gewählt (≠ Aus), holt die Uhr den Wert aus dieser Komplikation.
  */
 @Composable
 private fun HealthSourcePerTypeRow(
     label: String,
     source: String,
-    onSourceChange: (String) -> Unit
+    onSourceChange: (String) -> Unit,
+    complication: String,
+    onComplicationChange: (String) -> Unit
 ) {
     Column(modifier = Modifier.padding(start = 16.dp)) {
         Row(
@@ -1963,6 +1988,65 @@ private fun HealthSourcePerTypeRow(
                 onSelect = onSourceChange,
                 modifier = Modifier.weight(0.7f)
             )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Komplikation", style = MaterialTheme.typography.bodySmall, color = Color(0xFFAAAAAA), modifier = Modifier.weight(1f))
+            GenericValueDropdown(
+                options = COMPLICATION_OPTIONS,
+                selected = complication,
+                onSelect = onComplicationChange,
+                modifier = Modifier.weight(0.7f)
+            )
+        }
+    }
+}
+
+/**
+ * Generisches Dropdown für (Wert → Label)-Optionen, gleiches Erscheinungsbild wie die Quellen-Auswahl.
+ */
+@Composable
+private fun GenericValueDropdown(
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayName = options.firstOrNull { it.first == selected }?.second ?: selected
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFF444444))
+        ) {
+            Text(displayName, style = MaterialTheme.typography.bodySmall)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color(0xFF1E1E1E))
+        ) {
+            options.forEach { (value, lbl) ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = lbl,
+                            color = if (value == selected) NeonYellow else Color.White,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    onClick = {
+                        onSelect(value)
+                        expanded = false
+                    }
+                )
+            }
         }
     }
 }
