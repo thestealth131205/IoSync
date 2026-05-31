@@ -124,19 +124,6 @@ class IoSyncWatchFaceService : WatchFaceService() {
     ): ComplicationSlotsManager {
         val context: Context = applicationContext
 
-        val topComplication = buildComplicationSlot(
-            context = context,
-            id = COMPLICATION_TOP_ID,
-            bounds = RectF(0.30f, 0.08f, 0.52f, 0.30f),
-            defaultDataSource = SystemDataSources.DATA_SOURCE_WATCH_BATTERY,
-            supportedTypes = listOf(
-                ComplicationType.SHORT_TEXT,
-                ComplicationType.RANGED_VALUE,
-                ComplicationType.SMALL_IMAGE
-            ),
-            textSizeSp = 20
-        )
-
         val leftComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_LEFT_ID,
@@ -150,11 +137,11 @@ class IoSyncWatchFaceService : WatchFaceService() {
             textSizeSp = 20
         )
 
-        // Native Komplikation: Schritte (mittig zentriert, direkt unter dem Wetter-Kreis)
+        // Native Komplikation: Schritte (mittig zentriert, direkt über der Uhrzeit)
         val stepsComplication = buildComplicationSlot(
             context = context,
             id = COMPLICATION_STEPS_ID,
-            bounds = RectF(0.25f, 0.24f, 0.75f, 0.33f),
+            bounds = RectF(0.25f, 0.27f, 0.75f, 0.36f),
             defaultDataSource = SystemDataSources.DATA_SOURCE_STEP_COUNT,
             supportedTypes = listOf(
                 ComplicationType.SHORT_TEXT,
@@ -167,7 +154,6 @@ class IoSyncWatchFaceService : WatchFaceService() {
 
         return ComplicationSlotsManager(
             complicationSlotCollection = listOf(
-                topComplication,
                 leftComplication,
                 stepsComplication
             ),

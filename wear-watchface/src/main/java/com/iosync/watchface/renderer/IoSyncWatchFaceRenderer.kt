@@ -877,8 +877,8 @@ class IoSyncWatchFaceRenderer(
         val config = WatchFaceConfigCache
         val circleRadius = radius * 0.18f
         val circleCx = cx
-        // ca. 15dp nach oben verschoben (Platz für Steps-Anzeige darunter)
-        val circleCy = cy - radius * 0.64f - 15f * density
+        // nach oben verschoben, Steps-Anzeige liegt darunter direkt über der Uhrzeit
+        val circleCy = cy - radius * 0.64f - 20f * density
 
         // Tap-Bereich für Wetter-App-Start merken (etwas größer als der Kreis).
         // Seiten/oben großzügig, unten (Richtung kcal) klein, damit kcal nicht getroffen wird.
@@ -1472,9 +1472,8 @@ class IoSyncWatchFaceRenderer(
                 titleSize = (22f * sunriseScale).toInt().coerceAtLeast(6)
             }
         }
-        // Slot 0 (Uhren-Akku) wird durch drawBatteryRing() ersetzt — nicht nochmal zeichnen
-        complicationSlotsManager.complicationSlots.forEach { (id, slot) ->
-            if (slot.enabled && id != 0) slot.render(canvas, zonedDateTime, renderParameters)
+        complicationSlotsManager.complicationSlots.forEach { (_, slot) ->
+            if (slot.enabled) slot.render(canvas, zonedDateTime, renderParameters)
         }
     }
 
