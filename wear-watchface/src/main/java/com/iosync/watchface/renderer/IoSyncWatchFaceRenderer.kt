@@ -896,8 +896,8 @@ class IoSyncWatchFaceRenderer(
         canvas.drawCircle(circleCx, circleCy, circleRadius, weatherCircleBgPaint)
 
         // Wettersymbol zeichnen
-        val iconSize = circleRadius * 0.50f
-        val iconCy = circleCy - circleRadius * 0.18f - 5f * density
+        val iconSize = circleRadius * 0.80f
+        val iconCy = circleCy - circleRadius * 0.22f
         drawWeatherIcon(canvas, circleCx, iconCy, iconSize, config.weatherCondition)
 
         // Temperatur
@@ -1470,6 +1470,15 @@ class IoSyncWatchFaceRenderer(
             (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
                 textSize  = (30f * sunriseScale).toInt().coerceAtLeast(8)
                 titleSize = (22f * sunriseScale).toInt().coerceAtLeast(6)
+            }
+        }
+        // Schritte-Komplikation (Slot 6): Schriftgröße aus Config anwenden
+        val stepsCompScale = WatchFaceConfigCache.stepsTextScale / 100f
+        complicationSlotsManager.complicationSlots[6]?.let { slot ->
+            (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
+                textSize  = (22f * stepsCompScale).toInt().coerceAtLeast(8)
+                titleSize = (16f * stepsCompScale).toInt().coerceAtLeast(6)
+                iconSize  = (18f * stepsCompScale).toInt().coerceAtLeast(6)
             }
         }
         complicationSlotsManager.complicationSlots.forEach { (_, slot) ->
