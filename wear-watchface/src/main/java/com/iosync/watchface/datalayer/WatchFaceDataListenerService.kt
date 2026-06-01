@@ -132,6 +132,17 @@ private const val KEY_PHONE_SLEEP_MINUTES = "phone_sleep_minutes"
 // ── Custom-Slot-Daten (Echtzeit-Updates der Werte) ──────────────────────────
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
 
+// ── Seite-2 ioBroker-Slots (4 Datenpunkte auf der zweiten Watchface-Seite) ──
+private const val PATH_CUSTOM_SLOTS_P2      = "/iosync/watchface/custom_slots_p2"
+private const val KEY_WF_P2_SLOT1_LABEL     = "wf_p2_slot1_label"
+private const val KEY_WF_P2_SLOT1_VALUE     = "wf_p2_slot1_value"
+private const val KEY_WF_P2_SLOT2_LABEL     = "wf_p2_slot2_label"
+private const val KEY_WF_P2_SLOT2_VALUE     = "wf_p2_slot2_value"
+private const val KEY_WF_P2_SLOT3_LABEL     = "wf_p2_slot3_label"
+private const val KEY_WF_P2_SLOT3_VALUE     = "wf_p2_slot3_value"
+private const val KEY_WF_P2_SLOT4_LABEL     = "wf_p2_slot4_label"
+private const val KEY_WF_P2_SLOT4_VALUE     = "wf_p2_slot4_value"
+
 // ── Aktions-Pille Status-Pfad (separater Pfad für schnelle State-Updates) ────
 private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
 private const val KEY_PILL_STATE         = "pill_state"
@@ -216,6 +227,18 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     val state = dataMap.getBoolean(KEY_PILL_STATE, false)
                     Log.d(TAG, "Aktions-Pille Status empfangen: $state")
                     WatchFaceConfigCache.actionPillState = state
+                }
+                PATH_CUSTOM_SLOTS_P2 -> {
+                    val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    dataMap.getString(KEY_WF_P2_SLOT1_LABEL)?.let { WatchFaceConfigCache.p2Slot1Label = it }
+                    dataMap.getString(KEY_WF_P2_SLOT1_VALUE)?.let { WatchFaceConfigCache.p2Slot1Value = it }
+                    dataMap.getString(KEY_WF_P2_SLOT2_LABEL)?.let { WatchFaceConfigCache.p2Slot2Label = it }
+                    dataMap.getString(KEY_WF_P2_SLOT2_VALUE)?.let { WatchFaceConfigCache.p2Slot2Value = it }
+                    dataMap.getString(KEY_WF_P2_SLOT3_LABEL)?.let { WatchFaceConfigCache.p2Slot3Label = it }
+                    dataMap.getString(KEY_WF_P2_SLOT3_VALUE)?.let { WatchFaceConfigCache.p2Slot3Value = it }
+                    dataMap.getString(KEY_WF_P2_SLOT4_LABEL)?.let { WatchFaceConfigCache.p2Slot4Label = it }
+                    dataMap.getString(KEY_WF_P2_SLOT4_VALUE)?.let { WatchFaceConfigCache.p2Slot4Value = it }
+                    Log.d(TAG, "Seite-2-Slot-Daten empfangen")
                 }
             }
         }
@@ -330,6 +353,16 @@ object WatchFaceConfigCache {
     @Volatile var phoneSpO2: Int = 0
     @Volatile var phoneCalories: Int = 0
     @Volatile var phoneHealthLastReceived: Long = 0L
+
+    // ── Seite 2 ioBroker-Slots ────────────────────────────────────────────────
+    @Volatile var p2Slot1Label: String = ""
+    @Volatile var p2Slot1Value: String = "--"
+    @Volatile var p2Slot2Label: String = ""
+    @Volatile var p2Slot2Value: String = "--"
+    @Volatile var p2Slot3Label: String = ""
+    @Volatile var p2Slot3Value: String = "--"
+    @Volatile var p2Slot4Label: String = ""
+    @Volatile var p2Slot4Value: String = "--"
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()

@@ -312,6 +312,44 @@ class IoSyncWatchFaceRenderer(
     private var pillPressedAt = 0L
     private val PILL_PRESS_DURATION_MS = 300L
 
+    // ── Seite 2 ───────────────────────────────────────────────────────────────
+    private var currentPage = 0          // 0 = Hauptseite, 1 = Zweite Seite
+    private var nineOClockTapBounds = RectF()
+    private var page2LastTapTime = 0L
+    private var page2TouchActive = false
+    private var page2TouchReleasedAt = 0L
+    private val PAGE2_TOUCH_FADE_MS = 500L
+    private var page2Pill1Bounds = RectF()
+    private var page2Pill2Bounds = RectF()
+    private var page2Pill1TapBounds = RectF()
+    private var page2Pill2TapBounds = RectF()
+
+    private val page2OverlayPaint = Paint().apply {
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+    private val page2PillFillPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.FILL
+    }
+    private val page2PillStrokePaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f
+    }
+    private val page2SlotLabelPaint = Paint().apply {
+        color = Color.parseColor("#888888")
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
+    }
+    private val page2SlotValuePaint = Paint().apply {
+        color = Color.parseColor("#EAFF00")
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
+    }
+
     // ── Config-Bestätigung (2 s Overlay) ───────────────────────────────────────
     private val confirmPaint = Paint().apply {
         color = Color.parseColor("#EAFF00")
@@ -331,12 +369,13 @@ class IoSyncWatchFaceRenderer(
         private const val CONFIRM_DURATION_MS = 2000L
 
         // Data Layer Pfade (gespiegelt aus WatchFaceDataListenerService)
-        private const val PATH_WATCHFACE_CONFIG = "/iosync/watchface/config"
-        private const val PATH_WEATHER          = "/iosync/watchface/weather"
-        private const val PATH_PHONE_BATTERY    = "/iosync/phone/battery"
-        private const val PATH_CUSTOM_SLOTS     = "/iosync/watchface/custom_slots"
+        private const val PATH_WATCHFACE_CONFIG  = "/iosync/watchface/config"
+        private const val PATH_WEATHER           = "/iosync/watchface/weather"
+        private const val PATH_PHONE_BATTERY     = "/iosync/phone/battery"
+        private const val PATH_CUSTOM_SLOTS      = "/iosync/watchface/custom_slots"
+        private const val PATH_CUSTOM_SLOTS_P2   = "/iosync/watchface/custom_slots_p2"
         private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
-        private const val PATH_STATES           = "/iosync/smarthome/states"
+        private const val PATH_STATES            = "/iosync/smarthome/states"
     }
 
     // ── Formatter ─────────────────────────────────────────────────────────────
@@ -423,6 +462,17 @@ class IoSyncWatchFaceRenderer(
                             val dataMap = DataMapItem.fromDataItem(item).dataMap
                             WatchFaceConfigCache.actionPillState = dataMap.getBoolean("pill_state", false)
                         }
+                        PATH_CUSTOM_SLOTS_P2 -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            dataMap.getString("wf_p2_slot1_label")?.let { WatchFaceConfigCache.p2Slot1Label = it }
+                            dataMap.getString("wf_p2_slot1_value")?.let { WatchFaceConfigCache.p2Slot1Value = it }
+                            dataMap.getString("wf_p2_slot2_label")?.let { WatchFaceConfigCache.p2Slot2Label = it }
+                            dataMap.getString("wf_p2_slot2_value")?.let { WatchFaceConfigCache.p2Slot2Value = it }
+                            dataMap.getString("wf_p2_slot3_label")?.let { WatchFaceConfigCache.p2Slot3Label = it }
+                            dataMap.getString("wf_p2_slot3_value")?.let { WatchFaceConfigCache.p2Slot3Value = it }
+                            dataMap.getString("wf_p2_slot4_label")?.let { WatchFaceConfigCache.p2Slot4Label = it }
+                            dataMap.getString("wf_p2_slot4_value")?.let { WatchFaceConfigCache.p2Slot4Value = it }
+                        }
                     }
                 }
                 dataItems.release()
@@ -472,6 +522,16 @@ class IoSyncWatchFaceRenderer(
                 PATH_STATES -> {
                     dataMap.getString("states_json")?.let { SmartHomeStateCache.updateFromJson(it) }
                 }
+                PATH_CUSTOM_SLOTS_P2 -> {
+                    dataMap.getString("wf_p2_slot1_label")?.let { WatchFaceConfigCache.p2Slot1Label = it }
+                    dataMap.getString("wf_p2_slot1_value")?.let { WatchFaceConfigCache.p2Slot1Value = it }
+                    dataMap.getString("wf_p2_slot2_label")?.let { WatchFaceConfigCache.p2Slot2Label = it }
+                    dataMap.getString("wf_p2_slot2_value")?.let { WatchFaceConfigCache.p2Slot2Value = it }
+                    dataMap.getString("wf_p2_slot3_label")?.let { WatchFaceConfigCache.p2Slot3Label = it }
+                    dataMap.getString("wf_p2_slot3_value")?.let { WatchFaceConfigCache.p2Slot3Value = it }
+                    dataMap.getString("wf_p2_slot4_label")?.let { WatchFaceConfigCache.p2Slot4Label = it }
+                    dataMap.getString("wf_p2_slot4_value")?.let { WatchFaceConfigCache.p2Slot4Value = it }
+                }
             }
         }
     }
@@ -508,6 +568,15 @@ class IoSyncWatchFaceRenderer(
         val cx     = bounds.exactCenterX()
         val cy     = bounds.exactCenterY()
         val radius = minOf(cx, cy)
+
+        // 9-Uhr-Tipp-Zone aktualisieren (linke Seite, mittlere Höhe)
+        nineOClockTapBounds.set(0f, cy - radius * 0.28f, cx * 0.50f, cy + radius * 0.28f)
+
+        // Seite 2 im aktiven Modus rendern (überspringt gesamte Seite-1-Logik)
+        if (!isAmbient && currentPage == 1) {
+            drawPage2(canvas, cx, cy, radius)
+            return
+        }
 
         val timeStr      = timeFormatter.format(zonedDateTime)
         val timeFontSize = radius * 0.437f
@@ -1617,6 +1686,41 @@ class IoSyncWatchFaceRenderer(
         val y = tapEvent.yPos.toFloat()
         val config = WatchFaceConfigCache
 
+        // ── 9-Uhr Doppeltipp: zwischen Seite 1 und 2 wechseln ───────────────
+        if (nineOClockTapBounds.contains(x, y)) {
+            if (tapType == TapType.UP) {
+                val now = System.currentTimeMillis()
+                if (now - page2LastTapTime <= DOUBLE_TAP_MS) {
+                    currentPage = 1 - currentPage
+                    page2LastTapTime = 0L
+                    page2TouchActive = false
+                    invalidate()
+                } else {
+                    page2LastTapTime = now
+                }
+            }
+            return
+        }
+
+        // ── Seite 2: Touch-Overlay + Pillen ─────────────────────────────────
+        if (currentPage == 1) {
+            if (tapType == TapType.DOWN) {
+                page2TouchActive = true
+                invalidate()
+                return
+            }
+            if (tapType == TapType.UP) {
+                page2TouchActive = false
+                page2TouchReleasedAt = System.currentTimeMillis()
+                // Pille 7 Uhr oder 5 Uhr → Aktion auslösen
+                if (page2Pill1TapBounds.contains(x, y) || page2Pill2TapBounds.contains(x, y)) {
+                    triggerPillAction()
+                }
+                invalidate()
+            }
+            return
+        }
+
         // ── Wetter-Anzeige: tippen öffnet die Wetter-App ─────────────────────
         if (tapType == TapType.UP && config.showWeather && weatherTapBounds.contains(x, y)) {
             openWeatherApp()
@@ -1689,6 +1793,123 @@ class IoSyncWatchFaceRenderer(
         } else {
             Log.w(TAG_PILL, "Keine Wetter-App auf der Uhr gefunden")
         }
+    }
+
+    // ── Seite 2 ────────────────────────────────────────────────────────────────
+
+    /**
+     * Zeichnet die gesamte zweite Watchface-Seite.
+     * Aufruf durch render() wenn currentPage == 1 und nicht Ambient.
+     * Enthält:
+     *   - Touch-Overlay (transparent → stark transparentes Weiß beim Berühren)
+     *   - 4 ioBroker-Slots (2×2 Gitter, obere Hälfte)
+     *   - 2 halbe Aktions-Pillen bei 7 Uhr und 5 Uhr
+     */
+    private fun drawPage2(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        // Touch-Overlay: unsichtbar bis berührt, danach stark transparentes Weiß
+        val alpha = if (page2TouchActive) {
+            48
+        } else {
+            val elapsed = System.currentTimeMillis() - page2TouchReleasedAt
+            if (elapsed < PAGE2_TOUCH_FADE_MS) {
+                (48 * (1f - elapsed.toFloat() / PAGE2_TOUCH_FADE_MS)).toInt()
+            } else 0
+        }
+        if (alpha > 0) {
+            page2OverlayPaint.color = Color.argb(alpha, 255, 255, 255)
+            canvas.drawCircle(cx, cy, radius, page2OverlayPaint)
+            invalidate() // weiter animieren während Fade-out
+        }
+
+        // 4 ioBroker-Slots (oben, 2 × 2 Gitter)
+        drawPage2IoBrokerSlots(canvas, cx, cy, radius)
+
+        // 2 halbe Pillen (7 Uhr und 5 Uhr)
+        drawPage2Pills(canvas, cx, cy, radius)
+    }
+
+    /**
+     * Zeichnet 4 ioBroker-Slots auf Seite 2 in einem 2×2 Gitter.
+     * Obere Hälfte des Zifferblatts, über den Pillen.
+     */
+    private fun drawPage2IoBrokerSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+        val labelSize = radius * 0.072f
+        val valueSize = radius * 0.100f
+        val colOffset = radius * 0.30f
+
+        // Zeile 1: oberer Bereich; Zeile 2: knapp unterhalb der Mitte
+        val row1Y = cy - radius * 0.20f
+        val row2Y = cy + radius * 0.22f
+
+        data class P2Slot(val label: String, val value: String, val slotCx: Float, val baseY: Float)
+        val slots = listOf(
+            P2Slot(config.p2Slot1Label, config.p2Slot1Value, cx - colOffset, row1Y),
+            P2Slot(config.p2Slot2Label, config.p2Slot2Value, cx + colOffset, row1Y),
+            P2Slot(config.p2Slot3Label, config.p2Slot3Value, cx - colOffset, row2Y),
+            P2Slot(config.p2Slot4Label, config.p2Slot4Value, cx + colOffset, row2Y)
+        )
+
+        for (slot in slots) {
+            // Label (grau, klein)
+            val labelText = if (slot.label.isBlank()) "---" else slot.label.take(6).uppercase()
+            page2SlotLabelPaint.textSize = labelSize
+            canvas.drawText(labelText, slot.slotCx, slot.baseY, page2SlotLabelPaint)
+
+            // Wert (Neon-Gelb, größer)
+            page2SlotValuePaint.textSize = valueSize
+            canvas.drawText(slot.value, slot.slotCx, slot.baseY + valueSize * 1.15f, page2SlotValuePaint)
+        }
+    }
+
+    /**
+     * Zeichnet zwei halbe Aktions-Pillen auf Seite 2:
+     *   - Pille bei 7 Uhr (unten links, ca. 210° von 12 Uhr)
+     *   - Pille bei 5 Uhr (unten rechts, ca. 150° von 12 Uhr)
+     * Halbbreite = 50 % der Seite-1-Pille; gleiche Höhe.
+     * Farbe wie die Aktions-Pille (State-abhängig).
+     */
+    private fun drawPage2Pills(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config  = WatchFaceConfigCache
+        val halfW   = radius * 0.133f   // halb so lang wie Seite-1-Pille (0.266)
+        val halfH   = radius * 0.060f
+        val tapPad  = halfH * 1.5f
+
+        // 7 Uhr: 210° von 12 → Einheitsvektor (cos120°, sin120°) = (−0.5, 0.866)
+        // 5 Uhr: 150° von 12 → Einheitsvektor (cos 60°, sin 60°) = (+0.5, 0.866)
+        val dist  = radius * 0.63f
+        val pill7X = cx - dist * 0.50f
+        val pill7Y = cy + dist * 0.866f
+        val pill5X = cx + dist * 0.50f
+        val pill5Y = cy + dist * 0.866f
+
+        val stateColor = colorFromPillId(
+            if (config.actionPillState) config.actionPillColorTrue else config.actionPillColorFalse
+        )
+
+        page2PillFillPaint.color = Color.argb(
+            180,
+            Color.red(stateColor), Color.green(stateColor), Color.blue(stateColor)
+        )
+        page2PillStrokePaint.color = stateColor
+
+        // Pille bei 7 Uhr
+        page2Pill1Bounds.set(pill7X - halfW, pill7Y - halfH, pill7X + halfW, pill7Y + halfH)
+        page2Pill1TapBounds.set(
+            pill7X - halfW - tapPad, pill7Y - halfH - tapPad,
+            pill7X + halfW + tapPad, pill7Y + halfH + tapPad
+        )
+        canvas.drawRoundRect(page2Pill1Bounds, halfH, halfH, page2PillFillPaint)
+        canvas.drawRoundRect(page2Pill1Bounds, halfH, halfH, page2PillStrokePaint)
+
+        // Pille bei 5 Uhr
+        page2Pill2Bounds.set(pill5X - halfW, pill5Y - halfH, pill5X + halfW, pill5Y + halfH)
+        page2Pill2TapBounds.set(
+            pill5X - halfW - tapPad, pill5Y - halfH - tapPad,
+            pill5X + halfW + tapPad, pill5Y + halfH + tapPad
+        )
+        canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillFillPaint)
+        canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillStrokePaint)
     }
 
     override fun onDestroy() {
