@@ -134,6 +134,10 @@ fun SettingsScreen(
     var customSlot4BarMin        by remember(uiState.customSlot4BarMin)        { mutableStateOf(uiState.customSlot4BarMin.toString()) }
     var customSlot4BarMax        by remember(uiState.customSlot4BarMax)        { mutableStateOf(uiState.customSlot4BarMax.toString()) }
     var customSlot4BarShowLabel  by remember(uiState.customSlot4BarShowLabel)  { mutableStateOf(uiState.customSlot4BarShowLabel) }
+    var customSlot4Warn1Color    by remember(uiState.customSlot4Warn1Color)    { mutableStateOf(uiState.customSlot4Warn1Color) }
+    var customSlot4Warn1Value    by remember(uiState.customSlot4Warn1Value)    { mutableStateOf(if (uiState.customSlot4Warn1Value.isNaN()) "" else uiState.customSlot4Warn1Value.toString()) }
+    var customSlot4Warn2Color    by remember(uiState.customSlot4Warn2Color)    { mutableStateOf(uiState.customSlot4Warn2Color) }
+    var customSlot4Warn2Value    by remember(uiState.customSlot4Warn2Value)    { mutableStateOf(if (uiState.customSlot4Warn2Value.isNaN()) "" else uiState.customSlot4Warn2Value.toString()) }
 
     // Individuelle Schriftgrößen je Wert
     var wfHrTextScale      by remember(uiState.wfHrTextScale)      { mutableStateOf(uiState.wfHrTextScale) }
@@ -151,6 +155,10 @@ fun SettingsScreen(
     var wfBatteryRingColor1       by remember(uiState.wfBatteryRingColor1)       { mutableStateOf(uiState.wfBatteryRingColor1) }
     var wfBatteryRingColor2       by remember(uiState.wfBatteryRingColor2)       { mutableStateOf(uiState.wfBatteryRingColor2) }
     var wfBatteryRingStrokeScale  by remember(uiState.wfBatteryRingStrokeScale)  { mutableStateOf(uiState.wfBatteryRingStrokeScale.toFloat()) }
+    var wfBatteryWarn1Color       by remember(uiState.wfBatteryWarn1Color)       { mutableStateOf(uiState.wfBatteryWarn1Color) }
+    var wfBatteryWarn1Threshold   by remember(uiState.wfBatteryWarn1Threshold)   { mutableStateOf(uiState.wfBatteryWarn1Threshold.toFloat()) }
+    var wfBatteryWarn2Color       by remember(uiState.wfBatteryWarn2Color)       { mutableStateOf(uiState.wfBatteryWarn2Color) }
+    var wfBatteryWarn2Threshold   by remember(uiState.wfBatteryWarn2Threshold)   { mutableStateOf(uiState.wfBatteryWarn2Threshold.toFloat()) }
 
     // Aktualisierungsintervalle
     var batteryPollInterval by remember(uiState.batteryPollIntervalSec) { mutableStateOf(uiState.batteryPollIntervalSec) }
@@ -173,7 +181,8 @@ fun SettingsScreen(
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
         wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories, wfShowSteps,
         wfHrTextScale, wfKcalTextScale, wfStepsTextScale, wfWeatherTextScale, wfSunriseTextScale, wfWatchBatteryTextScale,
-        wfBatteryRingColor1, wfBatteryRingColor2, wfBatteryRingStrokeScale
+        wfBatteryRingColor1, wfBatteryRingColor2, wfBatteryRingStrokeScale,
+        wfBatteryWarn1Color, wfBatteryWarn1Threshold, wfBatteryWarn2Color, wfBatteryWarn2Threshold
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -206,7 +215,11 @@ fun SettingsScreen(
             watchBatteryTextScale = wfWatchBatteryTextScale,
             batteryRingColor1       = wfBatteryRingColor1,
             batteryRingColor2       = wfBatteryRingColor2,
-            batteryRingStrokeScale  = wfBatteryRingStrokeScale.toInt()
+            batteryRingStrokeScale  = wfBatteryRingStrokeScale.toInt(),
+            batteryWarn1Color       = wfBatteryWarn1Color,
+            batteryWarn1Threshold   = wfBatteryWarn1Threshold.toInt(),
+            batteryWarn2Color       = wfBatteryWarn2Color,
+            batteryWarn2Threshold   = wfBatteryWarn2Threshold.toInt()
         )
     }
 
@@ -635,6 +648,57 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(8.dp))
 
+            // ── Akku-Ring Warnstufen ───────────────────────────────────────────
+            Text(
+                text = "Akku-Ring Warnstufe 1: " +
+                    if (wfBatteryWarn1Threshold.toInt() == 0) "aus" else "unter ${wfBatteryWarn1Threshold.toInt()}%",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Slider(
+                value = wfBatteryWarn1Threshold,
+                onValueChange = { wfBatteryWarn1Threshold = it },
+                valueRange = 0f..100f,
+                steps = 19,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                WatchFaceColorChip(color = Color(0xFFFF9800), label = "Orange",     selected = wfBatteryWarn1Color == "orange",      onClick = { wfBatteryWarn1Color = "orange" })
+                WatchFaceColorChip(color = Color(0xFFF44336), label = "Rot",        selected = wfBatteryWarn1Color == "red",         onClick = { wfBatteryWarn1Color = "red" })
+                WatchFaceColorChip(color = Color(0xFFEAFF00), label = "Neon Gelb",  selected = wfBatteryWarn1Color == "neon_yellow", onClick = { wfBatteryWarn1Color = "neon_yellow" })
+                WatchFaceColorChip(color = Color(0xFF9C27B0), label = "Lila",       selected = wfBatteryWarn1Color == "purple",      onClick = { wfBatteryWarn1Color = "purple" })
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                text = "Akku-Ring Warnstufe 2: " +
+                    if (wfBatteryWarn2Threshold.toInt() == 0) "aus" else "unter ${wfBatteryWarn2Threshold.toInt()}%",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Slider(
+                value = wfBatteryWarn2Threshold,
+                onValueChange = { wfBatteryWarn2Threshold = it },
+                valueRange = 0f..100f,
+                steps = 19,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                WatchFaceColorChip(color = Color(0xFFF44336), label = "Rot",        selected = wfBatteryWarn2Color == "red",         onClick = { wfBatteryWarn2Color = "red" })
+                WatchFaceColorChip(color = Color(0xFFFF9800), label = "Orange",     selected = wfBatteryWarn2Color == "orange",      onClick = { wfBatteryWarn2Color = "orange" })
+                WatchFaceColorChip(color = Color(0xFFEAFF00), label = "Neon Gelb",  selected = wfBatteryWarn2Color == "neon_yellow", onClick = { wfBatteryWarn2Color = "neon_yellow" })
+                WatchFaceColorChip(color = Color(0xFF9C27B0), label = "Lila",       selected = wfBatteryWarn2Color == "purple",      onClick = { wfBatteryWarn2Color = "purple" })
+            }
+
+            Spacer(Modifier.height(8.dp))
+
             // ── Aktualisierungsintervalle ──────────────────────────────────────
             Text(
                 text = "Aktualisierungsintervalle",
@@ -943,6 +1007,52 @@ fun SettingsScreen(
                     FontSizeDropdown(selected = wfSlot4TextScale, onSelect = { wfSlot4TextScale = it })
                 }
 
+                // ── Balken-Warnstufen ──────────────────────────────────────
+                Text(
+                    "Warnstufe 1 (leer = aus). Balken wird unter diesem Wert eingefärbt.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = customSlot4Warn1Value,
+                        onValueChange = { customSlot4Warn1Value = it },
+                        label = { Text("Schwelle 1") },
+                        placeholder = { Text("z.B. 20") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = customSlot4Warn1Color == "orange",      onClick = { customSlot4Warn1Color = "orange" })
+                    PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = customSlot4Warn1Color == "red",         onClick = { customSlot4Warn1Color = "red" })
+                    PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",   selected = customSlot4Warn1Color == "neon_yellow", onClick = { customSlot4Warn1Color = "neon_yellow" })
+                    PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = customSlot4Warn1Color == "purple",      onClick = { customSlot4Warn1Color = "purple" })
+                }
+                Text(
+                    "Warnstufe 2 (leer = aus). Niedrigere Schwelle hat Vorrang.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = customSlot4Warn2Value,
+                        onValueChange = { customSlot4Warn2Value = it },
+                        label = { Text("Schwelle 2") },
+                        placeholder = { Text("z.B. 10") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = customSlot4Warn2Color == "red",         onClick = { customSlot4Warn2Color = "red" })
+                    PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = customSlot4Warn2Color == "orange",      onClick = { customSlot4Warn2Color = "orange" })
+                    PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",   selected = customSlot4Warn2Color == "neon_yellow", onClick = { customSlot4Warn2Color = "neon_yellow" })
+                    PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = customSlot4Warn2Color == "purple",      onClick = { customSlot4Warn2Color = "purple" })
+                }
+
                 Button(
                     onClick = {
                         viewModel.updateCustomSlotsConfig(
@@ -962,7 +1072,11 @@ fun SettingsScreen(
                             slot1TextScale    = wfSlot1TextScale,
                             slot2TextScale    = wfSlot2TextScale,
                             slot3TextScale    = wfSlot3TextScale,
-                            slot4TextScale    = wfSlot4TextScale
+                            slot4TextScale    = wfSlot4TextScale,
+                            slot4Warn1Color   = customSlot4Warn1Color,
+                            slot4Warn1Value   = customSlot4Warn1Value.toFloatOrNull() ?: Float.NaN,
+                            slot4Warn2Color   = customSlot4Warn2Color,
+                            slot4Warn2Value   = customSlot4Warn2Value.toFloatOrNull() ?: Float.NaN
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -1139,6 +1253,10 @@ fun SettingsScreen(
                         batteryRingColor1       = wfBatteryRingColor1,
                         batteryRingColor2       = wfBatteryRingColor2,
                         batteryRingStrokeScale  = wfBatteryRingStrokeScale.toInt(),
+                        batteryWarn1Color       = wfBatteryWarn1Color,
+                        batteryWarn1Threshold   = wfBatteryWarn1Threshold.toInt(),
+                        batteryWarn2Color       = wfBatteryWarn2Color,
+                        batteryWarn2Threshold   = wfBatteryWarn2Threshold.toInt(),
                         healthDataSource        = wfHealthDataSource
                     )
                 },

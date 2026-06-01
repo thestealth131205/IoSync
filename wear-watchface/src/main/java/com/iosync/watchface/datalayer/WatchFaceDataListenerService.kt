@@ -100,6 +100,21 @@ private const val KEY_WF_BATTERY_RING_COLOR1       = "wf_battery_ring_color1"
 private const val KEY_WF_BATTERY_RING_COLOR2       = "wf_battery_ring_color2"
 private const val KEY_WF_BATTERY_RING_STROKE_SCALE = "wf_battery_ring_stroke_scale"
 
+// ── Akku-Ring Warnstufen (Schwelle in %, 0 = deaktiviert) ─────────────────────
+private const val KEY_WF_BATTERY_WARN1_COLOR     = "wf_battery_warn1_color"
+private const val KEY_WF_BATTERY_WARN1_THRESHOLD = "wf_battery_warn1_threshold"
+private const val KEY_WF_BATTERY_WARN2_COLOR     = "wf_battery_warn2_color"
+private const val KEY_WF_BATTERY_WARN2_THRESHOLD = "wf_battery_warn2_threshold"
+
+// ── Balken (Slot 4) Warnstufen (Schwelle als absoluter Wert, NaN = deaktiviert) ─
+private const val KEY_WF_SLOT4_WARN1_COLOR = "wf_slot4_warn1_color"
+private const val KEY_WF_SLOT4_WARN1_VALUE = "wf_slot4_warn1_value"
+private const val KEY_WF_SLOT4_WARN2_COLOR = "wf_slot4_warn2_color"
+private const val KEY_WF_SLOT4_WARN2_VALUE = "wf_slot4_warn2_value"
+
+// ── Schlafdauer (vom Handy via Health Connect, in Minuten) ────────────────────
+private const val KEY_PHONE_SLEEP_MINUTES = "phone_sleep_minutes"
+
 // ── Custom-Slot-Daten (Echtzeit-Updates der Werte) ──────────────────────────
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
 
@@ -160,6 +175,10 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MIN))        WatchFaceConfigCache.customSlot4BarMin       = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN)
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX))        WatchFaceConfigCache.customSlot4BarMax       = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) WatchFaceConfigCache.customSlot4BarShowLabel = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
+                    dataMap.getString(KEY_WF_SLOT4_WARN1_COLOR)?.let { WatchFaceConfigCache.slot4Warn1Color = it }
+                    dataMap.getString(KEY_WF_SLOT4_WARN2_COLOR)?.let { WatchFaceConfigCache.slot4Warn2Color = it }
+                    if (dataMap.containsKey(KEY_WF_SLOT4_WARN1_VALUE)) WatchFaceConfigCache.slot4Warn1Value = dataMap.getFloat(KEY_WF_SLOT4_WARN1_VALUE)
+                    if (dataMap.containsKey(KEY_WF_SLOT4_WARN2_VALUE)) WatchFaceConfigCache.slot4Warn2Value = dataMap.getFloat(KEY_WF_SLOT4_WARN2_VALUE)
                     Log.d(TAG, "Custom-Slot-Daten empfangen")
                 }
                 PATH_PHONE_HEALTH -> {
@@ -170,6 +189,7 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     WatchFaceConfigCache.phoneHeartRate = newHr
                     WatchFaceConfigCache.phoneSpO2      = newSpO2
                     WatchFaceConfigCache.phoneCalories  = newKcal
+                    if (dataMap.containsKey(KEY_PHONE_SLEEP_MINUTES)) WatchFaceConfigCache.phoneSleepMinutes = dataMap.getInt(KEY_PHONE_SLEEP_MINUTES)
                     // Frische-Marker nur setzen wenn mindestens ein Wert > 0,
                     // sonst würden 0-Updates die "frisch"-Logik austricksen
                     if (newHr > 0 || newSpO2 > 0 || newKcal > 0) {
@@ -259,6 +279,18 @@ object WatchFaceConfigCache {
     @Volatile var batteryRingColor1: String = "cyan"
     @Volatile var batteryRingColor2: String = "neon_yellow"
     @Volatile var batteryRingStrokeScale: Int = 100
+    // Akku-Ring Warnstufen (Schwelle in %, 0 = deaktiviert)
+    @Volatile var batteryWarn1Color: String = "orange"
+    @Volatile var batteryWarn1Threshold: Int = 0
+    @Volatile var batteryWarn2Color: String = "red"
+    @Volatile var batteryWarn2Threshold: Int = 0
+    // Balken (Slot 4) Warnstufen (absoluter Wert, NaN = deaktiviert)
+    @Volatile var slot4Warn1Color: String = "orange"
+    @Volatile var slot4Warn1Value: Float = Float.NaN
+    @Volatile var slot4Warn2Color: String = "red"
+    @Volatile var slot4Warn2Value: Float = Float.NaN
+    // Schlafdauer (vom Handy via Health Connect, in Minuten)
+    @Volatile var phoneSleepMinutes: Int = 0
     // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = vom Smartphone
     @Volatile var healthDataSource: String = "local"
     // Pro-Typ Quelle: "local" = Uhr-Sensoren, "healthconnect" = Health Connect via App
@@ -323,6 +355,10 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_BATTERY_RING_COLOR1)?.let { batteryRingColor1 = it }
         dataMap.getString(KEY_WF_BATTERY_RING_COLOR2)?.let { batteryRingColor2 = it }
         if (dataMap.containsKey(KEY_WF_BATTERY_RING_STROKE_SCALE)) batteryRingStrokeScale = dataMap.getInt(KEY_WF_BATTERY_RING_STROKE_SCALE)
+        dataMap.getString(KEY_WF_BATTERY_WARN1_COLOR)?.let { batteryWarn1Color = it }
+        dataMap.getString(KEY_WF_BATTERY_WARN2_COLOR)?.let { batteryWarn2Color = it }
+        if (dataMap.containsKey(KEY_WF_BATTERY_WARN1_THRESHOLD)) batteryWarn1Threshold = dataMap.getInt(KEY_WF_BATTERY_WARN1_THRESHOLD)
+        if (dataMap.containsKey(KEY_WF_BATTERY_WARN2_THRESHOLD)) batteryWarn2Threshold = dataMap.getInt(KEY_WF_BATTERY_WARN2_THRESHOLD)
         dataMap.getString(KEY_WF_HEALTH_DATA_SOURCE)?.let { healthDataSource = it }
         dataMap.getString(KEY_WF_HR_SOURCE)?.let { hrSource = it }
         dataMap.getString(KEY_WF_KCAL_SOURCE)?.let { kcalSource = it }

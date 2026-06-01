@@ -233,6 +233,23 @@ class HealthConnectManager @Inject constructor(
         } catch (_: Exception) { null }
     }
 
+    /**
+     * Liest die Schlafdauer der letzten ~24h aus Health Connect in Minuten.
+     * Summiert die Dauer aller SleepSessionRecords innerhalb der letzten 24h.
+     */
+    suspend fun readTodaySleepMinutes(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val resp = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange))
+            resp.records
+                .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
+                .toInt()
+                .takeIf { it > 0 }
+        } catch (_: Exception) { null }
+    }
+
     /** Package-Name in lesbaren App-Namen umwandeln */
     private fun getAppLabel(packageName: String): String {
         return try {

@@ -608,6 +608,11 @@ class IoSyncWatchFaceRenderer(
             // Gesundheitsdaten (Puls, SpO2, Kalorien)
             drawHealthData(canvas, cx, cy, radius, bx, by)
 
+            // Schritte (links) und Schlafdauer (rechts, gespiegelt) oberhalb der Uhrzeit
+            if (config.showSteps) {
+                drawStepsAndSleep(canvas, cx, cy, radius)
+            }
+
         }
 
         drawComplications(canvas, zonedDateTime, isAmbient)
@@ -776,7 +781,17 @@ class IoSyncWatchFaceRenderer(
         // Füll-Bogen mit Gradient (von 12 Uhr im Uhrzeigersinn)
         if (level > 0) {
             val sweepAngle = level / 100f * 360f
-            val shader = SweepGradient(ringCx, ringCy, intArrayOf(color1, color2), null)
+            // Warnstufen: nur die Startfarbe (von 0 an) wird ersetzt, der Verlauf zur
+            // Endfarbe bleibt bestehen. Schwelle 0 = deaktiviert; Stufe 2 hat Vorrang.
+            val cfg = WatchFaceConfigCache
+            var startColor = color1
+            if (cfg.batteryWarn1Threshold > 0 && level <= cfg.batteryWarn1Threshold) {
+                startColor = colorFromId(cfg.batteryWarn1Color)
+            }
+            if (cfg.batteryWarn2Threshold > 0 && level <= cfg.batteryWarn2Threshold) {
+                startColor = colorFromId(cfg.batteryWarn2Color)
+            }
+            val shader = SweepGradient(ringCx, ringCy, intArrayOf(startColor, color2), null)
             val matrix = Matrix()
             matrix.postRotate(-90f, ringCx, ringCy)
             shader.setLocalMatrix(matrix)
@@ -1154,6 +1169,46 @@ class IoSyncWatchFaceRenderer(
         }
     }
 
+    /**
+     * Zeichnet Schritte (links) und Schlafdauer (rechts, gespiegelt) oberhalb der Uhrzeit.
+     * Schriftgröße entspricht dem Puls-Wert (radius * 0.130). Schlafdauer als "Xh Ym".
+     */
+    private fun drawStepsAndSleep(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+        val scale     = config.stepsTextScale / 100f
+        val valueSize = radius * 0.130f * scale   // wie Puls-Wert
+        val iconSize  = radius * 0.090f * scale
+        val gap       = iconSize * 0.45f
+        val rowY      = cy - radius * 0.30f
+
+        // Schritte: aus Komplikation (System-Schrittzähler) oder lokalem Sensor
+        val steps = readComplicationNumber("6") ?: healthSensorManager.steps.takeIf { it > 0 }
+        val stepsText = steps?.toString() ?: "--"
+
+        // Schlafdauer in Stunden/Minuten (vom Handy via Health Connect)
+        val sleepMin = config.phoneSleepMinutes
+        val sleepText = if (sleepMin > 0) "${sleepMin / 60}h ${sleepMin % 60}m" else "--"
+
+        healthValuePaint.textSize  = valueSize
+        healthValuePaint.textAlign = Paint.Align.LEFT
+
+        // ── Schritte (links) ──────────────────────────────────────────────
+        healthValuePaint.color = Color.parseColor("#EAFF00")
+        val stepsW  = healthValuePaint.measureText(stepsText)
+        val stepsLeft = (cx - radius * 0.30f) - (iconSize + gap + stepsW) / 2f
+        drawHealthIcon(canvas, stepsLeft + iconSize / 2f, rowY - valueSize * 0.30f, iconSize, "steps")
+        canvas.drawText(stepsText, stepsLeft + iconSize + gap, rowY, healthValuePaint)
+
+        // ── Schlaf (rechts, gespiegelt) ───────────────────────────────────
+        healthValuePaint.color = Color.parseColor("#9C8FFF")
+        val sleepW  = healthValuePaint.measureText(sleepText)
+        val sleepLeft = (cx + radius * 0.30f) - (iconSize + gap + sleepW) / 2f
+        drawHealthIcon(canvas, sleepLeft + iconSize / 2f, rowY - valueSize * 0.30f, iconSize, "sleep")
+        canvas.drawText(sleepText, sleepLeft + iconSize + gap, rowY, healthValuePaint)
+
+        healthValuePaint.textAlign = Paint.Align.CENTER
+    }
+
     // Wiederverwendbarer Paint + Path für Health-Icons (keine Allocation pro Frame)
     private val healthIconPaint = Paint().apply {
         isAntiAlias = true
@@ -1202,6 +1257,30 @@ class IoSyncWatchFaceRenderer(
                 canvas.drawLine(cx + size * 0.10f, cy - size * 0.35f, cx + size * 0.55f, cy + size * 0.45f, healthIconPaint)
                 healthIconPaint.style = Paint.Style.FILL
             }
+            "sleep" -> {
+                // Sichelmond (Mondsichel) durch zwei überlappende Kreise + kleine z's
+                healthIconPaint.color = Color.parseColor("#AAAAAA")
+                healthIconPaint.style = Paint.Style.FILL
+                val r = size * 0.62f
+                // Voller Mondkreis
+                canvas.drawCircle(cx, cy, r, healthIconPaint)
+                // Ausschnitt: Hintergrundfarbe ausstanzen → Sichelform
+                val prevColor = healthIconPaint.color
+                healthIconPaint.color = Color.parseColor("#000000")
+                canvas.drawCircle(cx + r * 0.45f, cy - r * 0.25f, r * 0.85f, healthIconPaint)
+                healthIconPaint.color = prevColor
+                // Kleine "z"-Striche oben rechts
+                healthIconPaint.style = Paint.Style.STROKE
+                healthIconPaint.strokeWidth = size * 0.10f
+                healthIconPaint.strokeCap = Paint.Cap.ROUND
+                val zx = cx + r * 0.75f
+                val zy = cy - r * 0.85f
+                val zs = size * 0.28f
+                canvas.drawLine(zx - zs * 0.5f, zy - zs * 0.5f, zx + zs * 0.5f, zy - zs * 0.5f, healthIconPaint)
+                canvas.drawLine(zx + zs * 0.5f, zy - zs * 0.5f, zx - zs * 0.5f, zy + zs * 0.5f, healthIconPaint)
+                canvas.drawLine(zx - zs * 0.5f, zy + zs * 0.5f, zx + zs * 0.5f, zy + zs * 0.5f, healthIconPaint)
+                healthIconPaint.style = Paint.Style.FILL
+            }
         }
     }
 
@@ -1247,7 +1326,15 @@ class IoSyncWatchFaceRenderer(
             val curVal = config.customSlot4Value.replace(',', '.').toFloatOrNull() ?: minVal
             val fraction = if (maxVal > minVal) ((curVal - minVal) / (maxVal - minVal)).coerceIn(0f, 1f) else 0f
 
-            val barColor = colorFromPillId(config.customSlot4BarColor)
+            // Warnstufen: Balkenfarbe wechselt bei Unterschreiten der Schwelle (absoluter
+            // Wert). NaN = deaktiviert; Stufe 2 hat Vorrang.
+            var barColor = colorFromPillId(config.customSlot4BarColor)
+            if (!config.slot4Warn1Value.isNaN() && curVal <= config.slot4Warn1Value) {
+                barColor = colorFromPillId(config.slot4Warn1Color)
+            }
+            if (!config.slot4Warn2Value.isNaN() && curVal <= config.slot4Warn2Value) {
+                barColor = colorFromPillId(config.slot4Warn2Color)
+            }
 
             // Hintergrund
             canvas.drawRoundRect(
@@ -1472,15 +1559,11 @@ class IoSyncWatchFaceRenderer(
                 titleSize = (22f * sunriseScale).toInt().coerceAtLeast(6)
             }
         }
-        // Schritte-Komplikation (Slot 6): Schriftgröße aus Config anwenden
-        val stepsCompScale = WatchFaceConfigCache.stepsTextScale / 100f
-        complicationSlotsManager.complicationSlots[6]?.let { slot ->
-            (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
-                textSize  = (22f * stepsCompScale).toInt().coerceAtLeast(8)
-                titleSize = (16f * stepsCompScale).toInt().coerceAtLeast(6)
-            }
-        }
-        complicationSlotsManager.complicationSlots.forEach { (_, slot) ->
+        // Slot 6 (Schritte) wird nicht mehr nativ gerendert – die Schritte werden
+        // zusammen mit der Schlafdauer eigens gezeichnet (drawStepsAndSleep). Der Slot
+        // bleibt aktiv, damit der System-Schrittzähler weiter Daten liefert.
+        complicationSlotsManager.complicationSlots.forEach { (id, slot) ->
+            if (id == 6) return@forEach
             if (slot.enabled) slot.render(canvas, zonedDateTime, renderParameters)
         }
     }

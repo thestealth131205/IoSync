@@ -114,6 +114,11 @@ data class MainUiState(
     val customSlot4BarMin: Float = 0f,
     val customSlot4BarMax: Float = 100f,
     val customSlot4BarShowLabel: Boolean = true,
+    // Slot 4 Warnstufen (absoluter Wert; leer/NaN = deaktiviert)
+    val customSlot4Warn1Color: String = "orange",
+    val customSlot4Warn1Value: Float = Float.NaN,
+    val customSlot4Warn2Color: String = "red",
+    val customSlot4Warn2Value: Float = Float.NaN,
     // Individuelle Schriftgröße je Wert (70–160, Default 100 = 100 %)
     val wfHrTextScale: Int = 100,
     val wfKcalTextScale: Int = 100,
@@ -129,6 +134,11 @@ data class MainUiState(
     val wfBatteryRingColor1: String = "cyan",
     val wfBatteryRingColor2: String = "neon_yellow",
     val wfBatteryRingStrokeScale: Int = 100,
+    // Akku-Ring Warnstufen (Schwelle in %, 0 = deaktiviert)
+    val wfBatteryWarn1Color: String = "orange",
+    val wfBatteryWarn1Threshold: Int = 0,
+    val wfBatteryWarn2Color: String = "red",
+    val wfBatteryWarn2Threshold: Int = 0,
     // Gesundheitsdaten-Quelle pro Typ: "local" = Uhr-Sensoren, "healthconnect" = Health Connect vom Handy
     val wfHealthDataSource: String = "local",
     val wfHrSource: String = "local",
@@ -210,6 +220,10 @@ class MainViewModel @Inject constructor(
         val KEY_CUSTOM_SLOT4_BAR_MIN        = stringPreferencesKey("custom_slot4_bar_min")
         val KEY_CUSTOM_SLOT4_BAR_MAX        = stringPreferencesKey("custom_slot4_bar_max")
         val KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL = booleanPreferencesKey("custom_slot4_bar_show_label")
+        val KEY_CUSTOM_SLOT4_WARN1_COLOR = stringPreferencesKey("custom_slot4_warn1_color")
+        val KEY_CUSTOM_SLOT4_WARN1_VALUE = stringPreferencesKey("custom_slot4_warn1_value")
+        val KEY_CUSTOM_SLOT4_WARN2_COLOR = stringPreferencesKey("custom_slot4_warn2_color")
+        val KEY_CUSTOM_SLOT4_WARN2_VALUE = stringPreferencesKey("custom_slot4_warn2_value")
         // Individuelle Schriftgrößen
         val KEY_WF_HR_TEXT_SCALE       = intPreferencesKey("wf_hr_text_scale")
         val KEY_WF_KCAL_TEXT_SCALE     = intPreferencesKey("wf_kcal_text_scale")
@@ -224,6 +238,10 @@ class MainViewModel @Inject constructor(
         val KEY_WF_BATTERY_RING_COLOR1       = stringPreferencesKey("wf_battery_ring_color1")
         val KEY_WF_BATTERY_RING_COLOR2       = stringPreferencesKey("wf_battery_ring_color2")
         val KEY_WF_BATTERY_RING_STROKE_SCALE = intPreferencesKey("wf_battery_ring_stroke_scale")
+        val KEY_WF_BATTERY_WARN1_COLOR     = stringPreferencesKey("wf_battery_warn1_color")
+        val KEY_WF_BATTERY_WARN1_THRESHOLD = intPreferencesKey("wf_battery_warn1_threshold")
+        val KEY_WF_BATTERY_WARN2_COLOR     = stringPreferencesKey("wf_battery_warn2_color")
+        val KEY_WF_BATTERY_WARN2_THRESHOLD = intPreferencesKey("wf_battery_warn2_threshold")
         val KEY_WF_HEALTH_DATA_SOURCE        = stringPreferencesKey("wf_health_data_source")
         // Pro-Typ Gesundheitsdaten-Quelle
         val KEY_WF_HR_SOURCE           = stringPreferencesKey("wf_hr_source")
@@ -305,6 +323,10 @@ class MainViewModel @Inject constructor(
             val customSlot4BarMin        = prefs[KEY_CUSTOM_SLOT4_BAR_MIN]?.toFloatOrNull() ?: 0f
             val customSlot4BarMax        = prefs[KEY_CUSTOM_SLOT4_BAR_MAX]?.toFloatOrNull() ?: 100f
             val customSlot4BarShowLabel  = prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] ?: true
+            val customSlot4Warn1Color    = prefs[KEY_CUSTOM_SLOT4_WARN1_COLOR] ?: "orange"
+            val customSlot4Warn1Value    = prefs[KEY_CUSTOM_SLOT4_WARN1_VALUE]?.toFloatOrNull() ?: Float.NaN
+            val customSlot4Warn2Color    = prefs[KEY_CUSTOM_SLOT4_WARN2_COLOR] ?: "red"
+            val customSlot4Warn2Value    = prefs[KEY_CUSTOM_SLOT4_WARN2_VALUE]?.toFloatOrNull() ?: Float.NaN
             val wfHrTextScale      = prefs[KEY_WF_HR_TEXT_SCALE]      ?: 100
             val wfKcalTextScale    = prefs[KEY_WF_KCAL_TEXT_SCALE]    ?: 100
             val wfStepsTextScale   = prefs[KEY_WF_STEPS_TEXT_SCALE]   ?: 100
@@ -318,6 +340,10 @@ class MainViewModel @Inject constructor(
             val wfBatteryRingColor1       = prefs[KEY_WF_BATTERY_RING_COLOR1]       ?: "cyan"
             val wfBatteryRingColor2       = prefs[KEY_WF_BATTERY_RING_COLOR2]       ?: "neon_yellow"
             val wfBatteryRingStrokeScale  = prefs[KEY_WF_BATTERY_RING_STROKE_SCALE] ?: 100
+            val wfBatteryWarn1Color     = prefs[KEY_WF_BATTERY_WARN1_COLOR]     ?: "orange"
+            val wfBatteryWarn1Threshold = prefs[KEY_WF_BATTERY_WARN1_THRESHOLD] ?: 0
+            val wfBatteryWarn2Color     = prefs[KEY_WF_BATTERY_WARN2_COLOR]     ?: "red"
+            val wfBatteryWarn2Threshold = prefs[KEY_WF_BATTERY_WARN2_THRESHOLD] ?: 0
             val wfHealthDataSource = prefs[KEY_WF_HEALTH_DATA_SOURCE] ?: "local"
             val wfHrSource         = prefs[KEY_WF_HR_SOURCE]         ?: "local"
             val wfKcalSource       = prefs[KEY_WF_KCAL_SOURCE]       ?: "local"
@@ -385,6 +411,10 @@ class MainViewModel @Inject constructor(
                     customSlot4BarMin        = customSlot4BarMin,
                     customSlot4BarMax        = customSlot4BarMax,
                     customSlot4BarShowLabel  = customSlot4BarShowLabel,
+                    customSlot4Warn1Color    = customSlot4Warn1Color,
+                    customSlot4Warn1Value    = customSlot4Warn1Value,
+                    customSlot4Warn2Color    = customSlot4Warn2Color,
+                    customSlot4Warn2Value    = customSlot4Warn2Value,
                     wfHrTextScale      = wfHrTextScale,
                     wfKcalTextScale    = wfKcalTextScale,
                     wfStepsTextScale   = wfStepsTextScale,
@@ -398,6 +428,10 @@ class MainViewModel @Inject constructor(
                     wfBatteryRingColor1       = wfBatteryRingColor1,
                     wfBatteryRingColor2       = wfBatteryRingColor2,
                     wfBatteryRingStrokeScale  = wfBatteryRingStrokeScale,
+                    wfBatteryWarn1Color       = wfBatteryWarn1Color,
+                    wfBatteryWarn1Threshold   = wfBatteryWarn1Threshold,
+                    wfBatteryWarn2Color       = wfBatteryWarn2Color,
+                    wfBatteryWarn2Threshold   = wfBatteryWarn2Threshold,
                     wfHealthDataSource = wfHealthDataSource,
                     wfHrSource         = wfHrSource,
                     wfKcalSource       = wfKcalSource,
@@ -663,6 +697,10 @@ class MainViewModel @Inject constructor(
         batteryRingColor1: String = _uiState.value.wfBatteryRingColor1,
         batteryRingColor2: String = _uiState.value.wfBatteryRingColor2,
         batteryRingStrokeScale: Int = _uiState.value.wfBatteryRingStrokeScale,
+        batteryWarn1Color: String = _uiState.value.wfBatteryWarn1Color,
+        batteryWarn1Threshold: Int = _uiState.value.wfBatteryWarn1Threshold,
+        batteryWarn2Color: String = _uiState.value.wfBatteryWarn2Color,
+        batteryWarn2Threshold: Int = _uiState.value.wfBatteryWarn2Threshold,
         healthDataSource: String = _uiState.value.wfHealthDataSource,
         hrSource: String = _uiState.value.wfHrSource,
         kcalSource: String = _uiState.value.wfKcalSource,
@@ -701,6 +739,10 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_BATTERY_RING_COLOR1]       = batteryRingColor1
                 prefs[KEY_WF_BATTERY_RING_COLOR2]       = batteryRingColor2
                 prefs[KEY_WF_BATTERY_RING_STROKE_SCALE] = batteryRingStrokeScale
+                prefs[KEY_WF_BATTERY_WARN1_COLOR]       = batteryWarn1Color
+                prefs[KEY_WF_BATTERY_WARN1_THRESHOLD]   = batteryWarn1Threshold
+                prefs[KEY_WF_BATTERY_WARN2_COLOR]       = batteryWarn2Color
+                prefs[KEY_WF_BATTERY_WARN2_THRESHOLD]   = batteryWarn2Threshold
                 prefs[KEY_WF_HEALTH_DATA_SOURCE]        = healthDataSource
             }
             _uiState.update {
@@ -735,6 +777,10 @@ class MainViewModel @Inject constructor(
                     wfBatteryRingColor1       = batteryRingColor1,
                     wfBatteryRingColor2       = batteryRingColor2,
                     wfBatteryRingStrokeScale  = batteryRingStrokeScale,
+                    wfBatteryWarn1Color       = batteryWarn1Color,
+                    wfBatteryWarn1Threshold   = batteryWarn1Threshold,
+                    wfBatteryWarn2Color       = batteryWarn2Color,
+                    wfBatteryWarn2Threshold   = batteryWarn2Threshold,
                     wfHealthDataSource = healthDataSource
                 )
             }
@@ -757,7 +803,9 @@ class MainViewModel @Inject constructor(
                     weatherTextScale, sunriseTextScale, watchBatteryTextScale,
                     batteryRingColor1, batteryRingColor2, batteryRingStrokeScale,
                     healthDataSource,
-                    hrSource, kcalSource, oxygenSource
+                    hrSource, kcalSource, oxygenSource,
+                    batteryWarn1Color = batteryWarn1Color, batteryWarn1Threshold = batteryWarn1Threshold,
+                    batteryWarn2Color = batteryWarn2Color, batteryWarn2Threshold = batteryWarn2Threshold
                 )
                 _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -839,7 +887,9 @@ class MainViewModel @Inject constructor(
                     s.wfBatteryRingColor1, s.wfBatteryRingColor2, s.wfBatteryRingStrokeScale,
                     s.wfHealthDataSource,
                     s.wfHrSource, s.wfKcalSource, s.wfOxygenSource,
-                    s.wfHrComplication, s.wfKcalComplication, s.wfOxygenComplication
+                    s.wfHrComplication, s.wfKcalComplication, s.wfOxygenComplication,
+                    s.wfBatteryWarn1Color, s.wfBatteryWarn1Threshold,
+                    s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold
                 )
                 _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -907,7 +957,11 @@ class MainViewModel @Inject constructor(
         slot1TextScale: Int = _uiState.value.wfSlot1TextScale,
         slot2TextScale: Int = _uiState.value.wfSlot2TextScale,
         slot3TextScale: Int = _uiState.value.wfSlot3TextScale,
-        slot4TextScale: Int = _uiState.value.wfSlot4TextScale
+        slot4TextScale: Int = _uiState.value.wfSlot4TextScale,
+        slot4Warn1Color: String = _uiState.value.customSlot4Warn1Color,
+        slot4Warn1Value: Float = _uiState.value.customSlot4Warn1Value,
+        slot4Warn2Color: String = _uiState.value.customSlot4Warn2Color,
+        slot4Warn2Value: Float = _uiState.value.customSlot4Warn2Value
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -924,6 +978,10 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_CUSTOM_SLOT4_BAR_MIN]        = slot4BarMin.toString()
                 prefs[KEY_CUSTOM_SLOT4_BAR_MAX]        = slot4BarMax.toString()
                 prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] = slot4BarShowLabel
+                prefs[KEY_CUSTOM_SLOT4_WARN1_COLOR] = slot4Warn1Color
+                prefs[KEY_CUSTOM_SLOT4_WARN1_VALUE] = if (slot4Warn1Value.isNaN()) "" else slot4Warn1Value.toString()
+                prefs[KEY_CUSTOM_SLOT4_WARN2_COLOR] = slot4Warn2Color
+                prefs[KEY_CUSTOM_SLOT4_WARN2_VALUE] = if (slot4Warn2Value.isNaN()) "" else slot4Warn2Value.toString()
                 prefs[KEY_WF_SLOT1_TEXT_SCALE] = slot1TextScale
                 prefs[KEY_WF_SLOT2_TEXT_SCALE] = slot2TextScale
                 prefs[KEY_WF_SLOT3_TEXT_SCALE] = slot3TextScale
@@ -944,6 +1002,10 @@ class MainViewModel @Inject constructor(
                     customSlot4BarMin        = slot4BarMin,
                     customSlot4BarMax        = slot4BarMax,
                     customSlot4BarShowLabel  = slot4BarShowLabel,
+                    customSlot4Warn1Color    = slot4Warn1Color,
+                    customSlot4Warn1Value    = slot4Warn1Value,
+                    customSlot4Warn2Color    = slot4Warn2Color,
+                    customSlot4Warn2Value    = slot4Warn2Value,
                     wfSlot1TextScale = slot1TextScale,
                     wfSlot2TextScale = slot2TextScale,
                     wfSlot3TextScale = slot3TextScale,
@@ -974,7 +1036,9 @@ class MainViewModel @Inject constructor(
                     s2.wfBatteryRingColor1, s2.wfBatteryRingColor2, s2.wfBatteryRingStrokeScale,
                     s2.wfHealthDataSource,
                     s2.wfHrSource, s2.wfKcalSource, s2.wfOxygenSource,
-                    s2.wfHrComplication, s2.wfKcalComplication, s2.wfOxygenComplication
+                    s2.wfHrComplication, s2.wfKcalComplication, s2.wfOxygenComplication,
+                    s2.wfBatteryWarn1Color, s2.wfBatteryWarn1Threshold,
+                    s2.wfBatteryWarn2Color, s2.wfBatteryWarn2Threshold
                 )
                 _uiState.update { it.copy(wearSyncLog = "Slot-Daten übertragen") }
             }
@@ -1000,7 +1064,9 @@ class MainViewModel @Inject constructor(
             s.customSlot2Label, formatSlotValue(val2?.value),
             s.customSlot3Label, formatSlotValue(val3?.value),
             s.customSlot4Label, formatSlotValue(val4?.value),
-            s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax, s.customSlot4BarShowLabel
+            s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax, s.customSlot4BarShowLabel,
+            s.customSlot4Warn1Color, s.customSlot4Warn1Value,
+            s.customSlot4Warn2Color, s.customSlot4Warn2Value
         )
     }
 
@@ -1193,7 +1259,9 @@ class MainViewModel @Inject constructor(
                     s.wfBatteryRingColor1, s.wfBatteryRingColor2, s.wfBatteryRingStrokeScale,
                     globalSource,
                     hrSource, kcalSource, oxygenSource,
-                    hrComplication, kcalComplication, oxygenComplication
+                    hrComplication, kcalComplication, oxygenComplication,
+                    s.wfBatteryWarn1Color, s.wfBatteryWarn1Threshold,
+                    s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold
                 )
                 _uiState.update { it.copy(wearSyncLog = "Health-Quellen-Konfiguration übertragen") }
             } catch (e: Exception) {

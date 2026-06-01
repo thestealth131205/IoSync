@@ -118,6 +118,21 @@ private const val KEY_WF_BATTERY_RING_COLOR1       = "wf_battery_ring_color1"
 private const val KEY_WF_BATTERY_RING_COLOR2       = "wf_battery_ring_color2"
 private const val KEY_WF_BATTERY_RING_STROKE_SCALE = "wf_battery_ring_stroke_scale"
 
+// ── Akku-Ring Warnstufen (Schwelle in %, 0 = deaktiviert) ─────────────────────
+private const val KEY_WF_BATTERY_WARN1_COLOR     = "wf_battery_warn1_color"
+private const val KEY_WF_BATTERY_WARN1_THRESHOLD = "wf_battery_warn1_threshold"
+private const val KEY_WF_BATTERY_WARN2_COLOR     = "wf_battery_warn2_color"
+private const val KEY_WF_BATTERY_WARN2_THRESHOLD = "wf_battery_warn2_threshold"
+
+// ── Balken (Slot 4) Warnstufen (absoluter Wert, NaN = deaktiviert) ────────────
+private const val KEY_WF_SLOT4_WARN1_COLOR = "wf_slot4_warn1_color"
+private const val KEY_WF_SLOT4_WARN1_VALUE = "wf_slot4_warn1_value"
+private const val KEY_WF_SLOT4_WARN2_COLOR = "wf_slot4_warn2_color"
+private const val KEY_WF_SLOT4_WARN2_VALUE = "wf_slot4_warn2_value"
+
+// ── Schlafdauer (Minuten, via Health Connect) ─────────────────────────────────
+private const val KEY_PHONE_SLEEP_MINUTES = "phone_sleep_minutes"
+
 @Singleton
 class WearDataLayerService @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -269,7 +284,11 @@ class WearDataLayerService @Inject constructor(
         oxygenSource: String = "local",
         hrComplication: String = "",
         kcalComplication: String = "",
-        oxygenComplication: String = ""
+        oxygenComplication: String = "",
+        batteryWarn1Color: String = "orange",
+        batteryWarn1Threshold: Int = 0,
+        batteryWarn2Color: String = "red",
+        batteryWarn2Threshold: Int = 0
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -320,6 +339,10 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_BATTERY_RING_COLOR1, batteryRingColor1)
                     dataMap.putString(KEY_WF_BATTERY_RING_COLOR2, batteryRingColor2)
                     dataMap.putInt(KEY_WF_BATTERY_RING_STROKE_SCALE, batteryRingStrokeScale)
+                    dataMap.putString(KEY_WF_BATTERY_WARN1_COLOR, batteryWarn1Color)
+                    dataMap.putInt(KEY_WF_BATTERY_WARN1_THRESHOLD, batteryWarn1Threshold)
+                    dataMap.putString(KEY_WF_BATTERY_WARN2_COLOR, batteryWarn2Color)
+                    dataMap.putInt(KEY_WF_BATTERY_WARN2_THRESHOLD, batteryWarn2Threshold)
                     dataMap.putString(KEY_WF_HEALTH_DATA_SOURCE, healthDataSource)
                     dataMap.putString(KEY_WF_HR_SOURCE, hrSource)
                     dataMap.putString(KEY_WF_KCAL_SOURCE, kcalSource)
@@ -386,7 +409,9 @@ class WearDataLayerService @Inject constructor(
         slot4Label: String = "", slot4Value: String = "--",
         slot4BarColor: String = "neon_yellow",
         slot4BarMin: Float = 0f, slot4BarMax: Float = 100f,
-        slot4BarShowLabel: Boolean = true
+        slot4BarShowLabel: Boolean = true,
+        slot4Warn1Color: String = "orange", slot4Warn1Value: Float = Float.NaN,
+        slot4Warn2Color: String = "red", slot4Warn2Value: Float = Float.NaN
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -403,6 +428,10 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN, slot4BarMin)
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX, slot4BarMax)
                     dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL, slot4BarShowLabel)
+                    dataMap.putString(KEY_WF_SLOT4_WARN1_COLOR, slot4Warn1Color)
+                    dataMap.putFloat(KEY_WF_SLOT4_WARN1_VALUE, slot4Warn1Value)
+                    dataMap.putString(KEY_WF_SLOT4_WARN2_COLOR, slot4Warn2Color)
+                    dataMap.putFloat(KEY_WF_SLOT4_WARN2_VALUE, slot4Warn2Value)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
@@ -416,17 +445,18 @@ class WearDataLayerService @Inject constructor(
     /**
      * Überträgt Gesundheitsdaten (vom Smartphone / ioBroker) an das Watchface.
      */
-    suspend fun syncPhoneHealthToWear(heartRate: Int, spO2: Int, calories: Int) {
+    suspend fun syncPhoneHealthToWear(heartRate: Int, spO2: Int, calories: Int, sleepMinutes: Int = 0) {
         withContext(Dispatchers.IO) {
             try {
                 val request = PutDataMapRequest.create(PATH_PHONE_HEALTH).apply {
                     dataMap.putInt(KEY_PHONE_HEART_RATE, heartRate)
                     dataMap.putInt(KEY_PHONE_SPO2, spO2)
                     dataMap.putInt(KEY_PHONE_CALORIES, calories)
+                    dataMap.putInt(KEY_PHONE_SLEEP_MINUTES, sleepMinutes)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
-                Log.d(TAG, "Phone-Health-Daten an Wear OS übertragen: HR=$heartRate, SpO2=$spO2, kcal=$calories")
+                Log.d(TAG, "Phone-Health-Daten an Wear OS übertragen: HR=$heartRate, SpO2=$spO2, kcal=$calories, sleep=$sleepMinutes")
             } catch (e: Exception) {
                 Log.e(TAG, "syncPhoneHealthToWear fehlgeschlagen", e)
             }

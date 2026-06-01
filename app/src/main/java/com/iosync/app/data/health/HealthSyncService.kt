@@ -48,6 +48,7 @@ class HealthSyncService : Service() {
     private var lastKnownHr: Int = 0
     private var lastKnownKcal: Int = 0
     private var lastKnownO2: Int = 0
+    private var lastKnownSleep: Int = 0
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -110,8 +111,11 @@ class HealthSyncService : Service() {
                     return@launch
                 }
 
-                if (lastKnownHr > 0 || lastKnownO2 > 0 || lastKnownKcal > 0) {
-                    wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal)
+                // Schlafdauer immer mitlesen, solange der Service läuft
+                healthConnectManager.readTodaySleepMinutes()?.let { if (it > 0) lastKnownSleep = it }
+
+                if (lastKnownHr > 0 || lastKnownO2 > 0 || lastKnownKcal > 0 || lastKnownSleep > 0) {
+                    wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, lastKnownSleep)
                 }
 
                 delay(intervalSec * 1_000L)
