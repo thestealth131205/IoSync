@@ -147,6 +147,8 @@ data class MainUiState(
     val wfHrComplication: String = "",
     val wfKcalComplication: String = "",
     val wfOxygenComplication: String = "",
+    // Watchface: Hintergrundbild
+    val wfShowBackground: Boolean = false,
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 300,
@@ -235,6 +237,7 @@ class MainViewModel @Inject constructor(
         val KEY_WF_WEATHER_TEXT_SCALE  = intPreferencesKey("wf_weather_text_scale")
         val KEY_WF_SUNRISE_TEXT_SCALE        = intPreferencesKey("wf_sunrise_text_scale")
         val KEY_WF_WATCH_BATTERY_TEXT_SCALE = intPreferencesKey("wf_watch_battery_text_scale")
+        val KEY_WF_SHOW_BACKGROUND           = booleanPreferencesKey("wf_show_background")
         val KEY_WF_BATTERY_RING_COLOR1       = stringPreferencesKey("wf_battery_ring_color1")
         val KEY_WF_BATTERY_RING_COLOR2       = stringPreferencesKey("wf_battery_ring_color2")
         val KEY_WF_BATTERY_RING_STROKE_SCALE = intPreferencesKey("wf_battery_ring_stroke_scale")
@@ -337,6 +340,7 @@ class MainViewModel @Inject constructor(
             val wfWeatherTextScale = prefs[KEY_WF_WEATHER_TEXT_SCALE] ?: 100
             val wfSunriseTextScale = prefs[KEY_WF_SUNRISE_TEXT_SCALE] ?: 100
             val wfWatchBatteryTextScale = prefs[KEY_WF_WATCH_BATTERY_TEXT_SCALE] ?: 100
+            val wfShowBackground          = prefs[KEY_WF_SHOW_BACKGROUND]           ?: false
             val wfBatteryRingColor1       = prefs[KEY_WF_BATTERY_RING_COLOR1]       ?: "cyan"
             val wfBatteryRingColor2       = prefs[KEY_WF_BATTERY_RING_COLOR2]       ?: "neon_yellow"
             val wfBatteryRingStrokeScale  = prefs[KEY_WF_BATTERY_RING_STROKE_SCALE] ?: 100
@@ -425,6 +429,7 @@ class MainViewModel @Inject constructor(
                     wfWeatherTextScale = wfWeatherTextScale,
                     wfSunriseTextScale = wfSunriseTextScale,
                     wfWatchBatteryTextScale = wfWatchBatteryTextScale,
+                    wfShowBackground          = wfShowBackground,
                     wfBatteryRingColor1       = wfBatteryRingColor1,
                     wfBatteryRingColor2       = wfBatteryRingColor2,
                     wfBatteryRingStrokeScale  = wfBatteryRingStrokeScale,
@@ -704,7 +709,8 @@ class MainViewModel @Inject constructor(
         healthDataSource: String = _uiState.value.wfHealthDataSource,
         hrSource: String = _uiState.value.wfHrSource,
         kcalSource: String = _uiState.value.wfKcalSource,
-        oxygenSource: String = _uiState.value.wfOxygenSource
+        oxygenSource: String = _uiState.value.wfOxygenSource,
+        showBackground: Boolean = _uiState.value.wfShowBackground
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(wearSyncLog = "Sende Watchface-Konfiguration …") }
@@ -744,6 +750,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_BATTERY_WARN2_COLOR]       = batteryWarn2Color
                 prefs[KEY_WF_BATTERY_WARN2_THRESHOLD]   = batteryWarn2Threshold
                 prefs[KEY_WF_HEALTH_DATA_SOURCE]        = healthDataSource
+                prefs[KEY_WF_SHOW_BACKGROUND]           = showBackground
             }
             _uiState.update {
                 it.copy(
@@ -781,7 +788,8 @@ class MainViewModel @Inject constructor(
                     wfBatteryWarn1Threshold   = batteryWarn1Threshold,
                     wfBatteryWarn2Color       = batteryWarn2Color,
                     wfBatteryWarn2Threshold   = batteryWarn2Threshold,
-                    wfHealthDataSource = healthDataSource
+                    wfHealthDataSource = healthDataSource,
+                    wfShowBackground   = showBackground
                 )
             }
             try {
@@ -805,7 +813,8 @@ class MainViewModel @Inject constructor(
                     healthDataSource,
                     hrSource, kcalSource, oxygenSource,
                     batteryWarn1Color = batteryWarn1Color, batteryWarn1Threshold = batteryWarn1Threshold,
-                    batteryWarn2Color = batteryWarn2Color, batteryWarn2Threshold = batteryWarn2Threshold
+                    batteryWarn2Color = batteryWarn2Color, batteryWarn2Threshold = batteryWarn2Threshold,
+                    showBackground = showBackground
                 )
                 _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -889,7 +898,8 @@ class MainViewModel @Inject constructor(
                     s.wfHrSource, s.wfKcalSource, s.wfOxygenSource,
                     s.wfHrComplication, s.wfKcalComplication, s.wfOxygenComplication,
                     s.wfBatteryWarn1Color, s.wfBatteryWarn1Threshold,
-                    s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold
+                    s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold,
+                    showBackground = s.wfShowBackground
                 )
                 _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -1038,7 +1048,8 @@ class MainViewModel @Inject constructor(
                     s2.wfHrSource, s2.wfKcalSource, s2.wfOxygenSource,
                     s2.wfHrComplication, s2.wfKcalComplication, s2.wfOxygenComplication,
                     s2.wfBatteryWarn1Color, s2.wfBatteryWarn1Threshold,
-                    s2.wfBatteryWarn2Color, s2.wfBatteryWarn2Threshold
+                    s2.wfBatteryWarn2Color, s2.wfBatteryWarn2Threshold,
+                    showBackground = s2.wfShowBackground
                 )
                 _uiState.update { it.copy(wearSyncLog = "Slot-Daten übertragen") }
             }
@@ -1261,7 +1272,8 @@ class MainViewModel @Inject constructor(
                     hrSource, kcalSource, oxygenSource,
                     hrComplication, kcalComplication, oxygenComplication,
                     s.wfBatteryWarn1Color, s.wfBatteryWarn1Threshold,
-                    s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold
+                    s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold,
+                    showBackground = s.wfShowBackground
                 )
                 _uiState.update { it.copy(wearSyncLog = "Health-Quellen-Konfiguration übertragen") }
             } catch (e: Exception) {

@@ -3,6 +3,8 @@ package com.iosync.watchface.renderer
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
@@ -90,6 +92,9 @@ class IoSyncWatchFaceRenderer(
         color = Color.BLACK
         isAntiAlias = false
     }
+    private var backgroundBitmap: Bitmap? = null
+    private var backgroundBitmapScaled: Bitmap? = null
+    private val backgroundBitmapPaint = Paint().apply { isAntiAlias = true }
 
     // ── Hauptzeit HH:mm ───────────────────────────────────────────────────────
     private val timePaint = Paint().apply {
@@ -485,6 +490,20 @@ class IoSyncWatchFaceRenderer(
         val config    = WatchFaceConfigCache
 
         canvas.drawRect(0f, 0f, bounds.width().toFloat(), bounds.height().toFloat(), backgroundPaint)
+
+        if (!isAmbient && config.showBackground) {
+            val w = bounds.width()
+            val h = bounds.height()
+            if (backgroundBitmapScaled?.width != w || backgroundBitmapScaled?.height != h) {
+                if (backgroundBitmap == null) {
+                    backgroundBitmap = BitmapFactory.decodeResource(context.resources, com.iosync.watchface.R.drawable.watchface_background)
+                }
+                backgroundBitmapScaled = backgroundBitmap?.let {
+                    Bitmap.createScaledBitmap(it, w, h, true)
+                }
+            }
+            backgroundBitmapScaled?.let { canvas.drawBitmap(it, 0f, 0f, backgroundBitmapPaint) }
+        }
 
         val cx     = bounds.exactCenterX()
         val cy     = bounds.exactCenterY()
@@ -1193,14 +1212,14 @@ class IoSyncWatchFaceRenderer(
         healthValuePaint.textAlign = Paint.Align.LEFT
 
         // ── Schritte (links) ──────────────────────────────────────────────
-        healthValuePaint.color = Color.parseColor("#EAFF00")
+        healthValuePaint.color = Color.parseColor("#F2FF99")
         val stepsW  = healthValuePaint.measureText(stepsText)
         val stepsLeft = (cx - radius * 0.30f) - (iconSize + gap + stepsW) / 2f
         drawHealthIcon(canvas, stepsLeft + iconSize / 2f, rowY - valueSize * 0.30f, iconSize, "steps")
         canvas.drawText(stepsText, stepsLeft + iconSize + gap, rowY, healthValuePaint)
 
         // ── Schlaf (rechts, gespiegelt) ───────────────────────────────────
-        healthValuePaint.color = Color.parseColor("#9C8FFF")
+        healthValuePaint.color = Color.parseColor("#C4BEFF")
         val sleepW  = healthValuePaint.measureText(sleepText)
         val sleepLeft = (cx + radius * 0.30f) - (iconSize + gap + sleepW) / 2f
         drawHealthIcon(canvas, sleepLeft + iconSize / 2f, rowY - valueSize * 0.30f, iconSize, "sleep")

@@ -114,6 +114,7 @@ private const val KEY_BATTERY_LEVEL   = "battery_level"
 private const val KEY_IS_CHARGING     = "is_charging"
 
 // ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
+private const val KEY_WF_SHOW_BACKGROUND           = "wf_show_background"
 private const val KEY_WF_BATTERY_RING_COLOR1       = "wf_battery_ring_color1"
 private const val KEY_WF_BATTERY_RING_COLOR2       = "wf_battery_ring_color2"
 private const val KEY_WF_BATTERY_RING_STROKE_SCALE = "wf_battery_ring_stroke_scale"
@@ -288,7 +289,8 @@ class WearDataLayerService @Inject constructor(
         batteryWarn1Color: String = "orange",
         batteryWarn1Threshold: Int = 0,
         batteryWarn2Color: String = "red",
-        batteryWarn2Threshold: Int = 0
+        batteryWarn2Threshold: Int = 0,
+        showBackground: Boolean = false
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -343,6 +345,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt(KEY_WF_BATTERY_WARN1_THRESHOLD, batteryWarn1Threshold)
                     dataMap.putString(KEY_WF_BATTERY_WARN2_COLOR, batteryWarn2Color)
                     dataMap.putInt(KEY_WF_BATTERY_WARN2_THRESHOLD, batteryWarn2Threshold)
+                    dataMap.putBoolean(KEY_WF_SHOW_BACKGROUND, showBackground)
                     dataMap.putString(KEY_WF_HEALTH_DATA_SOURCE, healthDataSource)
                     dataMap.putString(KEY_WF_HR_SOURCE, hrSource)
                     dataMap.putString(KEY_WF_KCAL_SOURCE, kcalSource)

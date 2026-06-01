@@ -95,6 +95,9 @@ private const val KEY_PHONE_HEART_RATE       = "phone_heart_rate"
 private const val KEY_PHONE_SPO2             = "phone_spo2"
 private const val KEY_PHONE_CALORIES         = "phone_calories"
 
+// ── Hintergrund ───────────────────────────────────────────────────────────────
+private const val KEY_WF_SHOW_BACKGROUND = "wf_show_background"
+
 // ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
 private const val KEY_WF_BATTERY_RING_COLOR1       = "wf_battery_ring_color1"
 private const val KEY_WF_BATTERY_RING_COLOR2       = "wf_battery_ring_color2"
@@ -217,6 +220,7 @@ class WatchFaceDataListenerService : WearableListenerService() {
  */
 object WatchFaceConfigCache {
 
+    @Volatile var showBackground: Boolean = false
     @Volatile var timeColorId: String = "light_gray"
     @Volatile var dateColorId: String = "cyan"
     @Volatile var showSeconds: Boolean = true
@@ -309,6 +313,7 @@ object WatchFaceConfigCache {
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
+        if (dataMap.containsKey(KEY_WF_SHOW_BACKGROUND)) showBackground = dataMap.getBoolean(KEY_WF_SHOW_BACKGROUND)
         dataMap.getString(KEY_WF_TIME_COLOR)?.let { timeColorId = it }
         dataMap.getString(KEY_WF_DATE_COLOR)?.let { dateColorId = it }
         if (dataMap.containsKey(KEY_WF_SHOW_SECONDS))       showSeconds        = dataMap.getBoolean(KEY_WF_SHOW_SECONDS)

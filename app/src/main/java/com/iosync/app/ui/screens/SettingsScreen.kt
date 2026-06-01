@@ -165,6 +165,9 @@ fun SettingsScreen(
     var slotPollInterval   by remember(uiState.slotPollIntervalSec)    { mutableStateOf(uiState.slotPollIntervalSec) }
     var healthPollInterval by remember(uiState.healthPollIntervalSec)  { mutableStateOf(uiState.healthPollIntervalSec) }
 
+    // Hintergrundbild
+    var wfShowBackground by remember(uiState.wfShowBackground) { mutableStateOf(uiState.wfShowBackground) }
+
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
     var pillColorTrue  by remember(uiState.actionPillColorTrue)  { mutableStateOf(uiState.actionPillColorTrue) }
@@ -182,7 +185,8 @@ fun SettingsScreen(
         wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories, wfShowSteps,
         wfHrTextScale, wfKcalTextScale, wfStepsTextScale, wfWeatherTextScale, wfSunriseTextScale, wfWatchBatteryTextScale,
         wfBatteryRingColor1, wfBatteryRingColor2, wfBatteryRingStrokeScale,
-        wfBatteryWarn1Color, wfBatteryWarn1Threshold, wfBatteryWarn2Color, wfBatteryWarn2Threshold
+        wfBatteryWarn1Color, wfBatteryWarn1Threshold, wfBatteryWarn2Color, wfBatteryWarn2Threshold,
+        wfShowBackground
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -219,7 +223,8 @@ fun SettingsScreen(
             batteryWarn1Color       = wfBatteryWarn1Color,
             batteryWarn1Threshold   = wfBatteryWarn1Threshold.toInt(),
             batteryWarn2Color       = wfBatteryWarn2Color,
-            batteryWarn2Threshold   = wfBatteryWarn2Threshold.toInt()
+            batteryWarn2Threshold   = wfBatteryWarn2Threshold.toInt(),
+            showBackground          = wfShowBackground
         )
     }
 
@@ -427,6 +432,13 @@ fun SettingsScreen(
                 text = "Watchface Konfiguration",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            WatchFaceToggleRow(
+                text = "Hintergrundbild anzeigen",
+                subText = "Skeuomorphes Metalldesign als Zifferblatt-Hintergrund",
+                checked = wfShowBackground,
+                onCheckedChange = { wfShowBackground = it }
             )
 
             Text(
