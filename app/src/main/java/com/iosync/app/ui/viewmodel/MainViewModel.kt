@@ -149,6 +149,15 @@ data class MainUiState(
     val wfOxygenComplication: String = "",
     // Watchface: Hintergrundbild
     val wfShowBackground: Boolean = false,
+    // Gesundheitsdaten-Farben
+    val wfHrColor: String      = "red",
+    val wfKcalColor: String    = "orange",
+    val wfOxygenColor: String  = "cyan",
+    val wfStepsColor: String   = "neon_yellow",
+    val wfSleepColor: String   = "purple",
+    val wfSunriseColor: String = "neon_yellow",
+    // ioBroker-Slot-Farbe (Wert-Text)
+    val wfSlotColor: String    = "neon_yellow",
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 300,
@@ -238,6 +247,13 @@ class MainViewModel @Inject constructor(
         val KEY_WF_SUNRISE_TEXT_SCALE        = intPreferencesKey("wf_sunrise_text_scale")
         val KEY_WF_WATCH_BATTERY_TEXT_SCALE = intPreferencesKey("wf_watch_battery_text_scale")
         val KEY_WF_SHOW_BACKGROUND           = booleanPreferencesKey("wf_show_background")
+        val KEY_WF_HR_COLOR      = stringPreferencesKey("wf_hr_color")
+        val KEY_WF_KCAL_COLOR    = stringPreferencesKey("wf_kcal_color")
+        val KEY_WF_OXYGEN_COLOR  = stringPreferencesKey("wf_oxygen_color")
+        val KEY_WF_STEPS_COLOR   = stringPreferencesKey("wf_steps_color")
+        val KEY_WF_SLEEP_COLOR   = stringPreferencesKey("wf_sleep_color")
+        val KEY_WF_SUNRISE_COLOR = stringPreferencesKey("wf_sunrise_color")
+        val KEY_WF_SLOT_COLOR    = stringPreferencesKey("wf_slot_color")
         val KEY_WF_BATTERY_RING_COLOR1       = stringPreferencesKey("wf_battery_ring_color1")
         val KEY_WF_BATTERY_RING_COLOR2       = stringPreferencesKey("wf_battery_ring_color2")
         val KEY_WF_BATTERY_RING_STROKE_SCALE = intPreferencesKey("wf_battery_ring_stroke_scale")
@@ -355,6 +371,13 @@ class MainViewModel @Inject constructor(
             val wfHrComplication     = prefs[KEY_WF_HR_COMPLICATION]     ?: ""
             val wfKcalComplication   = prefs[KEY_WF_KCAL_COMPLICATION]   ?: ""
             val wfOxygenComplication = prefs[KEY_WF_OXYGEN_COMPLICATION] ?: ""
+            val wfHrColor      = prefs[KEY_WF_HR_COLOR]      ?: "red"
+            val wfKcalColor    = prefs[KEY_WF_KCAL_COLOR]    ?: "orange"
+            val wfOxygenColor  = prefs[KEY_WF_OXYGEN_COLOR]  ?: "cyan"
+            val wfStepsColor   = prefs[KEY_WF_STEPS_COLOR]   ?: "neon_yellow"
+            val wfSleepColor   = prefs[KEY_WF_SLEEP_COLOR]   ?: "purple"
+            val wfSunriseColor = prefs[KEY_WF_SUNRISE_COLOR] ?: "neon_yellow"
+            val wfSlotColor    = prefs[KEY_WF_SLOT_COLOR]    ?: "neon_yellow"
             val weatherUseFixed   = prefs[KEY_WEATHER_USE_FIXED]   ?: false
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
@@ -444,6 +467,13 @@ class MainViewModel @Inject constructor(
                     wfHrComplication     = wfHrComplication,
                     wfKcalComplication   = wfKcalComplication,
                     wfOxygenComplication = wfOxygenComplication,
+                    wfHrColor      = wfHrColor,
+                    wfKcalColor    = wfKcalColor,
+                    wfOxygenColor  = wfOxygenColor,
+                    wfStepsColor   = wfStepsColor,
+                    wfSleepColor   = wfSleepColor,
+                    wfSunriseColor = wfSunriseColor,
+                    wfSlotColor    = wfSlotColor,
                     weatherUseFixedLocation = weatherUseFixed,
                     weatherFixedLat   = weatherFixedLat,
                     weatherFixedLon   = weatherFixedLon,
@@ -710,7 +740,14 @@ class MainViewModel @Inject constructor(
         hrSource: String = _uiState.value.wfHrSource,
         kcalSource: String = _uiState.value.wfKcalSource,
         oxygenSource: String = _uiState.value.wfOxygenSource,
-        showBackground: Boolean = _uiState.value.wfShowBackground
+        showBackground: Boolean = _uiState.value.wfShowBackground,
+        hrColor: String = _uiState.value.wfHrColor,
+        kcalColor: String = _uiState.value.wfKcalColor,
+        oxygenColor: String = _uiState.value.wfOxygenColor,
+        stepsColor: String = _uiState.value.wfStepsColor,
+        sleepColor: String = _uiState.value.wfSleepColor,
+        sunriseColor: String = _uiState.value.wfSunriseColor,
+        slotColor: String = _uiState.value.wfSlotColor
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(wearSyncLog = "Sende Watchface-Konfiguration …") }
@@ -751,6 +788,13 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_BATTERY_WARN2_THRESHOLD]   = batteryWarn2Threshold
                 prefs[KEY_WF_HEALTH_DATA_SOURCE]        = healthDataSource
                 prefs[KEY_WF_SHOW_BACKGROUND]           = showBackground
+                prefs[KEY_WF_HR_COLOR]      = hrColor
+                prefs[KEY_WF_KCAL_COLOR]    = kcalColor
+                prefs[KEY_WF_OXYGEN_COLOR]  = oxygenColor
+                prefs[KEY_WF_STEPS_COLOR]   = stepsColor
+                prefs[KEY_WF_SLEEP_COLOR]   = sleepColor
+                prefs[KEY_WF_SUNRISE_COLOR] = sunriseColor
+                prefs[KEY_WF_SLOT_COLOR]    = slotColor
             }
             _uiState.update {
                 it.copy(
@@ -789,7 +833,14 @@ class MainViewModel @Inject constructor(
                     wfBatteryWarn2Color       = batteryWarn2Color,
                     wfBatteryWarn2Threshold   = batteryWarn2Threshold,
                     wfHealthDataSource = healthDataSource,
-                    wfShowBackground   = showBackground
+                    wfShowBackground   = showBackground,
+                    wfHrColor      = hrColor,
+                    wfKcalColor    = kcalColor,
+                    wfOxygenColor  = oxygenColor,
+                    wfStepsColor   = stepsColor,
+                    wfSleepColor   = sleepColor,
+                    wfSunriseColor = sunriseColor,
+                    wfSlotColor    = slotColor
                 )
             }
             try {
@@ -814,7 +865,10 @@ class MainViewModel @Inject constructor(
                     hrSource, kcalSource, oxygenSource,
                     batteryWarn1Color = batteryWarn1Color, batteryWarn1Threshold = batteryWarn1Threshold,
                     batteryWarn2Color = batteryWarn2Color, batteryWarn2Threshold = batteryWarn2Threshold,
-                    showBackground = showBackground
+                    showBackground = showBackground,
+                    hrColor = hrColor, kcalColor = kcalColor, oxygenColor = oxygenColor,
+                    stepsColor = stepsColor, sleepColor = sleepColor,
+                    sunriseColor = sunriseColor, slotColor = slotColor
                 )
                 _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -899,7 +953,10 @@ class MainViewModel @Inject constructor(
                     s.wfHrComplication, s.wfKcalComplication, s.wfOxygenComplication,
                     s.wfBatteryWarn1Color, s.wfBatteryWarn1Threshold,
                     s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold,
-                    showBackground = s.wfShowBackground
+                    showBackground = s.wfShowBackground,
+                    hrColor = s.wfHrColor, kcalColor = s.wfKcalColor, oxygenColor = s.wfOxygenColor,
+                    stepsColor = s.wfStepsColor, sleepColor = s.wfSleepColor,
+                    sunriseColor = s.wfSunriseColor, slotColor = s.wfSlotColor
                 )
                 _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -1049,7 +1106,10 @@ class MainViewModel @Inject constructor(
                     s2.wfHrComplication, s2.wfKcalComplication, s2.wfOxygenComplication,
                     s2.wfBatteryWarn1Color, s2.wfBatteryWarn1Threshold,
                     s2.wfBatteryWarn2Color, s2.wfBatteryWarn2Threshold,
-                    showBackground = s2.wfShowBackground
+                    showBackground = s2.wfShowBackground,
+                    hrColor = s2.wfHrColor, kcalColor = s2.wfKcalColor, oxygenColor = s2.wfOxygenColor,
+                    stepsColor = s2.wfStepsColor, sleepColor = s2.wfSleepColor,
+                    sunriseColor = s2.wfSunriseColor, slotColor = s2.wfSlotColor
                 )
                 _uiState.update { it.copy(wearSyncLog = "Slot-Daten übertragen") }
             }
@@ -1273,7 +1333,10 @@ class MainViewModel @Inject constructor(
                     hrComplication, kcalComplication, oxygenComplication,
                     s.wfBatteryWarn1Color, s.wfBatteryWarn1Threshold,
                     s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold,
-                    showBackground = s.wfShowBackground
+                    showBackground = s.wfShowBackground,
+                    hrColor = s.wfHrColor, kcalColor = s.wfKcalColor, oxygenColor = s.wfOxygenColor,
+                    stepsColor = s.wfStepsColor, sleepColor = s.wfSleepColor,
+                    sunriseColor = s.wfSunriseColor, slotColor = s.wfSlotColor
                 )
                 _uiState.update { it.copy(wearSyncLog = "Health-Quellen-Konfiguration übertragen") }
             } catch (e: Exception) {

@@ -113,6 +113,15 @@ private const val KEY_PILL_STATE         = "pill_state"
 private const val KEY_BATTERY_LEVEL   = "battery_level"
 private const val KEY_IS_CHARGING     = "is_charging"
 
+// ── Gesundheitsdaten-Farben ───────────────────────────────────────────────────
+private const val KEY_WF_HR_COLOR      = "wf_hr_color"
+private const val KEY_WF_KCAL_COLOR    = "wf_kcal_color"
+private const val KEY_WF_OXYGEN_COLOR  = "wf_oxygen_color"
+private const val KEY_WF_STEPS_COLOR   = "wf_steps_color"
+private const val KEY_WF_SLEEP_COLOR   = "wf_sleep_color"
+private const val KEY_WF_SUNRISE_COLOR = "wf_sunrise_color"
+private const val KEY_WF_SLOT_COLOR    = "wf_slot_color"
+
 // ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
 private const val KEY_WF_SHOW_BACKGROUND           = "wf_show_background"
 private const val KEY_WF_BATTERY_RING_COLOR1       = "wf_battery_ring_color1"
@@ -290,7 +299,14 @@ class WearDataLayerService @Inject constructor(
         batteryWarn1Threshold: Int = 0,
         batteryWarn2Color: String = "red",
         batteryWarn2Threshold: Int = 0,
-        showBackground: Boolean = false
+        showBackground: Boolean = false,
+        hrColor: String = "red",
+        kcalColor: String = "orange",
+        oxygenColor: String = "cyan",
+        stepsColor: String = "neon_yellow",
+        sleepColor: String = "purple",
+        sunriseColor: String = "neon_yellow",
+        slotColor: String = "neon_yellow"
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -346,6 +362,13 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_BATTERY_WARN2_COLOR, batteryWarn2Color)
                     dataMap.putInt(KEY_WF_BATTERY_WARN2_THRESHOLD, batteryWarn2Threshold)
                     dataMap.putBoolean(KEY_WF_SHOW_BACKGROUND, showBackground)
+                    dataMap.putString(KEY_WF_HR_COLOR,      hrColor)
+                    dataMap.putString(KEY_WF_KCAL_COLOR,    kcalColor)
+                    dataMap.putString(KEY_WF_OXYGEN_COLOR,  oxygenColor)
+                    dataMap.putString(KEY_WF_STEPS_COLOR,   stepsColor)
+                    dataMap.putString(KEY_WF_SLEEP_COLOR,   sleepColor)
+                    dataMap.putString(KEY_WF_SUNRISE_COLOR, sunriseColor)
+                    dataMap.putString(KEY_WF_SLOT_COLOR,    slotColor)
                     dataMap.putString(KEY_WF_HEALTH_DATA_SOURCE, healthDataSource)
                     dataMap.putString(KEY_WF_HR_SOURCE, hrSource)
                     dataMap.putString(KEY_WF_KCAL_SOURCE, kcalSource)

@@ -168,6 +168,15 @@ fun SettingsScreen(
     // Hintergrundbild
     var wfShowBackground by remember(uiState.wfShowBackground) { mutableStateOf(uiState.wfShowBackground) }
 
+    // Gesundheitsdaten-Farben
+    var wfHrColor      by remember(uiState.wfHrColor)      { mutableStateOf(uiState.wfHrColor) }
+    var wfKcalColor    by remember(uiState.wfKcalColor)    { mutableStateOf(uiState.wfKcalColor) }
+    var wfOxygenColor  by remember(uiState.wfOxygenColor)  { mutableStateOf(uiState.wfOxygenColor) }
+    var wfStepsColor   by remember(uiState.wfStepsColor)   { mutableStateOf(uiState.wfStepsColor) }
+    var wfSleepColor   by remember(uiState.wfSleepColor)   { mutableStateOf(uiState.wfSleepColor) }
+    var wfSunriseColor by remember(uiState.wfSunriseColor) { mutableStateOf(uiState.wfSunriseColor) }
+    var wfSlotColor    by remember(uiState.wfSlotColor)    { mutableStateOf(uiState.wfSlotColor) }
+
     // Aktions-Pille
     var pillEnabled    by remember(uiState.actionPillEnabled)    { mutableStateOf(uiState.actionPillEnabled) }
     var pillColorTrue  by remember(uiState.actionPillColorTrue)  { mutableStateOf(uiState.actionPillColorTrue) }
@@ -186,7 +195,8 @@ fun SettingsScreen(
         wfHrTextScale, wfKcalTextScale, wfStepsTextScale, wfWeatherTextScale, wfSunriseTextScale, wfWatchBatteryTextScale,
         wfBatteryRingColor1, wfBatteryRingColor2, wfBatteryRingStrokeScale,
         wfBatteryWarn1Color, wfBatteryWarn1Threshold, wfBatteryWarn2Color, wfBatteryWarn2Threshold,
-        wfShowBackground
+        wfShowBackground,
+        wfHrColor, wfKcalColor, wfOxygenColor, wfStepsColor, wfSleepColor, wfSunriseColor, wfSlotColor
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -224,7 +234,14 @@ fun SettingsScreen(
             batteryWarn1Threshold   = wfBatteryWarn1Threshold.toInt(),
             batteryWarn2Color       = wfBatteryWarn2Color,
             batteryWarn2Threshold   = wfBatteryWarn2Threshold.toInt(),
-            showBackground          = wfShowBackground
+            showBackground          = wfShowBackground,
+            hrColor                 = wfHrColor,
+            kcalColor               = wfKcalColor,
+            oxygenColor             = wfOxygenColor,
+            stepsColor              = wfStepsColor,
+            sleepColor              = wfSleepColor,
+            sunriseColor            = wfSunriseColor,
+            slotColor               = wfSlotColor
         )
     }
 
@@ -786,6 +803,8 @@ fun SettingsScreen(
                     complication = wfHrComplication,
                     onComplicationChange = { wfHrComplication = it }
                 )
+                Text("Puls-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceColorRow(selected = wfHrColor, onSelect = { wfHrColor = it })
             }
 
             WatchFaceToggleRow(
@@ -802,6 +821,8 @@ fun SettingsScreen(
                     complication = wfKcalComplication,
                     onComplicationChange = { wfKcalComplication = it }
                 )
+                Text("Kcal-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceColorRow(selected = wfKcalColor, onSelect = { wfKcalColor = it })
             }
 
             WatchFaceToggleRow(
@@ -818,6 +839,8 @@ fun SettingsScreen(
                     complication = wfOxygenComplication,
                     onComplicationChange = { wfOxygenComplication = it }
                 )
+                Text("SpO2-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceColorRow(selected = wfOxygenColor, onSelect = { wfOxygenColor = it })
             }
 
             // Abfrage-Intervall für Health-Connect-Werte (Puls/Kcal/SpO2)
@@ -878,6 +901,9 @@ fun SettingsScreen(
 
             if (showCustomSlots) {
                 val availableStates = uiState.states
+
+                Text("Slot-Wertfarbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceColorRow(selected = wfSlotColor, onSelect = { wfSlotColor = it })
 
                 // Slot 1
                 Text("Slot 1", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1134,6 +1160,9 @@ fun SettingsScreen(
                     FontSizeDropdown(selected = wfSunriseTextScale, onSelect = { wfSunriseTextScale = it })
                 }
             }
+            Text("Sonnenauf/-untergang Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            WatchFaceColorRow(selected = wfSunriseColor, onSelect = { wfSunriseColor = it })
+
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Puls", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1154,6 +1183,10 @@ fun SettingsScreen(
                     FontSizeDropdown(selected = wfStepsTextScale, onSelect = { wfStepsTextScale = it })
                 }
             }
+            Text("Schritte-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            WatchFaceColorRow(selected = wfStepsColor, onSelect = { wfStepsColor = it })
+            Text("Schlafdauer-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            WatchFaceColorRow(selected = wfSleepColor, onSelect = { wfSleepColor = it })
 
             if (wfShowSecondsRing) {
                 Text(
@@ -1269,7 +1302,14 @@ fun SettingsScreen(
                         batteryWarn1Threshold   = wfBatteryWarn1Threshold.toInt(),
                         batteryWarn2Color       = wfBatteryWarn2Color,
                         batteryWarn2Threshold   = wfBatteryWarn2Threshold.toInt(),
-                        healthDataSource        = wfHealthDataSource
+                        healthDataSource        = wfHealthDataSource,
+                        hrColor                 = wfHrColor,
+                        kcalColor               = wfKcalColor,
+                        oxygenColor             = wfOxygenColor,
+                        stepsColor              = wfStepsColor,
+                        sleepColor              = wfSleepColor,
+                        sunriseColor            = wfSunriseColor,
+                        slotColor               = wfSlotColor
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -1610,6 +1650,23 @@ private fun WatchFaceColorChip(
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             color = if (selected) NeonYellow else MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/** Kompakte Farb-Chip-Zeile für konfigurierbare Watchface-Farben. */
+@Composable
+private fun WatchFaceColorRow(selected: String, onSelect: (String) -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        WatchFaceColorChip(Color(0xFFEAFF00), "Neon-Gelb", selected == "neon_yellow") { onSelect("neon_yellow") }
+        WatchFaceColorChip(Color(0xFF00BCD4), "Cyan",      selected == "cyan")        { onSelect("cyan") }
+        WatchFaceColorChip(Color(0xFFF44336), "Rot",       selected == "red")         { onSelect("red") }
+        WatchFaceColorChip(Color(0xFFFF9800), "Orange",    selected == "orange")      { onSelect("orange") }
+        WatchFaceColorChip(Color(0xFF9C27B0), "Lila",      selected == "purple")      { onSelect("purple") }
+        WatchFaceColorChip(Color(0xFF4CAF50), "Grün",      selected == "green")       { onSelect("green") }
+        WatchFaceColorChip(Color.White,       "Weiß",      selected == "white")       { onSelect("white") }
     }
 }
 

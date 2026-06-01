@@ -1090,7 +1090,7 @@ class IoSyncWatchFaceRenderer(
                     healthSensorManager.heartRate
                 }
             val hrText = if (hr > 0) "$hr" else "--"
-            items.add(HealthItem("BPM", hrText, Color.parseColor("#EF5350"), "heart"))
+            items.add(HealthItem("BPM", hrText, colorFromId(config.hrColor), "heart"))
         }
 
         // Kalorien: Komplikation (falls gewählt) > Health Connect > lokaler Sensor
@@ -1102,7 +1102,7 @@ class IoSyncWatchFaceRenderer(
                     healthSensorManager.calories
                 }
             val kcalText = if (kcal > 0) "$kcal" else "--"
-            items.add(HealthItem("KCAL", kcalText, Color.parseColor("#FF9800"), "flame"))
+            items.add(HealthItem("KCAL", kcalText, colorFromId(config.kcalColor), "flame"))
         }
 
         // SpO2: Komplikation (falls gewählt) > Health Connect > lokaler Sensor
@@ -1114,7 +1114,7 @@ class IoSyncWatchFaceRenderer(
                     healthSensorManager.spO2
                 }
             val o2Text = if (o2 > 0) "$o2%" else "--%"
-            items.add(HealthItem("OXYGEN", o2Text, Color.parseColor("#42A5F5"), "oxygen"))
+            items.add(HealthItem("OXYGEN", o2Text, colorFromId(config.oxygenColor), "oxygen"))
         }
 
         if (items.isEmpty()) return
@@ -1123,7 +1123,13 @@ class IoSyncWatchFaceRenderer(
         val kcalScale  = config.kcalTextScale / 100f
         val stepsScale = config.stepsTextScale / 100f
 
-        val itemWidth  = radius * 0.80f
+        // Abstände je nach Anzahl aktiver Health-Elemente anpassen:
+        // 2 Elemente → weiter auseinander, 3 Elemente → äußere etwas näher zur Mitte
+        val itemWidth = when (items.size) {
+            2    -> radius * 1.00f
+            3    -> radius * 0.72f
+            else -> radius * 0.80f
+        }
         val totalWidth = items.size * itemWidth
         val startX     = cx - totalWidth / 2f + itemWidth / 2f + bx
         val baseY      = cy + radius * 0.44f + by
@@ -1212,14 +1218,14 @@ class IoSyncWatchFaceRenderer(
         healthValuePaint.textAlign = Paint.Align.LEFT
 
         // ── Schritte (links) ──────────────────────────────────────────────
-        healthValuePaint.color = Color.parseColor("#F2FF99")
+        healthValuePaint.color = colorFromId(config.stepsColor)
         val stepsW  = healthValuePaint.measureText(stepsText)
         val stepsLeft = (cx - radius * 0.30f) - (iconSize + gap + stepsW) / 2f
         drawHealthIcon(canvas, stepsLeft + iconSize / 2f, rowY - valueSize * 0.30f, iconSize, "steps")
         canvas.drawText(stepsText, stepsLeft + iconSize + gap, rowY, healthValuePaint)
 
         // ── Schlaf (rechts, gespiegelt) ───────────────────────────────────
-        healthValuePaint.color = Color.parseColor("#C4BEFF")
+        healthValuePaint.color = colorFromId(config.sleepColor)
         val sleepW  = healthValuePaint.measureText(sleepText)
         val sleepLeft = (cx + radius * 0.30f) - (iconSize + gap + sleepW) / 2f
         drawHealthIcon(canvas, sleepLeft + iconSize / 2f, rowY - valueSize * 0.30f, iconSize, "sleep")
@@ -1325,6 +1331,8 @@ class IoSyncWatchFaceRenderer(
      */
     private fun drawCustomSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float, clockBottomY: Float) {
         val config = WatchFaceConfigCache
+        // Slot-Wertfarbe aus Konfiguration anwenden
+        customSlotValuePaint.color = colorFromId(config.slotColor)
 
         val dp7 = 7f * context.resources.displayMetrics.density
         val gap = radius * 0.035f
@@ -1570,12 +1578,14 @@ class IoSyncWatchFaceRenderer(
         zonedDateTime: ZonedDateTime,
         isAmbient: Boolean
     ) {
-        // Sunrise/Sunset-Komplikation (Slot 2 = links): Schriftgröße aus Config anwenden
+        // Sunrise/Sunset-Komplikation (Slot 2 = links): Schriftgröße + Farbe aus Config anwenden
         val sunriseScale = WatchFaceConfigCache.sunriseTextScale / 100f
+        val sunriseArgb  = colorFromId(WatchFaceConfigCache.sunriseColor)
         complicationSlotsManager.complicationSlots[2]?.let { slot ->
             (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
-                textSize  = (30f * sunriseScale).toInt().coerceAtLeast(8)
-                titleSize = (22f * sunriseScale).toInt().coerceAtLeast(6)
+                textSize     = (30f * sunriseScale).toInt().coerceAtLeast(8)
+                titleSize    = (22f * sunriseScale).toInt().coerceAtLeast(6)
+                primaryColor = sunriseArgb
             }
         }
         // Slot 6 (Schritte) wird nicht mehr nativ gerendert – die Schritte werden

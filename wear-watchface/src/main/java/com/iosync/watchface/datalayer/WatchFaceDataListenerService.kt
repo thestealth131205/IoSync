@@ -98,6 +98,17 @@ private const val KEY_PHONE_CALORIES         = "phone_calories"
 // ── Hintergrund ───────────────────────────────────────────────────────────────
 private const val KEY_WF_SHOW_BACKGROUND = "wf_show_background"
 
+// ── Gesundheitsdaten-Farben ───────────────────────────────────────────────────
+private const val KEY_WF_HR_COLOR      = "wf_hr_color"
+private const val KEY_WF_KCAL_COLOR    = "wf_kcal_color"
+private const val KEY_WF_OXYGEN_COLOR  = "wf_oxygen_color"
+private const val KEY_WF_STEPS_COLOR   = "wf_steps_color"
+private const val KEY_WF_SLEEP_COLOR   = "wf_sleep_color"
+private const val KEY_WF_SUNRISE_COLOR = "wf_sunrise_color"
+
+// ── ioBroker-Slot-Farbe (Wert-Text) ──────────────────────────────────────────
+private const val KEY_WF_SLOT_COLOR = "wf_slot_color"
+
 // ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
 private const val KEY_WF_BATTERY_RING_COLOR1       = "wf_battery_ring_color1"
 private const val KEY_WF_BATTERY_RING_COLOR2       = "wf_battery_ring_color2"
@@ -293,6 +304,15 @@ object WatchFaceConfigCache {
     @Volatile var slot4Warn1Value: Float = Float.NaN
     @Volatile var slot4Warn2Color: String = "red"
     @Volatile var slot4Warn2Value: Float = Float.NaN
+    // Gesundheitsdaten-Farben (Standard = ursprüngliche Farben)
+    @Volatile var hrColor: String      = "red"
+    @Volatile var kcalColor: String    = "orange"
+    @Volatile var oxygenColor: String  = "cyan"
+    @Volatile var stepsColor: String   = "neon_yellow"
+    @Volatile var sleepColor: String   = "purple"
+    @Volatile var sunriseColor: String = "neon_yellow"
+    // ioBroker-Slot-Farbe (Wert-Text)
+    @Volatile var slotColor: String    = "neon_yellow"
     // Schlafdauer (vom Handy via Health Connect, in Minuten)
     @Volatile var phoneSleepMinutes: Int = 0
     // Gesundheitsdaten-Quelle: "local" = Uhr-Sensoren, "phone" = vom Smartphone
@@ -371,6 +391,13 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_HR_COMPLICATION)?.let { hrComplication = it }
         dataMap.getString(KEY_WF_KCAL_COMPLICATION)?.let { kcalComplication = it }
         dataMap.getString(KEY_WF_OXYGEN_COMPLICATION)?.let { oxygenComplication = it }
+        dataMap.getString(KEY_WF_HR_COLOR)?.let      { hrColor      = it }
+        dataMap.getString(KEY_WF_KCAL_COLOR)?.let    { kcalColor    = it }
+        dataMap.getString(KEY_WF_OXYGEN_COLOR)?.let  { oxygenColor  = it }
+        dataMap.getString(KEY_WF_STEPS_COLOR)?.let   { stepsColor   = it }
+        dataMap.getString(KEY_WF_SLEEP_COLOR)?.let   { sleepColor   = it }
+        dataMap.getString(KEY_WF_SUNRISE_COLOR)?.let { sunriseColor = it }
+        dataMap.getString(KEY_WF_SLOT_COLOR)?.let    { slotColor    = it }
     }
 }
 
