@@ -427,7 +427,7 @@ class IoSyncWatchFaceRenderer(
         // aktiv halten → kontinuierliche HR-Samples ohne Dauer-Akkuverbrauch.
         scope.launch {
             combine(watchState.isVisible, watchState.isAmbient) { visible, ambient ->
-                visible && !ambient
+                visible && ambient != true
             }.collect { active ->
                 if (active) healthSensorManager.startHeartRate()
                 else healthSensorManager.stopHeartRate()
