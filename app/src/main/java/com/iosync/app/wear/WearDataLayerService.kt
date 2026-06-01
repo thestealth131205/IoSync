@@ -91,6 +91,8 @@ private const val KEY_WF_HR_COMPLICATION         = "wf_hr_complication"
 private const val KEY_WF_KCAL_COMPLICATION       = "wf_kcal_complication"
 private const val KEY_WF_OXYGEN_COMPLICATION     = "wf_oxygen_complication"
 private const val PATH_CUSTOM_SLOTS           = "/iosync/watchface/custom_slots"
+private const val PATH_CUSTOM_SLOTS_P2        = "/iosync/watchface/custom_slots_p2"
+private const val PATH_CONFIG_P2              = "/iosync/watchface/config_p2"
 private const val PATH_PHONE_HEALTH           = "/iosync/watchface/phone_health"
 private const val KEY_PHONE_HEART_RATE        = "phone_heart_rate"
 private const val KEY_PHONE_SPO2              = "phone_spo2"
@@ -464,6 +466,76 @@ class WearDataLayerService @Inject constructor(
                 Log.d(TAG, "Custom-Slot-Daten an Wear OS übertragen")
             } catch (e: Exception) {
                 Log.e(TAG, "syncCustomSlotsToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt Seite-2-Slot-Daten (Labels + Werte) ans Watchface.
+     */
+    suspend fun syncPage2SlotsToWear(
+        slot1Label: String, slot1Value: String,
+        slot2Label: String, slot2Value: String,
+        slot3Label: String, slot3Value: String,
+        slot4Label: String, slot4Value: String
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_CUSTOM_SLOTS_P2).apply {
+                    dataMap.putString("wf_p2_slot1_label", slot1Label)
+                    dataMap.putString("wf_p2_slot1_value", slot1Value)
+                    dataMap.putString("wf_p2_slot2_label", slot2Label)
+                    dataMap.putString("wf_p2_slot2_value", slot2Value)
+                    dataMap.putString("wf_p2_slot3_label", slot3Label)
+                    dataMap.putString("wf_p2_slot3_value", slot3Value)
+                    dataMap.putString("wf_p2_slot4_label", slot4Label)
+                    dataMap.putString("wf_p2_slot4_value", slot4Value)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Seite-2-Slot-Daten an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncPage2SlotsToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt die Seite-2-Konfiguration (Pillen + Textgrößen) ans Watchface.
+     */
+    suspend fun syncPage2ConfigToWear(
+        p2PillEnabled: Boolean,
+        p2PillColorTrue: String,
+        p2PillColorFalse: String,
+        p2PillIoBrokerId: String,
+        p2PillValueMode: String,
+        p2PillFixedValue: String,
+        p2Slot1TextScale: Int,
+        p2Slot2TextScale: Int,
+        p2Slot3TextScale: Int,
+        p2Slot4TextScale: Int,
+        sleepTextScale: Int
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_CONFIG_P2).apply {
+                    dataMap.putBoolean("wf_p2_pill_enabled",       p2PillEnabled)
+                    dataMap.putString("wf_p2_pill_color_true",     p2PillColorTrue)
+                    dataMap.putString("wf_p2_pill_color_false",    p2PillColorFalse)
+                    dataMap.putString("wf_p2_pill_iobroker_id",    p2PillIoBrokerId)
+                    dataMap.putString("wf_p2_pill_value_mode",     p2PillValueMode)
+                    dataMap.putString("wf_p2_pill_fixed_value",    p2PillFixedValue)
+                    dataMap.putInt("wf_p2_slot1_text_scale",       p2Slot1TextScale)
+                    dataMap.putInt("wf_p2_slot2_text_scale",       p2Slot2TextScale)
+                    dataMap.putInt("wf_p2_slot3_text_scale",       p2Slot3TextScale)
+                    dataMap.putInt("wf_p2_slot4_text_scale",       p2Slot4TextScale)
+                    dataMap.putInt("wf_sleep_text_scale",          sleepTextScale)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Seite-2-Konfig an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncPage2ConfigToWear fehlgeschlagen", e)
             }
         }
     }

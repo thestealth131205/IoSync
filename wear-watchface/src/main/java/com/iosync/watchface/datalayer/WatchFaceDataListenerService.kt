@@ -143,6 +143,20 @@ private const val KEY_WF_P2_SLOT3_VALUE     = "wf_p2_slot3_value"
 private const val KEY_WF_P2_SLOT4_LABEL     = "wf_p2_slot4_label"
 private const val KEY_WF_P2_SLOT4_VALUE     = "wf_p2_slot4_value"
 
+// ── Seite-2 Konfig (Pillen + Textgrößen) ─────────────────────────────────────
+private const val PATH_CONFIG_P2                = "/iosync/watchface/config_p2"
+private const val KEY_WF_P2_PILL_ENABLED        = "wf_p2_pill_enabled"
+private const val KEY_WF_P2_PILL_COLOR_TRUE     = "wf_p2_pill_color_true"
+private const val KEY_WF_P2_PILL_COLOR_FALSE    = "wf_p2_pill_color_false"
+private const val KEY_WF_P2_PILL_IOBROKER_ID    = "wf_p2_pill_iobroker_id"
+private const val KEY_WF_P2_PILL_VALUE_MODE     = "wf_p2_pill_value_mode"
+private const val KEY_WF_P2_PILL_FIXED_VALUE    = "wf_p2_pill_fixed_value"
+private const val KEY_WF_P2_SLOT1_TEXT_SCALE    = "wf_p2_slot1_text_scale"
+private const val KEY_WF_P2_SLOT2_TEXT_SCALE    = "wf_p2_slot2_text_scale"
+private const val KEY_WF_P2_SLOT3_TEXT_SCALE    = "wf_p2_slot3_text_scale"
+private const val KEY_WF_P2_SLOT4_TEXT_SCALE    = "wf_p2_slot4_text_scale"
+private const val KEY_WF_SLEEP_TEXT_SCALE       = "wf_sleep_text_scale"
+
 // ── Aktions-Pille Status-Pfad (separater Pfad für schnelle State-Updates) ────
 private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
 private const val KEY_PILL_STATE         = "pill_state"
@@ -239,6 +253,11 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     dataMap.getString(KEY_WF_P2_SLOT4_LABEL)?.let { WatchFaceConfigCache.p2Slot4Label = it }
                     dataMap.getString(KEY_WF_P2_SLOT4_VALUE)?.let { WatchFaceConfigCache.p2Slot4Value = it }
                     Log.d(TAG, "Seite-2-Slot-Daten empfangen")
+                }
+                PATH_CONFIG_P2 -> {
+                    val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    WatchFaceConfigCache.updateP2ConfigFromDataMap(dataMap)
+                    Log.d(TAG, "Seite-2-Konfig empfangen")
                 }
             }
         }
@@ -364,6 +383,21 @@ object WatchFaceConfigCache {
     @Volatile var p2Slot4Label: String = ""
     @Volatile var p2Slot4Value: String = "--"
 
+    // ── Seite 2 Textgrößen ────────────────────────────────────────────────────
+    @Volatile var p2Slot1TextScale: Int = 100
+    @Volatile var p2Slot2TextScale: Int = 100
+    @Volatile var p2Slot3TextScale: Int = 100
+    @Volatile var p2Slot4TextScale: Int = 100
+    @Volatile var sleepTextScale: Int = 100
+
+    // ── Seite 2 Pillen ────────────────────────────────────────────────────────
+    @Volatile var p2PillEnabled: Boolean = false
+    @Volatile var p2PillColorTrue: String = "cyan"
+    @Volatile var p2PillColorFalse: String = "red"
+    @Volatile var p2PillIoBrokerId: String = ""
+    @Volatile var p2PillValueMode: String = "toggle"
+    @Volatile var p2PillFixedValue: String = ""
+
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
         if (dataMap.containsKey(KEY_WF_SHOW_BACKGROUND)) showBackground = dataMap.getBoolean(KEY_WF_SHOW_BACKGROUND)
@@ -431,6 +465,20 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_SLEEP_COLOR)?.let   { sleepColor   = it }
         dataMap.getString(KEY_WF_SUNRISE_COLOR)?.let { sunriseColor = it }
         dataMap.getString(KEY_WF_SLOT_COLOR)?.let    { slotColor    = it }
+    }
+
+    fun updateP2ConfigFromDataMap(dataMap: DataMap) {
+        if (dataMap.containsKey(KEY_WF_P2_PILL_ENABLED))    p2PillEnabled    = dataMap.getBoolean(KEY_WF_P2_PILL_ENABLED)
+        dataMap.getString(KEY_WF_P2_PILL_COLOR_TRUE)?.let  { p2PillColorTrue  = it }
+        dataMap.getString(KEY_WF_P2_PILL_COLOR_FALSE)?.let { p2PillColorFalse = it }
+        dataMap.getString(KEY_WF_P2_PILL_IOBROKER_ID)?.let { p2PillIoBrokerId = it }
+        dataMap.getString(KEY_WF_P2_PILL_VALUE_MODE)?.let  { p2PillValueMode  = it }
+        dataMap.getString(KEY_WF_P2_PILL_FIXED_VALUE)?.let { p2PillFixedValue = it }
+        if (dataMap.containsKey(KEY_WF_P2_SLOT1_TEXT_SCALE)) p2Slot1TextScale = dataMap.getInt(KEY_WF_P2_SLOT1_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_P2_SLOT2_TEXT_SCALE)) p2Slot2TextScale = dataMap.getInt(KEY_WF_P2_SLOT2_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_P2_SLOT3_TEXT_SCALE)) p2Slot3TextScale = dataMap.getInt(KEY_WF_P2_SLOT3_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_P2_SLOT4_TEXT_SCALE)) p2Slot4TextScale = dataMap.getInt(KEY_WF_P2_SLOT4_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_SLEEP_TEXT_SCALE))    sleepTextScale   = dataMap.getInt(KEY_WF_SLEEP_TEXT_SCALE)
     }
 }
 

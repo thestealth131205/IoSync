@@ -374,6 +374,7 @@ class IoSyncWatchFaceRenderer(
         private const val PATH_PHONE_BATTERY     = "/iosync/phone/battery"
         private const val PATH_CUSTOM_SLOTS      = "/iosync/watchface/custom_slots"
         private const val PATH_CUSTOM_SLOTS_P2   = "/iosync/watchface/custom_slots_p2"
+        private const val PATH_CONFIG_P2         = "/iosync/watchface/config_p2"
         private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
         private const val PATH_STATES            = "/iosync/smarthome/states"
     }
@@ -473,6 +474,11 @@ class IoSyncWatchFaceRenderer(
                             dataMap.getString("wf_p2_slot4_label")?.let { WatchFaceConfigCache.p2Slot4Label = it }
                             dataMap.getString("wf_p2_slot4_value")?.let { WatchFaceConfigCache.p2Slot4Value = it }
                         }
+                        PATH_CONFIG_P2 -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            WatchFaceConfigCache.updateP2ConfigFromDataMap(dataMap)
+                            Log.d(TAG_PILL, "Initiale Seite-2-Konfig geladen")
+                        }
                     }
                 }
                 dataItems.release()
@@ -531,6 +537,9 @@ class IoSyncWatchFaceRenderer(
                     dataMap.getString("wf_p2_slot3_value")?.let { WatchFaceConfigCache.p2Slot3Value = it }
                     dataMap.getString("wf_p2_slot4_label")?.let { WatchFaceConfigCache.p2Slot4Label = it }
                     dataMap.getString("wf_p2_slot4_value")?.let { WatchFaceConfigCache.p2Slot4Value = it }
+                }
+                PATH_CONFIG_P2 -> {
+                    WatchFaceConfigCache.updateP2ConfigFromDataMap(dataMap)
                 }
             }
         }
@@ -1170,7 +1179,17 @@ class IoSyncWatchFaceRenderer(
                 } else {
                     healthSensorManager.calories
                 }
-            val kcalText = if (kcal > 0) "$kcal" else "--"
+            val kcalText = when {
+                kcal <= 0   -> "--"
+                kcal < 1000 -> "$kcal"
+                else -> {
+                    // Auf nächste 100 aufrunden, dann K-Format: 2360 → 2K4
+                    val rounded  = Math.ceil(kcal / 100.0).toInt() * 100
+                    val thousands = rounded / 1000
+                    val hundreds  = (rounded % 1000) / 100
+                    if (hundreds == 0) "${thousands}K" else "${thousands}K${hundreds}"
+                }
+            }
             items.add(HealthItem("KCAL", kcalText, colorFromId(config.kcalColor), "flame"))
         }
 
@@ -1264,13 +1283,13 @@ class IoSyncWatchFaceRenderer(
     }
 
     /**
-     * Zeichnet Schritte (links) und Schlafdauer (rechts, gespiegelt) oberhalb der Uhrzeit.
-     * Schriftgröße entspricht dem Puls-Wert (radius * 0.130). Schlafdauer als "Xh Ym".
+     * Zeichnet Schritte oberhalb der Uhrzeit (zentriert).
+     * Schlafdauer wurde auf Seite 2 verschoben.
      */
     private fun drawStepsAndSleep(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
         val scale     = config.stepsTextScale / 100f
-        val valueSize = radius * 0.130f * scale   // wie Puls-Wert
+        val valueSize = radius * 0.130f * scale
         val iconSize  = radius * 0.090f * scale
         val gap       = iconSize * 0.45f
         val rowY      = cy - radius * 0.30f
@@ -1279,26 +1298,15 @@ class IoSyncWatchFaceRenderer(
         val steps = readComplicationNumber("6") ?: healthSensorManager.steps.takeIf { it > 0 }
         val stepsText = steps?.toString() ?: "--"
 
-        // Schlafdauer in Stunden/Minuten (vom Handy via Health Connect)
-        val sleepMin = config.phoneSleepMinutes
-        val sleepText = if (sleepMin > 0) "${sleepMin / 60}h ${sleepMin % 60}m" else "--"
-
         healthValuePaint.textSize  = valueSize
         healthValuePaint.textAlign = Paint.Align.LEFT
 
-        // ── Schritte (links) ──────────────────────────────────────────────
+        // ── Schritte (zentriert, da Schlaf auf Seite 2) ──────────────────
         healthValuePaint.color = colorFromId(config.stepsColor)
-        val stepsW  = healthValuePaint.measureText(stepsText)
-        val stepsLeft = (cx - radius * 0.30f) - (iconSize + gap + stepsW) / 2f
+        val stepsW    = healthValuePaint.measureText(stepsText)
+        val stepsLeft = cx - (iconSize + gap + stepsW) / 2f
         drawHealthIcon(canvas, stepsLeft + iconSize / 2f, rowY - valueSize * 0.30f, iconSize, "steps")
         canvas.drawText(stepsText, stepsLeft + iconSize + gap, rowY, healthValuePaint)
-
-        // ── Schlaf (rechts, gespiegelt) ───────────────────────────────────
-        healthValuePaint.color = colorFromId(config.sleepColor)
-        val sleepW  = healthValuePaint.measureText(sleepText)
-        val sleepLeft = (cx + radius * 0.30f) - (iconSize + gap + sleepW) / 2f
-        drawHealthIcon(canvas, sleepLeft + iconSize / 2f, rowY - valueSize * 0.30f, iconSize, "sleep")
-        canvas.drawText(sleepText, sleepLeft + iconSize + gap, rowY, healthValuePaint)
 
         healthValuePaint.textAlign = Paint.Align.CENTER
     }
@@ -1821,7 +1829,10 @@ class IoSyncWatchFaceRenderer(
             invalidate() // weiter animieren während Fade-out
         }
 
-        // 4 ioBroker-Slots (oben, 2 × 2 Gitter)
+        // Schlafdauer (oben, über den Slots)
+        drawPage2Sleep(canvas, cx, cy, radius)
+
+        // 4 ioBroker-Slots (Mitte, 2 × 2 Gitter)
         drawPage2IoBrokerSlots(canvas, cx, cy, radius)
 
         // 2 halbe Pillen (7 Uhr und 5 Uhr)
@@ -1834,23 +1845,26 @@ class IoSyncWatchFaceRenderer(
      */
     private fun drawPage2IoBrokerSlots(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
-        val labelSize = radius * 0.072f
-        val valueSize = radius * 0.100f
+        val baseLabelSize = radius * 0.072f
+        val baseValueSize = radius * 0.100f
         val colOffset = radius * 0.30f
 
         // Zeile 1: oberer Bereich; Zeile 2: knapp unterhalb der Mitte
         val row1Y = cy - radius * 0.20f
         val row2Y = cy + radius * 0.22f
 
-        data class P2Slot(val label: String, val value: String, val slotCx: Float, val baseY: Float)
+        data class P2Slot(val label: String, val value: String, val slotCx: Float, val baseY: Float, val textScale: Float)
         val slots = listOf(
-            P2Slot(config.p2Slot1Label, config.p2Slot1Value, cx - colOffset, row1Y),
-            P2Slot(config.p2Slot2Label, config.p2Slot2Value, cx + colOffset, row1Y),
-            P2Slot(config.p2Slot3Label, config.p2Slot3Value, cx - colOffset, row2Y),
-            P2Slot(config.p2Slot4Label, config.p2Slot4Value, cx + colOffset, row2Y)
+            P2Slot(config.p2Slot1Label, config.p2Slot1Value, cx - colOffset, row1Y, config.p2Slot1TextScale / 100f),
+            P2Slot(config.p2Slot2Label, config.p2Slot2Value, cx + colOffset, row1Y, config.p2Slot2TextScale / 100f),
+            P2Slot(config.p2Slot3Label, config.p2Slot3Value, cx - colOffset, row2Y, config.p2Slot3TextScale / 100f),
+            P2Slot(config.p2Slot4Label, config.p2Slot4Value, cx + colOffset, row2Y, config.p2Slot4TextScale / 100f)
         )
 
         for (slot in slots) {
+            val labelSize = baseLabelSize * slot.textScale
+            val valueSize = baseValueSize * slot.textScale
+
             // Label (grau, klein)
             val labelText = if (slot.label.isBlank()) "---" else slot.label.take(6).uppercase()
             page2SlotLabelPaint.textSize = labelSize
@@ -1867,7 +1881,7 @@ class IoSyncWatchFaceRenderer(
      *   - Pille bei 7 Uhr (unten links, ca. 210° von 12 Uhr)
      *   - Pille bei 5 Uhr (unten rechts, ca. 150° von 12 Uhr)
      * Halbbreite = 50 % der Seite-1-Pille; gleiche Höhe.
-     * Farbe wie die Aktions-Pille (State-abhängig).
+     * Farbe aus p2PillColorTrue/False (unabhängig von Seite-1-Pille konfigurierbar).
      */
     private fun drawPage2Pills(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config  = WatchFaceConfigCache
@@ -1883,8 +1897,11 @@ class IoSyncWatchFaceRenderer(
         val pill5X = cx + dist * 0.50f
         val pill5Y = cy + dist * 0.866f
 
+        // Eigene Pille-Farben für Seite 2 (Standard: gleiche wie Seite-1-Pille, überschreibbar)
+        val colorTrue  = if (config.p2PillColorTrue.isNotBlank())  config.p2PillColorTrue  else config.actionPillColorTrue
+        val colorFalse = if (config.p2PillColorFalse.isNotBlank()) config.p2PillColorFalse else config.actionPillColorFalse
         val stateColor = colorFromPillId(
-            if (config.actionPillState) config.actionPillColorTrue else config.actionPillColorFalse
+            if (config.actionPillState) colorTrue else colorFalse
         )
 
         page2PillFillPaint.color = Color.argb(
@@ -1910,6 +1927,33 @@ class IoSyncWatchFaceRenderer(
         )
         canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillFillPaint)
         canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillStrokePaint)
+    }
+
+    /**
+     * Zeichnet die Schlafdauer auf Seite 2 (oben, über den Slots).
+     */
+    private fun drawPage2Sleep(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config    = WatchFaceConfigCache
+        val scale     = config.sleepTextScale / 100f
+        val valueSize = radius * 0.115f * scale
+        val iconSize  = radius * 0.085f * scale
+        val gap       = iconSize * 0.40f
+        val rowY      = cy - radius * 0.62f
+
+        val sleepMin  = config.phoneSleepMinutes
+        val sleepText = if (sleepMin > 0) "${sleepMin / 60}h ${sleepMin % 60}m" else "--"
+
+        healthValuePaint.color     = colorFromId(config.sleepColor)
+        healthValuePaint.textSize  = valueSize
+        healthValuePaint.textAlign = Paint.Align.LEFT
+
+        val textW     = healthValuePaint.measureText(sleepText)
+        val totalW    = iconSize + gap + textW
+        val startX    = cx - totalW / 2f
+
+        drawHealthIcon(canvas, startX + iconSize / 2f, rowY - valueSize * 0.25f, iconSize, "sleep")
+        canvas.drawText(sleepText, startX + iconSize + gap, rowY, healthValuePaint)
+        healthValuePaint.textAlign = Paint.Align.CENTER
     }
 
     override fun onDestroy() {

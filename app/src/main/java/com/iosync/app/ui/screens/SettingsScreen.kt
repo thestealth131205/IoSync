@@ -185,6 +185,28 @@ fun SettingsScreen(
     var pillValueMode  by remember(uiState.actionPillValueMode)  { mutableStateOf(uiState.actionPillValueMode) }
     var pillFixedValue by remember(uiState.actionPillFixedValue) { mutableStateOf(uiState.actionPillFixedValue) }
 
+    // Seite 2 – Slots
+    var p2Slot1Id    by remember(uiState.p2Slot1Id)    { mutableStateOf(uiState.p2Slot1Id) }
+    var p2Slot1Label by remember(uiState.p2Slot1Label) { mutableStateOf(uiState.p2Slot1Label) }
+    var p2Slot2Id    by remember(uiState.p2Slot2Id)    { mutableStateOf(uiState.p2Slot2Id) }
+    var p2Slot2Label by remember(uiState.p2Slot2Label) { mutableStateOf(uiState.p2Slot2Label) }
+    var p2Slot3Id    by remember(uiState.p2Slot3Id)    { mutableStateOf(uiState.p2Slot3Id) }
+    var p2Slot3Label by remember(uiState.p2Slot3Label) { mutableStateOf(uiState.p2Slot3Label) }
+    var p2Slot4Id    by remember(uiState.p2Slot4Id)    { mutableStateOf(uiState.p2Slot4Id) }
+    var p2Slot4Label by remember(uiState.p2Slot4Label) { mutableStateOf(uiState.p2Slot4Label) }
+    var p2Slot1TextScale by remember(uiState.p2Slot1TextScale) { mutableStateOf(uiState.p2Slot1TextScale) }
+    var p2Slot2TextScale by remember(uiState.p2Slot2TextScale) { mutableStateOf(uiState.p2Slot2TextScale) }
+    var p2Slot3TextScale by remember(uiState.p2Slot3TextScale) { mutableStateOf(uiState.p2Slot3TextScale) }
+    var p2Slot4TextScale by remember(uiState.p2Slot4TextScale) { mutableStateOf(uiState.p2Slot4TextScale) }
+    var wfSleepTextScale by remember(uiState.wfSleepTextScale) { mutableStateOf(uiState.wfSleepTextScale) }
+    // Seite 2 – Pillen
+    var p2PillEnabled    by remember(uiState.p2PillEnabled)    { mutableStateOf(uiState.p2PillEnabled) }
+    var p2PillColorTrue  by remember(uiState.p2PillColorTrue)  { mutableStateOf(uiState.p2PillColorTrue) }
+    var p2PillColorFalse by remember(uiState.p2PillColorFalse) { mutableStateOf(uiState.p2PillColorFalse) }
+    var p2PillIoBrokerId by remember(uiState.p2PillIoBrokerId) { mutableStateOf(uiState.p2PillIoBrokerId) }
+    var p2PillValueMode  by remember(uiState.p2PillValueMode)  { mutableStateOf(uiState.p2PillValueMode) }
+    var p2PillFixedValue by remember(uiState.p2PillFixedValue) { mutableStateOf(uiState.p2PillFixedValue) }
+
     // ── Auto-Transfer bei Watchface-Einstellungsänderung ────────────────────
     var wfSettingsInitialized by remember { mutableStateOf(false) }
     LaunchedEffect(
@@ -1129,6 +1151,255 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(4.dp))
 
+            // ── Seite 2 – ioBroker Slots & Pillen ────────────────────────────
+            HorizontalDivider(color = Color(0xFF2A2A2A))
+            Text(
+                text = "Seite 2 – ioBroker Slots",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "4 Datenpunkte auf der zweiten Watchface-Seite (Doppeltipp 9 Uhr zum Öffnen)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            run {
+                val availableStates = uiState.ioSyncStates.ifEmpty { uiState.states }
+
+                // Slot 1
+                Text("Slot 1", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = p2Slot1Label,
+                        onValueChange = { if (it.length <= 6) p2Slot1Label = it },
+                        label = { Text("Name") },
+                        placeholder = { Text("TEMP") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    DatapointDropdown(
+                        selectedId = p2Slot1Id,
+                        availableStates = availableStates,
+                        onSelect = { p2Slot1Id = it },
+                        modifier = Modifier.weight(3f)
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = p2Slot1TextScale, onSelect = { p2Slot1TextScale = it })
+                }
+
+                // Slot 2
+                Text("Slot 2", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = p2Slot2Label,
+                        onValueChange = { if (it.length <= 6) p2Slot2Label = it },
+                        label = { Text("Name") },
+                        placeholder = { Text("HUM") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    DatapointDropdown(
+                        selectedId = p2Slot2Id,
+                        availableStates = availableStates,
+                        onSelect = { p2Slot2Id = it },
+                        modifier = Modifier.weight(3f)
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = p2Slot2TextScale, onSelect = { p2Slot2TextScale = it })
+                }
+
+                // Slot 3
+                Text("Slot 3", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = p2Slot3Label,
+                        onValueChange = { if (it.length <= 6) p2Slot3Label = it },
+                        label = { Text("Name") },
+                        placeholder = { Text("CO2") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    DatapointDropdown(
+                        selectedId = p2Slot3Id,
+                        availableStates = availableStates,
+                        onSelect = { p2Slot3Id = it },
+                        modifier = Modifier.weight(3f)
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = p2Slot3TextScale, onSelect = { p2Slot3TextScale = it })
+                }
+
+                // Slot 4
+                Text("Slot 4", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = p2Slot4Label,
+                        onValueChange = { if (it.length <= 6) p2Slot4Label = it },
+                        label = { Text("Name") },
+                        placeholder = { Text("PWR") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    DatapointDropdown(
+                        selectedId = p2Slot4Id,
+                        availableStates = availableStates,
+                        onSelect = { p2Slot4Id = it },
+                        modifier = Modifier.weight(3f)
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = p2Slot4TextScale, onSelect = { p2Slot4TextScale = it })
+                }
+
+                // Schlafdauer
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text(
+                    "Schlafdauer (oben auf Seite 2)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text("Schlafdauer-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceColorRow(selected = wfSleepColor, onSelect = { wfSleepColor = it })
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfSleepTextScale, onSelect = { wfSleepTextScale = it })
+                }
+
+                // Pillen
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text(
+                    "Seite 2 – Pillen (7 Uhr & 5 Uhr)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                WatchFaceToggleRow(
+                    text = "Pillen aktivieren",
+                    subText = "Doppeltipp auf eine Pille sendet Aktion an ioBroker",
+                    checked = p2PillEnabled,
+                    onCheckedChange = { p2PillEnabled = it }
+                )
+
+                if (p2PillEnabled) {
+                    Text(
+                        "ioBroker-Datenpunkt (Ziel der Aktion)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    DatapointDropdown(
+                        selectedId = p2PillIoBrokerId,
+                        availableStates = availableStates,
+                        onSelect = { p2PillIoBrokerId = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text(
+                        "Aktionsmodus",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        listOf("toggle" to "Umschalten", "set" to "Fester Wert").forEach { (mode, label) ->
+                            OutlinedButton(
+                                onClick = { p2PillValueMode = mode },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (p2PillValueMode == mode) NeonYellow.copy(alpha = 0.15f) else Color.Transparent
+                                ),
+                                border = BorderStroke(1.dp, if (p2PillValueMode == mode) NeonYellow else Color(0xFF444444))
+                            ) { Text(label, style = MaterialTheme.typography.labelMedium) }
+                        }
+                    }
+
+                    if (p2PillValueMode == "set") {
+                        OutlinedTextField(
+                            value = p2PillFixedValue,
+                            onValueChange = { p2PillFixedValue = it },
+                            label = { Text("Fester Wert") },
+                            placeholder = { Text("true / 1 / ein") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+
+                    Text(
+                        "Farbe wenn aktiv (true)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        PillColorChip(color = Color(0xFF00BCD4), label = "Cyan",
+                            selected = p2PillColorTrue == "cyan",        onClick = { p2PillColorTrue = "cyan" })
+                        PillColorChip(color = Color(0xFF4CAF50), label = "Grün",
+                            selected = p2PillColorTrue == "green",       onClick = { p2PillColorTrue = "green" })
+                        PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",
+                            selected = p2PillColorTrue == "neon_yellow", onClick = { p2PillColorTrue = "neon_yellow" })
+                        PillColorChip(color = Color.White, label = "Weiß",
+                            selected = p2PillColorTrue == "white",       onClick = { p2PillColorTrue = "white" })
+                        PillColorChip(color = Color(0xFFF44336), label = "Rot",
+                            selected = p2PillColorTrue == "red",         onClick = { p2PillColorTrue = "red" })
+                        PillColorChip(color = Color(0xFFFF9800), label = "Orange",
+                            selected = p2PillColorTrue == "orange",      onClick = { p2PillColorTrue = "orange" })
+                        PillColorChip(color = Color(0xFF9C27B0), label = "Lila",
+                            selected = p2PillColorTrue == "purple",      onClick = { p2PillColorTrue = "purple" })
+                    }
+
+                    Text(
+                        "Farbe wenn inaktiv (false)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        PillColorChip(color = Color(0xFFF44336), label = "Rot",
+                            selected = p2PillColorFalse == "red",         onClick = { p2PillColorFalse = "red" })
+                        PillColorChip(color = Color(0xFFFF9800), label = "Orange",
+                            selected = p2PillColorFalse == "orange",      onClick = { p2PillColorFalse = "orange" })
+                        PillColorChip(color = Color(0xFF9C27B0), label = "Lila",
+                            selected = p2PillColorFalse == "purple",      onClick = { p2PillColorFalse = "purple" })
+                        PillColorChip(color = Color(0xFF888888), label = "Grau",
+                            selected = p2PillColorFalse == "light_gray",  onClick = { p2PillColorFalse = "light_gray" })
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        viewModel.updatePage2Config(
+                            slot1Id    = p2Slot1Id.trim(),    slot1Label = p2Slot1Label.trim(),
+                            slot2Id    = p2Slot2Id.trim(),    slot2Label = p2Slot2Label.trim(),
+                            slot3Id    = p2Slot3Id.trim(),    slot3Label = p2Slot3Label.trim(),
+                            slot4Id    = p2Slot4Id.trim(),    slot4Label = p2Slot4Label.trim(),
+                            slot1TextScale   = p2Slot1TextScale,
+                            slot2TextScale   = p2Slot2TextScale,
+                            slot3TextScale   = p2Slot3TextScale,
+                            slot4TextScale   = p2Slot4TextScale,
+                            sleepTextScale   = wfSleepTextScale,
+                            p2PillEnabled    = p2PillEnabled,
+                            p2PillColorTrue  = p2PillColorTrue,
+                            p2PillColorFalse = p2PillColorFalse,
+                            p2PillIoBrokerId = p2PillIoBrokerId.trim(),
+                            p2PillValueMode  = p2PillValueMode,
+                            p2PillFixedValue = p2PillFixedValue.trim()
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonYellow,
+                        contentColor = Color(0xFF1A1A00)
+                    )
+                ) {
+                    Text("Seite 2 speichern & übertragen", style = MaterialTheme.typography.labelLarge)
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
             // ── Sekundenring ─────────────────────────────────────────────────
             Text(
                 text = "Sekundenring (äußerer Rand)",
@@ -1185,8 +1456,6 @@ fun SettingsScreen(
             }
             Text("Schritte-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             WatchFaceColorRow(selected = wfStepsColor, onSelect = { wfStepsColor = it })
-            Text("Schlafdauer-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            WatchFaceColorRow(selected = wfSleepColor, onSelect = { wfSleepColor = it })
 
             if (wfShowSecondsRing) {
                 Text(

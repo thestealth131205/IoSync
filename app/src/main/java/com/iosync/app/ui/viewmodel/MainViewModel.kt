@@ -158,6 +158,27 @@ data class MainUiState(
     val wfSunriseColor: String = "neon_yellow",
     // ioBroker-Slot-Farbe (Wert-Text)
     val wfSlotColor: String    = "neon_yellow",
+    // ── Seite 2 ioBroker-Slots ─────────────────────────────────────────────────
+    val p2Slot1Id: String = "",
+    val p2Slot1Label: String = "",
+    val p2Slot2Id: String = "",
+    val p2Slot2Label: String = "",
+    val p2Slot3Id: String = "",
+    val p2Slot3Label: String = "",
+    val p2Slot4Id: String = "",
+    val p2Slot4Label: String = "",
+    val p2Slot1TextScale: Int = 100,
+    val p2Slot2TextScale: Int = 100,
+    val p2Slot3TextScale: Int = 100,
+    val p2Slot4TextScale: Int = 100,
+    val wfSleepTextScale: Int = 100,
+    // ── Seite 2 Pillen ──────────────────────────────────────────────────────────
+    val p2PillEnabled: Boolean = false,
+    val p2PillColorTrue: String = "cyan",
+    val p2PillColorFalse: String = "red",
+    val p2PillIoBrokerId: String = "",
+    val p2PillValueMode: String = "toggle",
+    val p2PillFixedValue: String = "",
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 300,
@@ -270,6 +291,27 @@ class MainViewModel @Inject constructor(
         val KEY_WF_HR_COMPLICATION     = stringPreferencesKey("wf_hr_complication")
         val KEY_WF_KCAL_COMPLICATION   = stringPreferencesKey("wf_kcal_complication")
         val KEY_WF_OXYGEN_COMPLICATION = stringPreferencesKey("wf_oxygen_complication")
+        // Seite 2 ioBroker-Slots
+        val KEY_P2_SLOT1_ID          = stringPreferencesKey("p2_slot1_id")
+        val KEY_P2_SLOT1_LABEL       = stringPreferencesKey("p2_slot1_label")
+        val KEY_P2_SLOT2_ID          = stringPreferencesKey("p2_slot2_id")
+        val KEY_P2_SLOT2_LABEL       = stringPreferencesKey("p2_slot2_label")
+        val KEY_P2_SLOT3_ID          = stringPreferencesKey("p2_slot3_id")
+        val KEY_P2_SLOT3_LABEL       = stringPreferencesKey("p2_slot3_label")
+        val KEY_P2_SLOT4_ID          = stringPreferencesKey("p2_slot4_id")
+        val KEY_P2_SLOT4_LABEL       = stringPreferencesKey("p2_slot4_label")
+        val KEY_P2_SLOT1_TEXT_SCALE  = intPreferencesKey("p2_slot1_text_scale")
+        val KEY_P2_SLOT2_TEXT_SCALE  = intPreferencesKey("p2_slot2_text_scale")
+        val KEY_P2_SLOT3_TEXT_SCALE  = intPreferencesKey("p2_slot3_text_scale")
+        val KEY_P2_SLOT4_TEXT_SCALE  = intPreferencesKey("p2_slot4_text_scale")
+        val KEY_WF_SLEEP_TEXT_SCALE  = intPreferencesKey("wf_sleep_text_scale")
+        // Seite 2 Pillen
+        val KEY_P2_PILL_ENABLED      = booleanPreferencesKey("p2_pill_enabled")
+        val KEY_P2_PILL_COLOR_TRUE   = stringPreferencesKey("p2_pill_color_true")
+        val KEY_P2_PILL_COLOR_FALSE  = stringPreferencesKey("p2_pill_color_false")
+        val KEY_P2_PILL_IOBROKER_ID  = stringPreferencesKey("p2_pill_iobroker_id")
+        val KEY_P2_PILL_VALUE_MODE   = stringPreferencesKey("p2_pill_value_mode")
+        val KEY_P2_PILL_FIXED_VALUE  = stringPreferencesKey("p2_pill_fixed_value")
         // Aktualisierungsintervalle (in Sekunden)
         val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_sec")
         val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_sec")
@@ -385,6 +427,27 @@ class MainViewModel @Inject constructor(
             val batteryPollInterval = prefs[KEY_BATTERY_POLL_INTERVAL] ?: 60
             val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 300
             val healthPollInterval = prefs[KEY_HEALTH_POLL_INTERVAL] ?: 60
+            // Seite 2 Slots
+            val p2Slot1Id     = prefs[KEY_P2_SLOT1_ID]     ?: ""
+            val p2Slot1Label  = prefs[KEY_P2_SLOT1_LABEL]  ?: ""
+            val p2Slot2Id     = prefs[KEY_P2_SLOT2_ID]     ?: ""
+            val p2Slot2Label  = prefs[KEY_P2_SLOT2_LABEL]  ?: ""
+            val p2Slot3Id     = prefs[KEY_P2_SLOT3_ID]     ?: ""
+            val p2Slot3Label  = prefs[KEY_P2_SLOT3_LABEL]  ?: ""
+            val p2Slot4Id     = prefs[KEY_P2_SLOT4_ID]     ?: ""
+            val p2Slot4Label  = prefs[KEY_P2_SLOT4_LABEL]  ?: ""
+            val p2Slot1TextScale  = prefs[KEY_P2_SLOT1_TEXT_SCALE]  ?: 100
+            val p2Slot2TextScale  = prefs[KEY_P2_SLOT2_TEXT_SCALE]  ?: 100
+            val p2Slot3TextScale  = prefs[KEY_P2_SLOT3_TEXT_SCALE]  ?: 100
+            val p2Slot4TextScale  = prefs[KEY_P2_SLOT4_TEXT_SCALE]  ?: 100
+            val wfSleepTextScale  = prefs[KEY_WF_SLEEP_TEXT_SCALE]  ?: 100
+            // Seite 2 Pillen
+            val p2PillEnabled    = prefs[KEY_P2_PILL_ENABLED]     ?: false
+            val p2PillColorTrue  = prefs[KEY_P2_PILL_COLOR_TRUE]  ?: "cyan"
+            val p2PillColorFalse = prefs[KEY_P2_PILL_COLOR_FALSE] ?: "red"
+            val p2PillIoBrokerId = prefs[KEY_P2_PILL_IOBROKER_ID] ?: ""
+            val p2PillValueMode  = prefs[KEY_P2_PILL_VALUE_MODE]  ?: "toggle"
+            val p2PillFixedValue = prefs[KEY_P2_PILL_FIXED_VALUE] ?: ""
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -480,7 +543,26 @@ class MainViewModel @Inject constructor(
                     weatherFixedCity  = weatherFixedCity,
                     batteryPollIntervalSec = batteryPollInterval,
                     slotPollIntervalSec    = slotPollInterval,
-                    healthPollIntervalSec  = healthPollInterval
+                    healthPollIntervalSec  = healthPollInterval,
+                    p2Slot1Id     = p2Slot1Id,
+                    p2Slot1Label  = p2Slot1Label,
+                    p2Slot2Id     = p2Slot2Id,
+                    p2Slot2Label  = p2Slot2Label,
+                    p2Slot3Id     = p2Slot3Id,
+                    p2Slot3Label  = p2Slot3Label,
+                    p2Slot4Id     = p2Slot4Id,
+                    p2Slot4Label  = p2Slot4Label,
+                    p2Slot1TextScale = p2Slot1TextScale,
+                    p2Slot2TextScale = p2Slot2TextScale,
+                    p2Slot3TextScale = p2Slot3TextScale,
+                    p2Slot4TextScale = p2Slot4TextScale,
+                    wfSleepTextScale = wfSleepTextScale,
+                    p2PillEnabled    = p2PillEnabled,
+                    p2PillColorTrue  = p2PillColorTrue,
+                    p2PillColorFalse = p2PillColorFalse,
+                    p2PillIoBrokerId = p2PillIoBrokerId,
+                    p2PillValueMode  = p2PillValueMode,
+                    p2PillFixedValue = p2PillFixedValue
                 )
             }
 
@@ -684,6 +766,10 @@ class MainViewModel @Inject constructor(
                             wearDataLayerService.syncStatesToWear(states)
                         }
                         if (_uiState.value.showCustomSlots) syncCustomSlotValues()
+                        if (_uiState.value.p2Slot1Id.isNotBlank() || _uiState.value.p2Slot2Id.isNotBlank() ||
+                            _uiState.value.p2Slot3Id.isNotBlank() || _uiState.value.p2Slot4Id.isNotBlank()) {
+                            syncPage2SlotValues()
+                        }
                     }
                     .onFailure { /* Fehler werden im IoSyncClient geloggt */ }
                 delay(_uiState.value.slotPollIntervalSec * 1_000L)
@@ -1138,6 +1224,98 @@ class MainViewModel @Inject constructor(
             s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax, s.customSlot4BarShowLabel,
             s.customSlot4Warn1Color, s.customSlot4Warn1Value,
             s.customSlot4Warn2Color, s.customSlot4Warn2Value
+        )
+    }
+
+    // ── Seite-2-Konfiguration ────────────────────────────────────────────────
+
+    /**
+     * Speichert die Seite-2-Konfiguration (4 Slots + 2 Pillen) und überträgt sie an die Uhr.
+     */
+    fun updatePage2Config(
+        slot1Id: String, slot1Label: String,
+        slot2Id: String, slot2Label: String,
+        slot3Id: String, slot3Label: String,
+        slot4Id: String, slot4Label: String,
+        slot1TextScale: Int = _uiState.value.p2Slot1TextScale,
+        slot2TextScale: Int = _uiState.value.p2Slot2TextScale,
+        slot3TextScale: Int = _uiState.value.p2Slot3TextScale,
+        slot4TextScale: Int = _uiState.value.p2Slot4TextScale,
+        sleepTextScale: Int = _uiState.value.wfSleepTextScale,
+        p2PillEnabled: Boolean,
+        p2PillColorTrue: String,
+        p2PillColorFalse: String,
+        p2PillIoBrokerId: String,
+        p2PillValueMode: String,
+        p2PillFixedValue: String
+    ) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_P2_SLOT1_ID]    = slot1Id
+                prefs[KEY_P2_SLOT1_LABEL] = slot1Label
+                prefs[KEY_P2_SLOT2_ID]    = slot2Id
+                prefs[KEY_P2_SLOT2_LABEL] = slot2Label
+                prefs[KEY_P2_SLOT3_ID]    = slot3Id
+                prefs[KEY_P2_SLOT3_LABEL] = slot3Label
+                prefs[KEY_P2_SLOT4_ID]    = slot4Id
+                prefs[KEY_P2_SLOT4_LABEL] = slot4Label
+                prefs[KEY_P2_SLOT1_TEXT_SCALE] = slot1TextScale
+                prefs[KEY_P2_SLOT2_TEXT_SCALE] = slot2TextScale
+                prefs[KEY_P2_SLOT3_TEXT_SCALE] = slot3TextScale
+                prefs[KEY_P2_SLOT4_TEXT_SCALE] = slot4TextScale
+                prefs[KEY_WF_SLEEP_TEXT_SCALE] = sleepTextScale
+                prefs[KEY_P2_PILL_ENABLED]      = p2PillEnabled
+                prefs[KEY_P2_PILL_COLOR_TRUE]   = p2PillColorTrue
+                prefs[KEY_P2_PILL_COLOR_FALSE]  = p2PillColorFalse
+                prefs[KEY_P2_PILL_IOBROKER_ID]  = p2PillIoBrokerId
+                prefs[KEY_P2_PILL_VALUE_MODE]   = p2PillValueMode
+                prefs[KEY_P2_PILL_FIXED_VALUE]  = p2PillFixedValue
+            }
+            _uiState.update {
+                it.copy(
+                    p2Slot1Id    = slot1Id,    p2Slot1Label = slot1Label,
+                    p2Slot2Id    = slot2Id,    p2Slot2Label = slot2Label,
+                    p2Slot3Id    = slot3Id,    p2Slot3Label = slot3Label,
+                    p2Slot4Id    = slot4Id,    p2Slot4Label = slot4Label,
+                    p2Slot1TextScale = slot1TextScale, p2Slot2TextScale = slot2TextScale,
+                    p2Slot3TextScale = slot3TextScale, p2Slot4TextScale = slot4TextScale,
+                    wfSleepTextScale = sleepTextScale,
+                    p2PillEnabled    = p2PillEnabled,
+                    p2PillColorTrue  = p2PillColorTrue,
+                    p2PillColorFalse = p2PillColorFalse,
+                    p2PillIoBrokerId = p2PillIoBrokerId,
+                    p2PillValueMode  = p2PillValueMode,
+                    p2PillFixedValue = p2PillFixedValue
+                )
+            }
+            if (!wearDataLayerService.isWatchConnected()) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
+                return@launch
+            }
+            _uiState.update { it.copy(wearSyncLog = "Sende Seite-2-Konfig …") }
+            val s = _uiState.value
+            wearDataLayerService.syncPage2ConfigToWear(
+                p2PillEnabled, p2PillColorTrue, p2PillColorFalse,
+                p2PillIoBrokerId, p2PillValueMode, p2PillFixedValue,
+                slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale, sleepTextScale
+            )
+            syncPage2SlotValues()
+            _uiState.update { it.copy(wearSyncLog = "Seite-2-Konfig übertragen") }
+        }
+    }
+
+    private suspend fun syncPage2SlotValues() {
+        val s = _uiState.value
+        val states = s.ioSyncStates.ifEmpty { s.states }
+        val val1 = states.firstOrNull { it.id == s.p2Slot1Id }
+        val val2 = states.firstOrNull { it.id == s.p2Slot2Id }
+        val val3 = states.firstOrNull { it.id == s.p2Slot3Id }
+        val val4 = states.firstOrNull { it.id == s.p2Slot4Id }
+        wearDataLayerService.syncPage2SlotsToWear(
+            s.p2Slot1Label, formatSlotValue(val1?.value),
+            s.p2Slot2Label, formatSlotValue(val2?.value),
+            s.p2Slot3Label, formatSlotValue(val3?.value),
+            s.p2Slot4Label, formatSlotValue(val4?.value)
         )
     }
 
