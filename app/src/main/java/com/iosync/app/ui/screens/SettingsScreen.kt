@@ -207,6 +207,29 @@ fun SettingsScreen(
     var p2PillValueMode  by remember(uiState.p2PillValueMode)  { mutableStateOf(uiState.p2PillValueMode) }
     var p2PillFixedValue by remember(uiState.p2PillFixedValue) { mutableStateOf(uiState.p2PillFixedValue) }
 
+    // Accordion-Sektionsstatus
+    var sectionAdapter by remember { mutableStateOf(true) }
+    var sectionPage1   by remember { mutableStateOf(false) }
+    var sectionPage2   by remember { mutableStateOf(false) }
+    var sectionHealth  by remember { mutableStateOf(false) }
+
+    // Wetter-Temperatur-Quelle
+    var weatherTempSource by remember(uiState.wfWeatherTempSource) { mutableStateOf(uiState.wfWeatherTempSource) }
+    var weatherIoBrokerId by remember(uiState.wfWeatherIoBrokerId) { mutableStateOf(uiState.wfWeatherIoBrokerId) }
+
+    // Seite 2 – Vertikaler Balken
+    var p2BarId         by remember(uiState.p2BarId)         { mutableStateOf(uiState.p2BarId) }
+    var p2BarLabel      by remember(uiState.p2BarLabel)      { mutableStateOf(uiState.p2BarLabel) }
+    var p2BarColor      by remember(uiState.p2BarColor)      { mutableStateOf(uiState.p2BarColor) }
+    var p2BarMin        by remember(uiState.p2BarMin)        { mutableStateOf(uiState.p2BarMin.toString()) }
+    var p2BarMax        by remember(uiState.p2BarMax)        { mutableStateOf(uiState.p2BarMax.toString()) }
+    var p2BarShowLabel  by remember(uiState.p2BarShowLabel)  { mutableStateOf(uiState.p2BarShowLabel) }
+    var p2BarTextScale  by remember(uiState.p2BarTextScale)  { mutableStateOf(uiState.p2BarTextScale) }
+    var p2BarWarn1Color by remember(uiState.p2BarWarn1Color) { mutableStateOf(uiState.p2BarWarn1Color) }
+    var p2BarWarn1Value by remember(uiState.p2BarWarn1Value) { mutableStateOf(if (uiState.p2BarWarn1Value.isNaN()) "" else uiState.p2BarWarn1Value.toString()) }
+    var p2BarWarn2Color by remember(uiState.p2BarWarn2Color) { mutableStateOf(uiState.p2BarWarn2Color) }
+    var p2BarWarn2Value by remember(uiState.p2BarWarn2Value) { mutableStateOf(if (uiState.p2BarWarn2Value.isNaN()) "" else uiState.p2BarWarn2Value.toString()) }
+
     // ── Auto-Transfer bei Watchface-Einstellungsänderung ────────────────────
     var wfSettingsInitialized by remember { mutableStateOf(false) }
     LaunchedEffect(
@@ -218,7 +241,8 @@ fun SettingsScreen(
         wfBatteryRingColor1, wfBatteryRingColor2, wfBatteryRingStrokeScale,
         wfBatteryWarn1Color, wfBatteryWarn1Threshold, wfBatteryWarn2Color, wfBatteryWarn2Threshold,
         wfShowBackground,
-        wfHrColor, wfKcalColor, wfOxygenColor, wfStepsColor, wfSleepColor, wfSunriseColor, wfSlotColor
+        wfHrColor, wfKcalColor, wfOxygenColor, wfStepsColor, wfSleepColor, wfSunriseColor, wfSlotColor,
+        weatherTempSource, weatherIoBrokerId
     ) {
         if (!wfSettingsInitialized) { wfSettingsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -263,7 +287,9 @@ fun SettingsScreen(
             stepsColor              = wfStepsColor,
             sleepColor              = wfSleepColor,
             sunriseColor            = wfSunriseColor,
-            slotColor               = wfSlotColor
+            slotColor               = wfSlotColor,
+            weatherTempSource       = weatherTempSource,
+            weatherIoBrokerId       = weatherIoBrokerId
         )
     }
 
@@ -300,178 +326,62 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            // ── Datenquelle umschalten ─────────────────────────────────────────
-            Text(
-                text = "Datenquelle",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // ── Sektion 1: ioBroker Adapter Verbindung ────────────────────────
+            AccordionSection(
+                title = "ioBroker Adapter Verbindung",
+                expanded = sectionAdapter,
+                onToggle = { sectionAdapter = !sectionAdapter }
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (uiState.useIoSyncAdapter) "IoSync Adapter" else "Simple-API",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = if (uiState.useIoSyncAdapter) "Nutzt den IoSync ioBroker-Adapter"
-                               else "Nutzt die ioBroker Simple-API direkt",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = if (uiState.useIoSyncAdapter) "IoSync Adapter" else "Simple-API", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = if (uiState.useIoSyncAdapter) "Nutzt den IoSync ioBroker-Adapter" else "Nutzt die ioBroker Simple-API direkt",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = uiState.useIoSyncAdapter, onCheckedChange = { viewModel.updateDataSourceToggle(it) },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF1A1A00), checkedTrackColor = NeonYellow))
                 }
-                Switch(
-                    checked = uiState.useIoSyncAdapter,
-                    onCheckedChange = { viewModel.updateDataSourceToggle(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFF1A1A00),
-                        checkedTrackColor = NeonYellow
-                    )
-                )
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("IoSync Adapter", style = MaterialTheme.typography.titleSmall,
+                    color = if (uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                Text("Verbindung zum IoSync ioBroker-Adapter. Lädt Datenpunkte für App und Watchface.", style = MaterialTheme.typography.bodySmall,
+                    color = if (uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                OutlinedTextField(value = ioSyncHost, onValueChange = { ioSyncHost = it }, label = { Text("Adapter-Host / IP") }, placeholder = { Text("192.168.1.100") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProtocolSelector(useHttps = ioSyncUseHttps, onSelect = { ioSyncUseHttps = it }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = ioSyncPort, onValueChange = { ioSyncPort = it.filter { c -> c.isDigit() } }, label = { Text("Port") }, placeholder = { Text("345") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    OutlinedTextField(value = ioSyncUsername, onValueChange = { ioSyncUsername = it }, label = { Text("Benutzername") }, modifier = Modifier.weight(2f), singleLine = true)
+                }
+                OutlinedTextField(value = ioSyncPassword, onValueChange = { ioSyncPassword = it }, label = { Text("Passwort") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+                Button(
+                    onClick = { viewModel.updateIoSyncSettings(host = ioSyncHost.trim(), port = ioSyncPort.toIntOrNull() ?: 345, useHttps = ioSyncUseHttps, username = ioSyncUsername.trim(), password = ioSyncPassword) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonYellow, contentColor = Color(0xFF1A1A00))
+                ) { Text("Speichern & Verbinden", style = MaterialTheme.typography.labelLarge) }
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("ioBroker Simple-API", style = MaterialTheme.typography.titleSmall,
+                    color = if (!uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                Text("Nutzt die ioBroker Simple-API direkt für Datenpunkte.", style = MaterialTheme.typography.bodySmall,
+                    color = if (!uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text("Host / IP-Adresse") }, placeholder = { Text("192.168.1.100") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
+                OutlinedTextField(value = port, onValueChange = { port = it.filter { c -> c.isDigit() } }, label = { Text("Port (Simple-API)") }, placeholder = { Text("8082") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                Button(
+                    onClick = { viewModel.updateConnectionSettings(host = host.trim(), port = port.toIntOrNull() ?: 8082) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = if (!uiState.useIoSyncAdapter) NeonYellow else Color(0xFF333333), contentColor = if (!uiState.useIoSyncAdapter) Color(0xFF1A1A00) else Color(0xFFAAAAAA))
+                ) { Text("Simple-API speichern", style = MaterialTheme.typography.labelLarge) }
             }
 
             Spacer(Modifier.height(4.dp))
 
-            // ── IoSync Adapter Verbindung ─────────────────────────────────────
-            Text(
-                text = "IoSync Adapter",
-                style = MaterialTheme.typography.titleSmall,
-                color = if (uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            )
-            Text(
-                text = "Verbindung zum IoSync ioBroker-Adapter. Lädt Datenpunkte für App und Watchface.",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            )
-
-            OutlinedTextField(
-                value = ioSyncHost,
-                onValueChange = { ioSyncHost = it },
-                label = { Text("Adapter-Host / IP") },
-                placeholder = { Text("192.168.1.100") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ProtocolSelector(
-                    useHttps = ioSyncUseHttps,
-                    onSelect = { ioSyncUseHttps = it },
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = ioSyncPort,
-                    onValueChange = { ioSyncPort = it.filter { c -> c.isDigit() } },
-                    label = { Text("Port") },
-                    placeholder = { Text("345") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-                OutlinedTextField(
-                    value = ioSyncUsername,
-                    onValueChange = { ioSyncUsername = it },
-                    label = { Text("Benutzername") },
-                    modifier = Modifier.weight(2f),
-                    singleLine = true
-                )
-            }
-
-            OutlinedTextField(
-                value = ioSyncPassword,
-                onValueChange = { ioSyncPassword = it },
-                label = { Text("Passwort") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation()
-            )
-
-            Button(
-                onClick = {
-                    viewModel.updateIoSyncSettings(
-                        host     = ioSyncHost.trim(),
-                        port     = ioSyncPort.toIntOrNull() ?: 345,
-                        useHttps = ioSyncUseHttps,
-                        username = ioSyncUsername.trim(),
-                        password = ioSyncPassword
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = NeonYellow,
-                    contentColor = Color(0xFF1A1A00)
-                )
+            // ── Sektion 2: Erste Seite Watchface ──────────────────────────────
+            AccordionSection(
+                title = "Erste Seite Watchface",
+                expanded = sectionPage1,
+                onToggle = { sectionPage1 = !sectionPage1 }
             ) {
-                Text("Speichern & Verbinden", style = MaterialTheme.typography.labelLarge)
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // ── ioBroker Simple-API ────────────────────────────────────────────
-            Text(
-                text = "ioBroker Simple-API",
-                style = MaterialTheme.typography.titleSmall,
-                color = if (!uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            )
-            Text(
-                text = "Nutzt die ioBroker Simple-API direkt für Datenpunkte.",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (!uiState.useIoSyncAdapter) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            )
-
-            OutlinedTextField(
-                value = host,
-                onValueChange = { host = it },
-                label = { Text("Host / IP-Adresse") },
-                placeholder = { Text("192.168.1.100") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
-            )
-
-            OutlinedTextField(
-                value = port,
-                onValueChange = { port = it.filter { c -> c.isDigit() } },
-                label = { Text("Port (Simple-API)") },
-                placeholder = { Text("8082") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-
-            Button(
-                onClick = {
-                    viewModel.updateConnectionSettings(
-                        host = host.trim(),
-                        port = port.toIntOrNull() ?: 8082
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (!uiState.useIoSyncAdapter) NeonYellow else Color(0xFF333333),
-                    contentColor = if (!uiState.useIoSyncAdapter) Color(0xFF1A1A00) else Color(0xFFAAAAAA)
-                )
-            ) {
-                Text("Simple-API speichern", style = MaterialTheme.typography.labelLarge)
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // ── Watchface Konfiguration ──────────────────────────────────────
-            Text(
-                text = "Watchface Konfiguration",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
 
             WatchFaceToggleRow(
                 text = "Hintergrundbild anzeigen",
@@ -809,6 +719,23 @@ fun SettingsScreen(
 
             if (wfShowWeather) {
                 WeatherLocationSection(viewModel = viewModel, uiState = uiState)
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Temperaturquelle", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    listOf("openweather" to "OpenWeather API", "iobroker" to "ioBroker Datenpunkt").forEach { (src, label) ->
+                        OutlinedButton(
+                            onClick = { weatherTempSource = src },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (weatherTempSource == src) NeonYellow.copy(alpha = 0.15f) else Color.Transparent),
+                            border = BorderStroke(1.dp, if (weatherTempSource == src) NeonYellow else Color(0xFF444444))
+                        ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+                if (weatherTempSource == "iobroker") {
+                    Text("ioBroker Datenpunkt für Temperatur (Standort bleibt aktiv für Wettericons)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val wtStates = uiState.ioSyncStates.ifEmpty { uiState.states }
+                    DatapointDropdown(selectedId = weatherIoBrokerId, availableStates = wtStates, onSelect = { weatherIoBrokerId = it }, modifier = Modifier.fillMaxWidth())
+                }
             }
 
             WatchFaceToggleRow(
@@ -1149,256 +1076,7 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
-
-            // ── Seite 2 – ioBroker Slots & Pillen ────────────────────────────
             HorizontalDivider(color = Color(0xFF2A2A2A))
-            Text(
-                text = "Seite 2 – ioBroker Slots",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "4 Datenpunkte auf der zweiten Watchface-Seite (Doppeltipp 9 Uhr zum Öffnen)",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            run {
-                val availableStates = uiState.ioSyncStates.ifEmpty { uiState.states }
-
-                // Slot 1
-                Text("Slot 1", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = p2Slot1Label,
-                        onValueChange = { if (it.length <= 6) p2Slot1Label = it },
-                        label = { Text("Name") },
-                        placeholder = { Text("TEMP") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    DatapointDropdown(
-                        selectedId = p2Slot1Id,
-                        availableStates = availableStates,
-                        onSelect = { p2Slot1Id = it },
-                        modifier = Modifier.weight(3f)
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FontSizeDropdown(selected = p2Slot1TextScale, onSelect = { p2Slot1TextScale = it })
-                }
-
-                // Slot 2
-                Text("Slot 2", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = p2Slot2Label,
-                        onValueChange = { if (it.length <= 6) p2Slot2Label = it },
-                        label = { Text("Name") },
-                        placeholder = { Text("HUM") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    DatapointDropdown(
-                        selectedId = p2Slot2Id,
-                        availableStates = availableStates,
-                        onSelect = { p2Slot2Id = it },
-                        modifier = Modifier.weight(3f)
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FontSizeDropdown(selected = p2Slot2TextScale, onSelect = { p2Slot2TextScale = it })
-                }
-
-                // Slot 3
-                Text("Slot 3", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = p2Slot3Label,
-                        onValueChange = { if (it.length <= 6) p2Slot3Label = it },
-                        label = { Text("Name") },
-                        placeholder = { Text("CO2") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    DatapointDropdown(
-                        selectedId = p2Slot3Id,
-                        availableStates = availableStates,
-                        onSelect = { p2Slot3Id = it },
-                        modifier = Modifier.weight(3f)
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FontSizeDropdown(selected = p2Slot3TextScale, onSelect = { p2Slot3TextScale = it })
-                }
-
-                // Slot 4
-                Text("Slot 4", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = p2Slot4Label,
-                        onValueChange = { if (it.length <= 6) p2Slot4Label = it },
-                        label = { Text("Name") },
-                        placeholder = { Text("PWR") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    DatapointDropdown(
-                        selectedId = p2Slot4Id,
-                        availableStates = availableStates,
-                        onSelect = { p2Slot4Id = it },
-                        modifier = Modifier.weight(3f)
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FontSizeDropdown(selected = p2Slot4TextScale, onSelect = { p2Slot4TextScale = it })
-                }
-
-                // Schlafdauer
-                HorizontalDivider(color = Color(0xFF2A2A2A))
-                Text(
-                    "Schlafdauer (oben auf Seite 2)",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text("Schlafdauer-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                WatchFaceColorRow(selected = wfSleepColor, onSelect = { wfSleepColor = it })
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FontSizeDropdown(selected = wfSleepTextScale, onSelect = { wfSleepTextScale = it })
-                }
-
-                // Pillen
-                HorizontalDivider(color = Color(0xFF2A2A2A))
-                Text(
-                    "Seite 2 – Pillen (7 Uhr & 5 Uhr)",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                WatchFaceToggleRow(
-                    text = "Pillen aktivieren",
-                    subText = "Doppeltipp auf eine Pille sendet Aktion an ioBroker",
-                    checked = p2PillEnabled,
-                    onCheckedChange = { p2PillEnabled = it }
-                )
-
-                if (p2PillEnabled) {
-                    Text(
-                        "ioBroker-Datenpunkt (Ziel der Aktion)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    DatapointDropdown(
-                        selectedId = p2PillIoBrokerId,
-                        availableStates = availableStates,
-                        onSelect = { p2PillIoBrokerId = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Text(
-                        "Aktionsmodus",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        listOf("toggle" to "Umschalten", "set" to "Fester Wert").forEach { (mode, label) ->
-                            OutlinedButton(
-                                onClick = { p2PillValueMode = mode },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = if (p2PillValueMode == mode) NeonYellow.copy(alpha = 0.15f) else Color.Transparent
-                                ),
-                                border = BorderStroke(1.dp, if (p2PillValueMode == mode) NeonYellow else Color(0xFF444444))
-                            ) { Text(label, style = MaterialTheme.typography.labelMedium) }
-                        }
-                    }
-
-                    if (p2PillValueMode == "set") {
-                        OutlinedTextField(
-                            value = p2PillFixedValue,
-                            onValueChange = { p2PillFixedValue = it },
-                            label = { Text("Fester Wert") },
-                            placeholder = { Text("true / 1 / ein") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                    }
-
-                    Text(
-                        "Farbe wenn aktiv (true)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        PillColorChip(color = Color(0xFF00BCD4), label = "Cyan",
-                            selected = p2PillColorTrue == "cyan",        onClick = { p2PillColorTrue = "cyan" })
-                        PillColorChip(color = Color(0xFF4CAF50), label = "Grün",
-                            selected = p2PillColorTrue == "green",       onClick = { p2PillColorTrue = "green" })
-                        PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",
-                            selected = p2PillColorTrue == "neon_yellow", onClick = { p2PillColorTrue = "neon_yellow" })
-                        PillColorChip(color = Color.White, label = "Weiß",
-                            selected = p2PillColorTrue == "white",       onClick = { p2PillColorTrue = "white" })
-                        PillColorChip(color = Color(0xFFF44336), label = "Rot",
-                            selected = p2PillColorTrue == "red",         onClick = { p2PillColorTrue = "red" })
-                        PillColorChip(color = Color(0xFFFF9800), label = "Orange",
-                            selected = p2PillColorTrue == "orange",      onClick = { p2PillColorTrue = "orange" })
-                        PillColorChip(color = Color(0xFF9C27B0), label = "Lila",
-                            selected = p2PillColorTrue == "purple",      onClick = { p2PillColorTrue = "purple" })
-                    }
-
-                    Text(
-                        "Farbe wenn inaktiv (false)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        PillColorChip(color = Color(0xFFF44336), label = "Rot",
-                            selected = p2PillColorFalse == "red",         onClick = { p2PillColorFalse = "red" })
-                        PillColorChip(color = Color(0xFFFF9800), label = "Orange",
-                            selected = p2PillColorFalse == "orange",      onClick = { p2PillColorFalse = "orange" })
-                        PillColorChip(color = Color(0xFF9C27B0), label = "Lila",
-                            selected = p2PillColorFalse == "purple",      onClick = { p2PillColorFalse = "purple" })
-                        PillColorChip(color = Color(0xFF888888), label = "Grau",
-                            selected = p2PillColorFalse == "light_gray",  onClick = { p2PillColorFalse = "light_gray" })
-                    }
-                }
-
-                Button(
-                    onClick = {
-                        viewModel.updatePage2Config(
-                            slot1Id    = p2Slot1Id.trim(),    slot1Label = p2Slot1Label.trim(),
-                            slot2Id    = p2Slot2Id.trim(),    slot2Label = p2Slot2Label.trim(),
-                            slot3Id    = p2Slot3Id.trim(),    slot3Label = p2Slot3Label.trim(),
-                            slot4Id    = p2Slot4Id.trim(),    slot4Label = p2Slot4Label.trim(),
-                            slot1TextScale   = p2Slot1TextScale,
-                            slot2TextScale   = p2Slot2TextScale,
-                            slot3TextScale   = p2Slot3TextScale,
-                            slot4TextScale   = p2Slot4TextScale,
-                            sleepTextScale   = wfSleepTextScale,
-                            p2PillEnabled    = p2PillEnabled,
-                            p2PillColorTrue  = p2PillColorTrue,
-                            p2PillColorFalse = p2PillColorFalse,
-                            p2PillIoBrokerId = p2PillIoBrokerId.trim(),
-                            p2PillValueMode  = p2PillValueMode,
-                            p2PillFixedValue = p2PillFixedValue.trim()
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeonYellow,
-                        contentColor = Color(0xFF1A1A00)
-                    )
-                ) {
-                    Text("Seite 2 speichern & übertragen", style = MaterialTheme.typography.labelLarge)
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
 
             // ── Sekundenring ─────────────────────────────────────────────────
             Text(
@@ -1578,7 +1256,9 @@ fun SettingsScreen(
                         stepsColor              = wfStepsColor,
                         sleepColor              = wfSleepColor,
                         sunriseColor            = wfSunriseColor,
-                        slotColor               = wfSlotColor
+                        slotColor               = wfSlotColor,
+                        weatherTempSource       = weatherTempSource,
+                        weatherIoBrokerId       = weatherIoBrokerId
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -1732,10 +1412,196 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            } // end AccordionSection "Erste Seite Watchface"
 
-            // ── Gesundheitsdaten (Health Connect) ────────────────────────────
-            HealthConnectSection(viewModel = viewModel, uiState = uiState)
+            Spacer(Modifier.height(4.dp))
+
+            // ── Sektion 3: Zweite Seite Watchface ─────────────────────────────
+            AccordionSection(
+                title = "Zweite Seite Watchface",
+                expanded = sectionPage2,
+                onToggle = { sectionPage2 = !sectionPage2 }
+            ) {
+                val p2States = uiState.ioSyncStates.ifEmpty { uiState.states }
+
+                Text("4 Datenpunkte auf der zweiten Watchface-Seite (Doppeltipp 9 Uhr zum Öffnen)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                Text("Slot 1", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = p2Slot1Label, onValueChange = { if (it.length <= 6) p2Slot1Label = it }, label = { Text("Name") }, placeholder = { Text("TEMP") }, modifier = Modifier.weight(1f), singleLine = true)
+                    DatapointDropdown(selectedId = p2Slot1Id, availableStates = p2States, onSelect = { p2Slot1Id = it }, modifier = Modifier.weight(3f))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = p2Slot1TextScale, onSelect = { p2Slot1TextScale = it })
+                }
+
+                Text("Slot 2", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = p2Slot2Label, onValueChange = { if (it.length <= 6) p2Slot2Label = it }, label = { Text("Name") }, placeholder = { Text("HUM") }, modifier = Modifier.weight(1f), singleLine = true)
+                    DatapointDropdown(selectedId = p2Slot2Id, availableStates = p2States, onSelect = { p2Slot2Id = it }, modifier = Modifier.weight(3f))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = p2Slot2TextScale, onSelect = { p2Slot2TextScale = it })
+                }
+
+                Text("Slot 3", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = p2Slot3Label, onValueChange = { if (it.length <= 6) p2Slot3Label = it }, label = { Text("Name") }, placeholder = { Text("CO2") }, modifier = Modifier.weight(1f), singleLine = true)
+                    DatapointDropdown(selectedId = p2Slot3Id, availableStates = p2States, onSelect = { p2Slot3Id = it }, modifier = Modifier.weight(3f))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = p2Slot3TextScale, onSelect = { p2Slot3TextScale = it })
+                }
+
+                Text("Slot 4", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = p2Slot4Label, onValueChange = { if (it.length <= 6) p2Slot4Label = it }, label = { Text("Name") }, placeholder = { Text("PWR") }, modifier = Modifier.weight(1f), singleLine = true)
+                    DatapointDropdown(selectedId = p2Slot4Id, availableStates = p2States, onSelect = { p2Slot4Id = it }, modifier = Modifier.weight(3f))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = p2Slot4TextScale, onSelect = { p2Slot4TextScale = it })
+                }
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Schlafdauer (oben auf Seite 2)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Schlafdauer-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceColorRow(selected = wfSleepColor, onSelect = { wfSleepColor = it })
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = wfSleepTextScale, onSelect = { wfSleepTextScale = it })
+                }
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Seite 2 – Pillen (7 Uhr & 5 Uhr)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceToggleRow(text = "Pillen aktivieren", subText = "Doppeltipp auf eine Pille sendet Aktion an ioBroker", checked = p2PillEnabled, onCheckedChange = { p2PillEnabled = it })
+                if (p2PillEnabled) {
+                    Text("ioBroker-Datenpunkt (Ziel der Aktion)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DatapointDropdown(selectedId = p2PillIoBrokerId, availableStates = p2States, onSelect = { p2PillIoBrokerId = it }, modifier = Modifier.fillMaxWidth())
+                    Text("Aktionsmodus", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        listOf("toggle" to "Umschalten", "set" to "Fester Wert").forEach { (mode, label) ->
+                            OutlinedButton(onClick = { p2PillValueMode = mode }, modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(containerColor = if (p2PillValueMode == mode) NeonYellow.copy(alpha = 0.15f) else Color.Transparent),
+                                border = BorderStroke(1.dp, if (p2PillValueMode == mode) NeonYellow else Color(0xFF444444))
+                            ) { Text(label, style = MaterialTheme.typography.labelMedium) }
+                        }
+                    }
+                    if (p2PillValueMode == "set") {
+                        OutlinedTextField(value = p2PillFixedValue, onValueChange = { p2PillFixedValue = it }, label = { Text("Fester Wert") }, placeholder = { Text("true / 1 / ein") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    }
+                    Text("Farbe wenn aktiv (true)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        PillColorChip(color = Color(0xFF00BCD4), label = "Cyan",   selected = p2PillColorTrue == "cyan",        onClick = { p2PillColorTrue = "cyan" })
+                        PillColorChip(color = Color(0xFF4CAF50), label = "Grün",   selected = p2PillColorTrue == "green",       onClick = { p2PillColorTrue = "green" })
+                        PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",   selected = p2PillColorTrue == "neon_yellow", onClick = { p2PillColorTrue = "neon_yellow" })
+                        PillColorChip(color = Color.White,       label = "Weiß",   selected = p2PillColorTrue == "white",       onClick = { p2PillColorTrue = "white" })
+                        PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = p2PillColorTrue == "red",         onClick = { p2PillColorTrue = "red" })
+                        PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = p2PillColorTrue == "orange",      onClick = { p2PillColorTrue = "orange" })
+                        PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p2PillColorTrue == "purple",      onClick = { p2PillColorTrue = "purple" })
+                    }
+                    Text("Farbe wenn inaktiv (false)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = p2PillColorFalse == "red",        onClick = { p2PillColorFalse = "red" })
+                        PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = p2PillColorFalse == "orange",     onClick = { p2PillColorFalse = "orange" })
+                        PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p2PillColorFalse == "purple",     onClick = { p2PillColorFalse = "purple" })
+                        PillColorChip(color = Color(0xFF888888), label = "Grau",   selected = p2PillColorFalse == "light_gray", onClick = { p2PillColorFalse = "light_gray" })
+                    }
+                }
+
+                // Vertikaler Balken (p2Bar)
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Vertikaler Balken-Graph (rechts, 3 Uhr)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Zeigt einen Wert als vertikalen Balken rechts auf Seite 2. Beschriftung links.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = p2BarLabel, onValueChange = { if (it.length <= 6) p2BarLabel = it }, label = { Text("Name") }, placeholder = { Text("TEMP") }, modifier = Modifier.weight(1f), singleLine = true)
+                    DatapointDropdown(selectedId = p2BarId, availableStates = p2States, onSelect = { p2BarId = it }, modifier = Modifier.weight(3f))
+                }
+                Text("Balken-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",   selected = p2BarColor == "neon_yellow", onClick = { p2BarColor = "neon_yellow" })
+                    PillColorChip(color = Color(0xFF00BCD4), label = "Cyan",   selected = p2BarColor == "cyan",        onClick = { p2BarColor = "cyan" })
+                    PillColorChip(color = Color(0xFF4CAF50), label = "Grün",   selected = p2BarColor == "green",       onClick = { p2BarColor = "green" })
+                    PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = p2BarColor == "red",         onClick = { p2BarColor = "red" })
+                    PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = p2BarColor == "orange",      onClick = { p2BarColor = "orange" })
+                    PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p2BarColor == "purple",      onClick = { p2BarColor = "purple" })
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = p2BarMin, onValueChange = { p2BarMin = it }, label = { Text("Min-Wert") }, placeholder = { Text("0") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                    OutlinedTextField(value = p2BarMax, onValueChange = { p2BarMax = it }, label = { Text("Max-Wert") }, placeholder = { Text("100") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                }
+                WatchFaceToggleRow(text = "Beschriftung anzeigen", subText = "Name, Min, Max und Wert links vom Balken", checked = p2BarShowLabel, onCheckedChange = { p2BarShowLabel = it })
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FontSizeDropdown(selected = p2BarTextScale, onSelect = { p2BarTextScale = it })
+                }
+                Text("Warnstufe 1 (leer = aus). Balken wird unter diesem Wert eingefärbt.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(value = p2BarWarn1Value, onValueChange = { p2BarWarn1Value = it }, label = { Text("Schwelle 1") }, placeholder = { Text("z.B. 20") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = p2BarWarn1Color == "orange",      onClick = { p2BarWarn1Color = "orange" })
+                    PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = p2BarWarn1Color == "red",         onClick = { p2BarWarn1Color = "red" })
+                    PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",   selected = p2BarWarn1Color == "neon_yellow", onClick = { p2BarWarn1Color = "neon_yellow" })
+                    PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p2BarWarn1Color == "purple",      onClick = { p2BarWarn1Color = "purple" })
+                }
+                Text("Warnstufe 2 (leer = aus). Niedrigere Schwelle hat Vorrang.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(value = p2BarWarn2Value, onValueChange = { p2BarWarn2Value = it }, label = { Text("Schwelle 2") }, placeholder = { Text("z.B. 10") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = p2BarWarn2Color == "red",         onClick = { p2BarWarn2Color = "red" })
+                    PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = p2BarWarn2Color == "orange",      onClick = { p2BarWarn2Color = "orange" })
+                    PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",   selected = p2BarWarn2Color == "neon_yellow", onClick = { p2BarWarn2Color = "neon_yellow" })
+                    PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p2BarWarn2Color == "purple",      onClick = { p2BarWarn2Color = "purple" })
+                }
+
+                Button(
+                    onClick = {
+                        viewModel.updatePage2Config(
+                            slot1Id = p2Slot1Id.trim(), slot1Label = p2Slot1Label.trim(),
+                            slot2Id = p2Slot2Id.trim(), slot2Label = p2Slot2Label.trim(),
+                            slot3Id = p2Slot3Id.trim(), slot3Label = p2Slot3Label.trim(),
+                            slot4Id = p2Slot4Id.trim(), slot4Label = p2Slot4Label.trim(),
+                            slot1TextScale = p2Slot1TextScale, slot2TextScale = p2Slot2TextScale,
+                            slot3TextScale = p2Slot3TextScale, slot4TextScale = p2Slot4TextScale,
+                            sleepTextScale = wfSleepTextScale,
+                            p2PillEnabled = p2PillEnabled, p2PillColorTrue = p2PillColorTrue,
+                            p2PillColorFalse = p2PillColorFalse, p2PillIoBrokerId = p2PillIoBrokerId.trim(),
+                            p2PillValueMode = p2PillValueMode, p2PillFixedValue = p2PillFixedValue.trim(),
+                            p2BarId = p2BarId.trim(), p2BarLabel = p2BarLabel.trim(),
+                            p2BarColor = p2BarColor,
+                            p2BarMin = p2BarMin.toFloatOrNull() ?: 0f,
+                            p2BarMax = p2BarMax.toFloatOrNull() ?: 100f,
+                            p2BarShowLabel = p2BarShowLabel,
+                            p2BarTextScale = p2BarTextScale,
+                            p2BarWarn1Color = p2BarWarn1Color,
+                            p2BarWarn1Value = p2BarWarn1Value.toFloatOrNull() ?: Float.NaN,
+                            p2BarWarn2Color = p2BarWarn2Color,
+                            p2BarWarn2Value = p2BarWarn2Value.toFloatOrNull() ?: Float.NaN
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonYellow, contentColor = Color(0xFF1A1A00))
+                ) { Text("Seite 2 speichern & übertragen", style = MaterialTheme.typography.labelLarge) }
+                if (uiState.wearSyncLog.isNotBlank()) {
+                    Text(text = uiState.wearSyncLog, style = MaterialTheme.typography.labelSmall, color = if (uiState.wearSyncLog.startsWith("Fehler")) Color(0xFFF44336) else Color(0xFF4CAF50), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                }
+            } // end AccordionSection "Zweite Seite Watchface"
+
+            Spacer(Modifier.height(4.dp))
+
+            // ── Sektion 4: Health Connect Verbindung ──────────────────────────
+            AccordionSection(
+                title = "Health Connect Verbindung",
+                expanded = sectionHealth,
+                onToggle = { sectionHealth = !sectionHealth }
+            ) {
+                HealthConnectSection(viewModel = viewModel, uiState = uiState)
+            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -1758,6 +1624,37 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccordionSection(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .background(Color(0xFF1E1E1E), RoundedCornerShape(8.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = NeonYellow, fontWeight = FontWeight.Bold)
+            Text(if (expanded) "▲" else "▼", color = NeonYellow, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (expanded) {
+            Column(
+                modifier = Modifier.padding(top = 8.dp, start = 4.dp, end = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                content()
             }
         }
     }

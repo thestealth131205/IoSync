@@ -158,6 +158,9 @@ data class MainUiState(
     val wfSunriseColor: String = "neon_yellow",
     // ioBroker-Slot-Farbe (Wert-Text)
     val wfSlotColor: String    = "neon_yellow",
+    // Wetter-Temperaturquelle
+    val wfWeatherTempSource: String = "openweather",
+    val wfWeatherIoBrokerId: String = "",
     // ── Seite 2 ioBroker-Slots ─────────────────────────────────────────────────
     val p2Slot1Id: String = "",
     val p2Slot1Label: String = "",
@@ -179,6 +182,18 @@ data class MainUiState(
     val p2PillIoBrokerId: String = "",
     val p2PillValueMode: String = "toggle",
     val p2PillFixedValue: String = "",
+    // ── Seite 2 – vertikaler Balken ─────────────────────────────────────────
+    val p2BarId: String = "",
+    val p2BarLabel: String = "",
+    val p2BarColor: String = "neon_yellow",
+    val p2BarMin: Float = 0f,
+    val p2BarMax: Float = 100f,
+    val p2BarShowLabel: Boolean = true,
+    val p2BarTextScale: Int = 100,
+    val p2BarWarn1Color: String = "orange",
+    val p2BarWarn1Value: Float = Float.NaN,
+    val p2BarWarn2Color: String = "red",
+    val p2BarWarn2Value: Float = Float.NaN,
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 300,
@@ -321,6 +336,21 @@ class MainViewModel @Inject constructor(
         val KEY_WEATHER_FIXED_LAT   = stringPreferencesKey("weather_fixed_lat")
         val KEY_WEATHER_FIXED_LON   = stringPreferencesKey("weather_fixed_lon")
         val KEY_WEATHER_FIXED_CITY  = stringPreferencesKey("weather_fixed_city")
+        // Wetter-Temperaturquelle
+        val KEY_WF_WEATHER_TEMP_SOURCE  = stringPreferencesKey("wf_weather_temp_source")
+        val KEY_WF_WEATHER_IOBROKER_ID  = stringPreferencesKey("wf_weather_iobroker_id")
+        // Seite 2 – vertikaler Balken
+        val KEY_P2_BAR_ID           = stringPreferencesKey("p2_bar_id")
+        val KEY_P2_BAR_LABEL        = stringPreferencesKey("p2_bar_label")
+        val KEY_P2_BAR_COLOR        = stringPreferencesKey("p2_bar_color")
+        val KEY_P2_BAR_MIN          = stringPreferencesKey("p2_bar_min")
+        val KEY_P2_BAR_MAX          = stringPreferencesKey("p2_bar_max")
+        val KEY_P2_BAR_SHOW_LABEL   = booleanPreferencesKey("p2_bar_show_label")
+        val KEY_P2_BAR_TEXT_SCALE   = intPreferencesKey("p2_bar_text_scale")
+        val KEY_P2_BAR_WARN1_COLOR  = stringPreferencesKey("p2_bar_warn1_color")
+        val KEY_P2_BAR_WARN1_VALUE  = stringPreferencesKey("p2_bar_warn1_value")
+        val KEY_P2_BAR_WARN2_COLOR  = stringPreferencesKey("p2_bar_warn2_color")
+        val KEY_P2_BAR_WARN2_VALUE  = stringPreferencesKey("p2_bar_warn2_value")
 
         // Wetter-Sync-Intervall (15 Minuten)
         private const val WEATHER_SYNC_INTERVAL_MS = 900_000L
@@ -424,6 +454,8 @@ class MainViewModel @Inject constructor(
             val weatherFixedLat   = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: 0.0
             val weatherFixedLon   = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: 0.0
             val weatherFixedCity  = prefs[KEY_WEATHER_FIXED_CITY]  ?: ""
+            val wfWeatherTempSource = prefs[KEY_WF_WEATHER_TEMP_SOURCE] ?: "openweather"
+            val wfWeatherIoBrokerId = prefs[KEY_WF_WEATHER_IOBROKER_ID] ?: ""
             val batteryPollInterval = prefs[KEY_BATTERY_POLL_INTERVAL] ?: 60
             val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 300
             val healthPollInterval = prefs[KEY_HEALTH_POLL_INTERVAL] ?: 60
@@ -448,6 +480,18 @@ class MainViewModel @Inject constructor(
             val p2PillIoBrokerId = prefs[KEY_P2_PILL_IOBROKER_ID] ?: ""
             val p2PillValueMode  = prefs[KEY_P2_PILL_VALUE_MODE]  ?: "toggle"
             val p2PillFixedValue = prefs[KEY_P2_PILL_FIXED_VALUE] ?: ""
+            // Seite 2 – vertikaler Balken
+            val p2BarId         = prefs[KEY_P2_BAR_ID]         ?: ""
+            val p2BarLabel      = prefs[KEY_P2_BAR_LABEL]      ?: ""
+            val p2BarColor      = prefs[KEY_P2_BAR_COLOR]      ?: "neon_yellow"
+            val p2BarMin        = prefs[KEY_P2_BAR_MIN]?.toFloatOrNull()  ?: 0f
+            val p2BarMax        = prefs[KEY_P2_BAR_MAX]?.toFloatOrNull()  ?: 100f
+            val p2BarShowLabel  = prefs[KEY_P2_BAR_SHOW_LABEL] ?: true
+            val p2BarTextScale  = prefs[KEY_P2_BAR_TEXT_SCALE] ?: 100
+            val p2BarWarn1Color = prefs[KEY_P2_BAR_WARN1_COLOR] ?: "orange"
+            val p2BarWarn1Value = prefs[KEY_P2_BAR_WARN1_VALUE]?.toFloatOrNull() ?: Float.NaN
+            val p2BarWarn2Color = prefs[KEY_P2_BAR_WARN2_COLOR] ?: "red"
+            val p2BarWarn2Value = prefs[KEY_P2_BAR_WARN2_VALUE]?.toFloatOrNull() ?: Float.NaN
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -562,7 +606,20 @@ class MainViewModel @Inject constructor(
                     p2PillColorFalse = p2PillColorFalse,
                     p2PillIoBrokerId = p2PillIoBrokerId,
                     p2PillValueMode  = p2PillValueMode,
-                    p2PillFixedValue = p2PillFixedValue
+                    p2PillFixedValue = p2PillFixedValue,
+                    wfWeatherTempSource = wfWeatherTempSource,
+                    wfWeatherIoBrokerId = wfWeatherIoBrokerId,
+                    p2BarId         = p2BarId,
+                    p2BarLabel      = p2BarLabel,
+                    p2BarColor      = p2BarColor,
+                    p2BarMin        = p2BarMin,
+                    p2BarMax        = p2BarMax,
+                    p2BarShowLabel  = p2BarShowLabel,
+                    p2BarTextScale  = p2BarTextScale,
+                    p2BarWarn1Color = p2BarWarn1Color,
+                    p2BarWarn1Value = p2BarWarn1Value,
+                    p2BarWarn2Color = p2BarWarn2Color,
+                    p2BarWarn2Value = p2BarWarn2Value
                 )
             }
 
@@ -833,7 +890,9 @@ class MainViewModel @Inject constructor(
         stepsColor: String = _uiState.value.wfStepsColor,
         sleepColor: String = _uiState.value.wfSleepColor,
         sunriseColor: String = _uiState.value.wfSunriseColor,
-        slotColor: String = _uiState.value.wfSlotColor
+        slotColor: String = _uiState.value.wfSlotColor,
+        weatherTempSource: String = _uiState.value.wfWeatherTempSource,
+        weatherIoBrokerId: String = _uiState.value.wfWeatherIoBrokerId
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(wearSyncLog = "Sende Watchface-Konfiguration …") }
@@ -881,6 +940,8 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_SLEEP_COLOR]   = sleepColor
                 prefs[KEY_WF_SUNRISE_COLOR] = sunriseColor
                 prefs[KEY_WF_SLOT_COLOR]    = slotColor
+                prefs[KEY_WF_WEATHER_TEMP_SOURCE] = weatherTempSource
+                prefs[KEY_WF_WEATHER_IOBROKER_ID] = weatherIoBrokerId
             }
             _uiState.update {
                 it.copy(
@@ -926,7 +987,9 @@ class MainViewModel @Inject constructor(
                     wfStepsColor   = stepsColor,
                     wfSleepColor   = sleepColor,
                     wfSunriseColor = sunriseColor,
-                    wfSlotColor    = slotColor
+                    wfSlotColor    = slotColor,
+                    wfWeatherTempSource = weatherTempSource,
+                    wfWeatherIoBrokerId = weatherIoBrokerId
                 )
             }
             try {
@@ -954,7 +1017,8 @@ class MainViewModel @Inject constructor(
                     showBackground = showBackground,
                     hrColor = hrColor, kcalColor = kcalColor, oxygenColor = oxygenColor,
                     stepsColor = stepsColor, sleepColor = sleepColor,
-                    sunriseColor = sunriseColor, slotColor = slotColor
+                    sunriseColor = sunriseColor, slotColor = slotColor,
+                    weatherTempSource = weatherTempSource, weatherIoBrokerId = weatherIoBrokerId
                 )
                 _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
             } catch (e: Exception) {
@@ -1247,7 +1311,18 @@ class MainViewModel @Inject constructor(
         p2PillColorFalse: String,
         p2PillIoBrokerId: String,
         p2PillValueMode: String,
-        p2PillFixedValue: String
+        p2PillFixedValue: String,
+        p2BarId: String = _uiState.value.p2BarId,
+        p2BarLabel: String = _uiState.value.p2BarLabel,
+        p2BarColor: String = _uiState.value.p2BarColor,
+        p2BarMin: Float = _uiState.value.p2BarMin,
+        p2BarMax: Float = _uiState.value.p2BarMax,
+        p2BarShowLabel: Boolean = _uiState.value.p2BarShowLabel,
+        p2BarTextScale: Int = _uiState.value.p2BarTextScale,
+        p2BarWarn1Color: String = _uiState.value.p2BarWarn1Color,
+        p2BarWarn1Value: Float = _uiState.value.p2BarWarn1Value,
+        p2BarWarn2Color: String = _uiState.value.p2BarWarn2Color,
+        p2BarWarn2Value: Float = _uiState.value.p2BarWarn2Value
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -1270,6 +1345,17 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_P2_PILL_IOBROKER_ID]  = p2PillIoBrokerId
                 prefs[KEY_P2_PILL_VALUE_MODE]   = p2PillValueMode
                 prefs[KEY_P2_PILL_FIXED_VALUE]  = p2PillFixedValue
+                prefs[KEY_P2_BAR_ID]          = p2BarId
+                prefs[KEY_P2_BAR_LABEL]       = p2BarLabel
+                prefs[KEY_P2_BAR_COLOR]       = p2BarColor
+                prefs[KEY_P2_BAR_MIN]         = p2BarMin.toString()
+                prefs[KEY_P2_BAR_MAX]         = p2BarMax.toString()
+                prefs[KEY_P2_BAR_SHOW_LABEL]  = p2BarShowLabel
+                prefs[KEY_P2_BAR_TEXT_SCALE]  = p2BarTextScale
+                prefs[KEY_P2_BAR_WARN1_COLOR] = p2BarWarn1Color
+                prefs[KEY_P2_BAR_WARN1_VALUE] = p2BarWarn1Value.toString()
+                prefs[KEY_P2_BAR_WARN2_COLOR] = p2BarWarn2Color
+                prefs[KEY_P2_BAR_WARN2_VALUE] = p2BarWarn2Value.toString()
             }
             _uiState.update {
                 it.copy(
@@ -1285,7 +1371,18 @@ class MainViewModel @Inject constructor(
                     p2PillColorFalse = p2PillColorFalse,
                     p2PillIoBrokerId = p2PillIoBrokerId,
                     p2PillValueMode  = p2PillValueMode,
-                    p2PillFixedValue = p2PillFixedValue
+                    p2PillFixedValue = p2PillFixedValue,
+                    p2BarId          = p2BarId,
+                    p2BarLabel       = p2BarLabel,
+                    p2BarColor       = p2BarColor,
+                    p2BarMin         = p2BarMin,
+                    p2BarMax         = p2BarMax,
+                    p2BarShowLabel   = p2BarShowLabel,
+                    p2BarTextScale   = p2BarTextScale,
+                    p2BarWarn1Color  = p2BarWarn1Color,
+                    p2BarWarn1Value  = p2BarWarn1Value,
+                    p2BarWarn2Color  = p2BarWarn2Color,
+                    p2BarWarn2Value  = p2BarWarn2Value
                 )
             }
             if (!wearDataLayerService.isWatchConnected()) {
@@ -1297,7 +1394,9 @@ class MainViewModel @Inject constructor(
             wearDataLayerService.syncPage2ConfigToWear(
                 p2PillEnabled, p2PillColorTrue, p2PillColorFalse,
                 p2PillIoBrokerId, p2PillValueMode, p2PillFixedValue,
-                slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale, sleepTextScale
+                slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale, sleepTextScale,
+                p2BarLabel, p2BarColor, p2BarMin, p2BarMax, p2BarShowLabel, p2BarTextScale,
+                p2BarWarn1Color, p2BarWarn1Value, p2BarWarn2Color, p2BarWarn2Value
             )
             syncPage2SlotValues()
             _uiState.update { it.copy(wearSyncLog = "Seite-2-Konfig übertragen") }
@@ -1311,11 +1410,13 @@ class MainViewModel @Inject constructor(
         val val2 = states.firstOrNull { it.id == s.p2Slot2Id }
         val val3 = states.firstOrNull { it.id == s.p2Slot3Id }
         val val4 = states.firstOrNull { it.id == s.p2Slot4Id }
+        val barState = states.firstOrNull { it.id == s.p2BarId }
         wearDataLayerService.syncPage2SlotsToWear(
             s.p2Slot1Label, formatSlotValue(val1?.value),
             s.p2Slot2Label, formatSlotValue(val2?.value),
             s.p2Slot3Label, formatSlotValue(val3?.value),
-            s.p2Slot4Label, formatSlotValue(val4?.value)
+            s.p2Slot4Label, formatSlotValue(val4?.value),
+            p2BarValue = if (s.p2BarId.isNotBlank()) formatSlotValue(barState?.value) else "--"
         )
     }
 

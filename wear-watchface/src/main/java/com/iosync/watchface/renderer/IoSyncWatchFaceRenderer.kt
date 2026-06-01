@@ -473,6 +473,7 @@ class IoSyncWatchFaceRenderer(
                             dataMap.getString("wf_p2_slot3_value")?.let { WatchFaceConfigCache.p2Slot3Value = it }
                             dataMap.getString("wf_p2_slot4_label")?.let { WatchFaceConfigCache.p2Slot4Label = it }
                             dataMap.getString("wf_p2_slot4_value")?.let { WatchFaceConfigCache.p2Slot4Value = it }
+                            dataMap.getString("wf_p2_bar_value")?.let   { WatchFaceConfigCache.p2BarValue   = it }
                         }
                         PATH_CONFIG_P2 -> {
                             val dataMap = DataMapItem.fromDataItem(item).dataMap
@@ -537,6 +538,7 @@ class IoSyncWatchFaceRenderer(
                     dataMap.getString("wf_p2_slot3_value")?.let { WatchFaceConfigCache.p2Slot3Value = it }
                     dataMap.getString("wf_p2_slot4_label")?.let { WatchFaceConfigCache.p2Slot4Label = it }
                     dataMap.getString("wf_p2_slot4_value")?.let { WatchFaceConfigCache.p2Slot4Value = it }
+                    dataMap.getString("wf_p2_bar_value")?.let   { WatchFaceConfigCache.p2BarValue   = it }
                 }
                 PATH_CONFIG_P2 -> {
                     WatchFaceConfigCache.updateP2ConfigFromDataMap(dataMap)
@@ -1012,11 +1014,18 @@ class IoSyncWatchFaceRenderer(
         val iconCy = circleCy - circleRadius * 0.22f
         drawWeatherIcon(canvas, circleCx, iconCy, iconSize, config.weatherCondition)
 
-        // Temperatur
+        // Temperatur: aus OpenWeather oder aus ioBroker-Datenpunkt
         val weatherScale = config.weatherTextScale / 100f
         weatherTempPaint.textSize = circleRadius * 0.72f * weatherScale
-        val tempText = "${config.weatherTemp}°"
-        canvas.drawText(tempText, circleCx, circleCy + circleRadius * 0.55f + 5f * density, weatherTempPaint)
+        val displayTemp: String = if (config.weatherTempSource == "iobroker" && config.weatherIoBrokerId.isNotBlank()) {
+            val state = SmartHomeStateCache.states.firstOrNull { it.id == config.weatherIoBrokerId }
+            val rawVal = state?.value ?: config.weatherTemp.toString()
+            val num = rawVal.toFloatOrNull()
+            if (num != null) "${num.toInt()}°" else "$rawVal°"
+        } else {
+            "${config.weatherTemp}°"
+        }
+        canvas.drawText(displayTemp, circleCx, circleCy + circleRadius * 0.55f + 5f * density, weatherTempPaint)
     }
 
     /**
@@ -1292,7 +1301,7 @@ class IoSyncWatchFaceRenderer(
         val valueSize = radius * 0.130f * scale
         val iconSize  = radius * 0.090f * scale
         val gap       = iconSize * 0.45f
-        val rowY      = cy - radius * 0.30f
+        val rowY      = cy - radius * 0.30f - 5f * density
 
         // Schritte: aus Komplikation (System-Schrittzähler) oder lokalem Sensor
         val steps = readComplicationNumber("6") ?: healthSensorManager.steps.takeIf { it > 0 }
@@ -1835,6 +1844,11 @@ class IoSyncWatchFaceRenderer(
         // 4 ioBroker-Slots (Mitte, 2 × 2 Gitter)
         drawPage2IoBrokerSlots(canvas, cx, cy, radius)
 
+        // Vertikaler Balken (rechts, wenn Label gesetzt)
+        if (WatchFaceConfigCache.p2BarLabel.isNotBlank()) {
+            drawPage2VerticalBar(canvas, cx, cy, radius)
+        }
+
         // 2 halbe Pillen (7 Uhr und 5 Uhr)
         drawPage2Pills(canvas, cx, cy, radius)
     }
@@ -1954,6 +1968,82 @@ class IoSyncWatchFaceRenderer(
         drawHealthIcon(canvas, startX + iconSize / 2f, rowY - valueSize * 0.25f, iconSize, "sleep")
         canvas.drawText(sleepText, startX + iconSize + gap, rowY, healthValuePaint)
         healthValuePaint.textAlign = Paint.Align.CENTER
+    }
+
+    /**
+     * Zeichnet einen vertikalen Balken-Graph auf Seite 2 (rechts, mittig).
+     * Beschriftung links: Label (oben) und Min/Max (oben/unten), Wert (Mitte).
+     * Identisches Warnstufen-System wie Slot 4 auf Seite 1.
+     */
+    private fun drawPage2VerticalBar(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+        val scale    = config.p2BarTextScale / 100f
+        val barW     = radius * 0.055f
+        val barH     = radius * 0.68f
+        val barCx    = cx + radius * 0.76f
+        val barTop   = cy - barH / 2f
+        val barBot   = cy + barH / 2f
+        val barCorner = barW / 2f
+
+        val minVal = config.p2BarMin
+        val maxVal = config.p2BarMax
+        val curVal = config.p2BarValue.replace(',', '.').toFloatOrNull() ?: minVal
+        val fraction = if (maxVal > minVal) ((curVal - minVal) / (maxVal - minVal)).coerceIn(0f, 1f) else 0f
+
+        // Warnstufen
+        var barColor = colorFromPillId(config.p2BarColor)
+        if (!config.p2BarWarn1Value.isNaN() && curVal <= config.p2BarWarn1Value) {
+            barColor = colorFromPillId(config.p2BarWarn1Color)
+        }
+        if (!config.p2BarWarn2Value.isNaN() && curVal <= config.p2BarWarn2Value) {
+            barColor = colorFromPillId(config.p2BarWarn2Color)
+        }
+
+        // Hintergrund
+        canvas.drawRoundRect(RectF(barCx - barW / 2f, barTop, barCx + barW / 2f, barBot),
+            barCorner, barCorner, progressBgPaint)
+
+        // Füllung (von unten nach oben)
+        if (fraction > 0f) {
+            val fillTop = barBot - barH * fraction
+            val fillPaint = Paint().apply {
+                color = barColor; isAntiAlias = true; style = Paint.Style.FILL
+            }
+            val minFill = barBot - barCorner * 2
+            canvas.drawRoundRect(
+                RectF(barCx - barW / 2f, fillTop.coerceAtMost(minFill), barCx + barW / 2f, barBot),
+                barCorner, barCorner, fillPaint
+            )
+        }
+
+        if (config.p2BarShowLabel) {
+            val labelSize = radius * 0.068f * scale
+            val valueSize = radius * 0.090f * scale
+
+            // Label (oben links vom Balken)
+            page2SlotLabelPaint.textSize = labelSize
+            page2SlotLabelPaint.textAlign = Paint.Align.RIGHT
+            val labelText = config.p2BarLabel.take(6).uppercase()
+            canvas.drawText(labelText, barCx - barW / 2f - radius * 0.04f, barTop + labelSize, page2SlotLabelPaint)
+
+            // Max-Wert (oben links)
+            page2SlotValuePaint.textSize = labelSize * 0.85f
+            page2SlotValuePaint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(maxVal.toInt().toString(), barCx - barW / 2f - radius * 0.04f,
+                barTop + labelSize * 2.2f, page2SlotValuePaint)
+
+            // Min-Wert (unten links)
+            canvas.drawText(minVal.toInt().toString(), barCx - barW / 2f - radius * 0.04f,
+                barBot, page2SlotValuePaint)
+
+            // Aktueller Wert (Mitte links)
+            page2SlotValuePaint.textSize = valueSize
+            canvas.drawText(config.p2BarValue, barCx - barW / 2f - radius * 0.04f,
+                cy + valueSize * 0.4f, page2SlotValuePaint)
+
+            page2SlotLabelPaint.textAlign = Paint.Align.CENTER
+            page2SlotValuePaint.textAlign = Paint.Align.CENTER
+        }
     }
 
     override fun onDestroy() {

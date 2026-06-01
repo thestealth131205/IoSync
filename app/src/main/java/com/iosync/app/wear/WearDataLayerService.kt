@@ -142,6 +142,23 @@ private const val KEY_WF_SLOT4_WARN1_VALUE = "wf_slot4_warn1_value"
 private const val KEY_WF_SLOT4_WARN2_COLOR = "wf_slot4_warn2_color"
 private const val KEY_WF_SLOT4_WARN2_VALUE = "wf_slot4_warn2_value"
 
+// ── Wetter-Temperatur-Quelle ───────────────────────────────────────────────────
+private const val KEY_WF_WEATHER_TEMP_SOURCE  = "wf_weather_temp_source"
+private const val KEY_WF_WEATHER_IOBROKER_ID  = "wf_weather_iobroker_id"
+
+// ── Seite-2-Balken ────────────────────────────────────────────────────────────
+private const val KEY_WF_P2_BAR_LABEL       = "wf_p2_bar_label"
+private const val KEY_WF_P2_BAR_VALUE       = "wf_p2_bar_value"
+private const val KEY_WF_P2_BAR_COLOR       = "wf_p2_bar_color"
+private const val KEY_WF_P2_BAR_MIN         = "wf_p2_bar_min"
+private const val KEY_WF_P2_BAR_MAX         = "wf_p2_bar_max"
+private const val KEY_WF_P2_BAR_SHOW_LABEL  = "wf_p2_bar_show_label"
+private const val KEY_WF_P2_BAR_TEXT_SCALE  = "wf_p2_bar_text_scale"
+private const val KEY_WF_P2_BAR_WARN1_COLOR = "wf_p2_bar_warn1_color"
+private const val KEY_WF_P2_BAR_WARN1_VALUE = "wf_p2_bar_warn1_value"
+private const val KEY_WF_P2_BAR_WARN2_COLOR = "wf_p2_bar_warn2_color"
+private const val KEY_WF_P2_BAR_WARN2_VALUE = "wf_p2_bar_warn2_value"
+
 // ── Schlafdauer (Minuten, via Health Connect) ─────────────────────────────────
 private const val KEY_PHONE_SLEEP_MINUTES = "phone_sleep_minutes"
 
@@ -308,7 +325,9 @@ class WearDataLayerService @Inject constructor(
         stepsColor: String = "neon_yellow",
         sleepColor: String = "purple",
         sunriseColor: String = "neon_yellow",
-        slotColor: String = "neon_yellow"
+        slotColor: String = "neon_yellow",
+        weatherTempSource: String = "openweather",
+        weatherIoBrokerId: String = ""
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -371,6 +390,8 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_SLEEP_COLOR,   sleepColor)
                     dataMap.putString(KEY_WF_SUNRISE_COLOR, sunriseColor)
                     dataMap.putString(KEY_WF_SLOT_COLOR,    slotColor)
+                    dataMap.putString(KEY_WF_WEATHER_TEMP_SOURCE, weatherTempSource)
+                    dataMap.putString(KEY_WF_WEATHER_IOBROKER_ID, weatherIoBrokerId)
                     dataMap.putString(KEY_WF_HEALTH_DATA_SOURCE, healthDataSource)
                     dataMap.putString(KEY_WF_HR_SOURCE, hrSource)
                     dataMap.putString(KEY_WF_KCAL_SOURCE, kcalSource)
@@ -477,7 +498,8 @@ class WearDataLayerService @Inject constructor(
         slot1Label: String, slot1Value: String,
         slot2Label: String, slot2Value: String,
         slot3Label: String, slot3Value: String,
-        slot4Label: String, slot4Value: String
+        slot4Label: String, slot4Value: String,
+        p2BarValue: String = "--"
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -490,6 +512,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString("wf_p2_slot3_value", slot3Value)
                     dataMap.putString("wf_p2_slot4_label", slot4Label)
                     dataMap.putString("wf_p2_slot4_value", slot4Value)
+                    dataMap.putString(KEY_WF_P2_BAR_VALUE, p2BarValue)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
@@ -514,7 +537,17 @@ class WearDataLayerService @Inject constructor(
         p2Slot2TextScale: Int,
         p2Slot3TextScale: Int,
         p2Slot4TextScale: Int,
-        sleepTextScale: Int
+        sleepTextScale: Int,
+        p2BarLabel: String = "",
+        p2BarColor: String = "neon_yellow",
+        p2BarMin: Float = 0f,
+        p2BarMax: Float = 100f,
+        p2BarShowLabel: Boolean = true,
+        p2BarTextScale: Int = 100,
+        p2BarWarn1Color: String = "orange",
+        p2BarWarn1Value: Float = Float.NaN,
+        p2BarWarn2Color: String = "red",
+        p2BarWarn2Value: Float = Float.NaN
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -530,6 +563,16 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt("wf_p2_slot3_text_scale",       p2Slot3TextScale)
                     dataMap.putInt("wf_p2_slot4_text_scale",       p2Slot4TextScale)
                     dataMap.putInt("wf_sleep_text_scale",          sleepTextScale)
+                    dataMap.putString(KEY_WF_P2_BAR_LABEL,        p2BarLabel)
+                    dataMap.putString(KEY_WF_P2_BAR_COLOR,        p2BarColor)
+                    dataMap.putFloat(KEY_WF_P2_BAR_MIN,           p2BarMin)
+                    dataMap.putFloat(KEY_WF_P2_BAR_MAX,           p2BarMax)
+                    dataMap.putBoolean(KEY_WF_P2_BAR_SHOW_LABEL,  p2BarShowLabel)
+                    dataMap.putInt(KEY_WF_P2_BAR_TEXT_SCALE,      p2BarTextScale)
+                    dataMap.putString(KEY_WF_P2_BAR_WARN1_COLOR,  p2BarWarn1Color)
+                    dataMap.putFloat(KEY_WF_P2_BAR_WARN1_VALUE,   p2BarWarn1Value)
+                    dataMap.putString(KEY_WF_P2_BAR_WARN2_COLOR,  p2BarWarn2Color)
+                    dataMap.putFloat(KEY_WF_P2_BAR_WARN2_VALUE,   p2BarWarn2Value)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

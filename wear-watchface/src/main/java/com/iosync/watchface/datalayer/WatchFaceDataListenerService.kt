@@ -129,6 +129,10 @@ private const val KEY_WF_SLOT4_WARN2_VALUE = "wf_slot4_warn2_value"
 // ── Schlafdauer (vom Handy via Health Connect, in Minuten) ────────────────────
 private const val KEY_PHONE_SLEEP_MINUTES = "phone_sleep_minutes"
 
+// ── Wetter-Quelle: "openweather" oder "iobroker" ─────────────────────────────
+private const val KEY_WF_WEATHER_TEMP_SOURCE  = "wf_weather_temp_source"
+private const val KEY_WF_WEATHER_IOBROKER_ID  = "wf_weather_iobroker_id"
+
 // ── Custom-Slot-Daten (Echtzeit-Updates der Werte) ──────────────────────────
 private const val PATH_CUSTOM_SLOTS         = "/iosync/watchface/custom_slots"
 
@@ -156,6 +160,19 @@ private const val KEY_WF_P2_SLOT2_TEXT_SCALE    = "wf_p2_slot2_text_scale"
 private const val KEY_WF_P2_SLOT3_TEXT_SCALE    = "wf_p2_slot3_text_scale"
 private const val KEY_WF_P2_SLOT4_TEXT_SCALE    = "wf_p2_slot4_text_scale"
 private const val KEY_WF_SLEEP_TEXT_SCALE       = "wf_sleep_text_scale"
+
+// ── Seite 2 – vertikaler Balken (Slot 5) ─────────────────────────────────────
+private const val KEY_WF_P2_BAR_LABEL           = "wf_p2_bar_label"
+private const val KEY_WF_P2_BAR_VALUE           = "wf_p2_bar_value"
+private const val KEY_WF_P2_BAR_COLOR           = "wf_p2_bar_color"
+private const val KEY_WF_P2_BAR_MIN             = "wf_p2_bar_min"
+private const val KEY_WF_P2_BAR_MAX             = "wf_p2_bar_max"
+private const val KEY_WF_P2_BAR_SHOW_LABEL      = "wf_p2_bar_show_label"
+private const val KEY_WF_P2_BAR_TEXT_SCALE      = "wf_p2_bar_text_scale"
+private const val KEY_WF_P2_BAR_WARN1_COLOR     = "wf_p2_bar_warn1_color"
+private const val KEY_WF_P2_BAR_WARN1_VALUE     = "wf_p2_bar_warn1_value"
+private const val KEY_WF_P2_BAR_WARN2_COLOR     = "wf_p2_bar_warn2_color"
+private const val KEY_WF_P2_BAR_WARN2_VALUE     = "wf_p2_bar_warn2_value"
 
 // ── Aktions-Pille Status-Pfad (separater Pfad für schnelle State-Updates) ────
 private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
@@ -252,6 +269,7 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     dataMap.getString(KEY_WF_P2_SLOT3_VALUE)?.let { WatchFaceConfigCache.p2Slot3Value = it }
                     dataMap.getString(KEY_WF_P2_SLOT4_LABEL)?.let { WatchFaceConfigCache.p2Slot4Label = it }
                     dataMap.getString(KEY_WF_P2_SLOT4_VALUE)?.let { WatchFaceConfigCache.p2Slot4Value = it }
+                    dataMap.getString(KEY_WF_P2_BAR_VALUE)?.let   { WatchFaceConfigCache.p2BarValue   = it }
                     Log.d(TAG, "Seite-2-Slot-Daten empfangen")
                 }
                 PATH_CONFIG_P2 -> {
@@ -297,6 +315,9 @@ object WatchFaceConfigCache {
     // Wetterdaten (vom Handy empfangen)
     @Volatile var weatherTemp: Int = 0
     @Volatile var weatherCondition: String = "clear"
+    // Wetter-Temperaturquelle: "openweather" = OpenWeather-API, "iobroker" = ioBroker-Datenpunkt
+    @Volatile var weatherTempSource: String = "openweather"
+    @Volatile var weatherIoBrokerId: String = ""
     // Aktions-Pille
     @Volatile var actionPillEnabled: Boolean = false
     @Volatile var actionPillColorTrue: String = "cyan"
@@ -390,6 +411,19 @@ object WatchFaceConfigCache {
     @Volatile var p2Slot4TextScale: Int = 100
     @Volatile var sleepTextScale: Int = 100
 
+    // ── Seite 2 – vertikaler Balken ───────────────────────────────────────────
+    @Volatile var p2BarLabel: String = ""
+    @Volatile var p2BarValue: String = "--"
+    @Volatile var p2BarColor: String = "neon_yellow"
+    @Volatile var p2BarMin: Float = 0f
+    @Volatile var p2BarMax: Float = 100f
+    @Volatile var p2BarShowLabel: Boolean = true
+    @Volatile var p2BarTextScale: Int = 100
+    @Volatile var p2BarWarn1Color: String = "orange"
+    @Volatile var p2BarWarn1Value: Float = Float.NaN
+    @Volatile var p2BarWarn2Color: String = "red"
+    @Volatile var p2BarWarn2Value: Float = Float.NaN
+
     // ── Seite 2 Pillen ────────────────────────────────────────────────────────
     @Volatile var p2PillEnabled: Boolean = false
     @Volatile var p2PillColorTrue: String = "cyan"
@@ -465,6 +499,8 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_SLEEP_COLOR)?.let   { sleepColor   = it }
         dataMap.getString(KEY_WF_SUNRISE_COLOR)?.let { sunriseColor = it }
         dataMap.getString(KEY_WF_SLOT_COLOR)?.let    { slotColor    = it }
+        dataMap.getString(KEY_WF_WEATHER_TEMP_SOURCE)?.let { weatherTempSource = it }
+        dataMap.getString(KEY_WF_WEATHER_IOBROKER_ID)?.let { weatherIoBrokerId = it }
     }
 
     fun updateP2ConfigFromDataMap(dataMap: DataMap) {
@@ -479,6 +515,18 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_P2_SLOT3_TEXT_SCALE)) p2Slot3TextScale = dataMap.getInt(KEY_WF_P2_SLOT3_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_P2_SLOT4_TEXT_SCALE)) p2Slot4TextScale = dataMap.getInt(KEY_WF_P2_SLOT4_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_SLEEP_TEXT_SCALE))    sleepTextScale   = dataMap.getInt(KEY_WF_SLEEP_TEXT_SCALE)
+        // Seite 2 – vertikaler Balken
+        dataMap.getString(KEY_WF_P2_BAR_LABEL)?.let  { p2BarLabel = it }
+        dataMap.getString(KEY_WF_P2_BAR_VALUE)?.let  { p2BarValue = it }
+        dataMap.getString(KEY_WF_P2_BAR_COLOR)?.let  { p2BarColor = it }
+        if (dataMap.containsKey(KEY_WF_P2_BAR_MIN))        p2BarMin        = dataMap.getFloat(KEY_WF_P2_BAR_MIN)
+        if (dataMap.containsKey(KEY_WF_P2_BAR_MAX))        p2BarMax        = dataMap.getFloat(KEY_WF_P2_BAR_MAX)
+        if (dataMap.containsKey(KEY_WF_P2_BAR_SHOW_LABEL)) p2BarShowLabel  = dataMap.getBoolean(KEY_WF_P2_BAR_SHOW_LABEL)
+        if (dataMap.containsKey(KEY_WF_P2_BAR_TEXT_SCALE)) p2BarTextScale  = dataMap.getInt(KEY_WF_P2_BAR_TEXT_SCALE)
+        dataMap.getString(KEY_WF_P2_BAR_WARN1_COLOR)?.let { p2BarWarn1Color = it }
+        dataMap.getString(KEY_WF_P2_BAR_WARN2_COLOR)?.let { p2BarWarn2Color = it }
+        if (dataMap.containsKey(KEY_WF_P2_BAR_WARN1_VALUE)) p2BarWarn1Value = dataMap.getFloat(KEY_WF_P2_BAR_WARN1_VALUE)
+        if (dataMap.containsKey(KEY_WF_P2_BAR_WARN2_VALUE)) p2BarWarn2Value = dataMap.getFloat(KEY_WF_P2_BAR_WARN2_VALUE)
     }
 }
 
