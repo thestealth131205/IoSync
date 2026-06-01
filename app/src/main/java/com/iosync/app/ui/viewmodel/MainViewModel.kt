@@ -16,7 +16,7 @@ import com.iosync.app.BuildConfig
 import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.health.HealthConnectManager
 import com.iosync.app.data.health.HealthConnectStatus
-import com.iosync.app.data.health.HealthSyncService
+import com.iosync.app.data.sync.IoSyncSyncService
 import com.iosync.app.data.network.DynamicBaseUrl
 import com.iosync.app.data.network.IoSyncClient
 import com.iosync.app.data.network.SmartHomeWebSocketService
@@ -175,13 +175,22 @@ data class MainUiState(
     val p2Slot3TextScale: Int = 100,
     val p2Slot4TextScale: Int = 100,
     val wfSleepTextScale: Int = 100,
-    // ── Seite 2 Pillen ──────────────────────────────────────────────────────────
+    // ── Seite 2 Pillen – Pille 1 (7 Uhr) ───────────────────────────────────────
     val p2PillEnabled: Boolean = false,
     val p2PillColorTrue: String = "cyan",
     val p2PillColorFalse: String = "red",
     val p2PillIoBrokerId: String = "",
     val p2PillValueMode: String = "toggle",
     val p2PillFixedValue: String = "",
+    val p2Pill1State: Boolean = false,
+    // ── Seite 2 Pillen – Pille 2 (5 Uhr) ───────────────────────────────────────
+    val p2Pill2Enabled: Boolean = false,
+    val p2Pill2ColorTrue: String = "cyan",
+    val p2Pill2ColorFalse: String = "red",
+    val p2Pill2IoBrokerId: String = "",
+    val p2Pill2ValueMode: String = "toggle",
+    val p2Pill2FixedValue: String = "",
+    val p2Pill2State: Boolean = false,
     // ── Seite 2 – vertikaler Balken ─────────────────────────────────────────
     val p2BarId: String = "",
     val p2BarLabel: String = "",
@@ -327,6 +336,15 @@ class MainViewModel @Inject constructor(
         val KEY_P2_PILL_IOBROKER_ID  = stringPreferencesKey("p2_pill_iobroker_id")
         val KEY_P2_PILL_VALUE_MODE   = stringPreferencesKey("p2_pill_value_mode")
         val KEY_P2_PILL_FIXED_VALUE  = stringPreferencesKey("p2_pill_fixed_value")
+        val KEY_P2_PILL1_STATE       = booleanPreferencesKey("p2_pill1_state")
+        // Seite 2 – Pille 2 (5 Uhr)
+        val KEY_P2_PILL2_ENABLED     = booleanPreferencesKey("p2_pill2_enabled")
+        val KEY_P2_PILL2_COLOR_TRUE  = stringPreferencesKey("p2_pill2_color_true")
+        val KEY_P2_PILL2_COLOR_FALSE = stringPreferencesKey("p2_pill2_color_false")
+        val KEY_P2_PILL2_IOBROKER_ID = stringPreferencesKey("p2_pill2_iobroker_id")
+        val KEY_P2_PILL2_VALUE_MODE  = stringPreferencesKey("p2_pill2_value_mode")
+        val KEY_P2_PILL2_FIXED_VALUE = stringPreferencesKey("p2_pill2_fixed_value")
+        val KEY_P2_PILL2_STATE       = booleanPreferencesKey("p2_pill2_state")
         // Aktualisierungsintervalle (in Sekunden)
         val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_sec")
         val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_sec")
@@ -351,9 +369,6 @@ class MainViewModel @Inject constructor(
         val KEY_P2_BAR_WARN1_VALUE  = stringPreferencesKey("p2_bar_warn1_value")
         val KEY_P2_BAR_WARN2_COLOR  = stringPreferencesKey("p2_bar_warn2_color")
         val KEY_P2_BAR_WARN2_VALUE  = stringPreferencesKey("p2_bar_warn2_value")
-
-        // Wetter-Sync-Intervall (15 Minuten)
-        private const val WEATHER_SYNC_INTERVAL_MS = 900_000L
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -363,8 +378,6 @@ class MainViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WebSocketStatus.DISCONNECTED)
 
     private var ioSyncPollingJob: Job? = null
-    private var batteryPollingJob: Job? = null
-    private var weatherPollingJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -473,13 +486,22 @@ class MainViewModel @Inject constructor(
             val p2Slot3TextScale  = prefs[KEY_P2_SLOT3_TEXT_SCALE]  ?: 100
             val p2Slot4TextScale  = prefs[KEY_P2_SLOT4_TEXT_SCALE]  ?: 100
             val wfSleepTextScale  = prefs[KEY_WF_SLEEP_TEXT_SCALE]  ?: 100
-            // Seite 2 Pillen
+            // Seite 2 Pillen – Pille 1 (7 Uhr)
             val p2PillEnabled    = prefs[KEY_P2_PILL_ENABLED]     ?: false
             val p2PillColorTrue  = prefs[KEY_P2_PILL_COLOR_TRUE]  ?: "cyan"
             val p2PillColorFalse = prefs[KEY_P2_PILL_COLOR_FALSE] ?: "red"
             val p2PillIoBrokerId = prefs[KEY_P2_PILL_IOBROKER_ID] ?: ""
             val p2PillValueMode  = prefs[KEY_P2_PILL_VALUE_MODE]  ?: "toggle"
             val p2PillFixedValue = prefs[KEY_P2_PILL_FIXED_VALUE] ?: ""
+            val p2Pill1State     = prefs[KEY_P2_PILL1_STATE]      ?: false
+            // Seite 2 Pillen – Pille 2 (5 Uhr)
+            val p2Pill2Enabled    = prefs[KEY_P2_PILL2_ENABLED]    ?: false
+            val p2Pill2ColorTrue  = prefs[KEY_P2_PILL2_COLOR_TRUE]  ?: "cyan"
+            val p2Pill2ColorFalse = prefs[KEY_P2_PILL2_COLOR_FALSE] ?: "red"
+            val p2Pill2IoBrokerId = prefs[KEY_P2_PILL2_IOBROKER_ID] ?: ""
+            val p2Pill2ValueMode  = prefs[KEY_P2_PILL2_VALUE_MODE]  ?: "toggle"
+            val p2Pill2FixedValue = prefs[KEY_P2_PILL2_FIXED_VALUE] ?: ""
+            val p2Pill2State      = prefs[KEY_P2_PILL2_STATE]       ?: false
             // Seite 2 – vertikaler Balken
             val p2BarId         = prefs[KEY_P2_BAR_ID]         ?: ""
             val p2BarLabel      = prefs[KEY_P2_BAR_LABEL]      ?: ""
@@ -607,6 +629,14 @@ class MainViewModel @Inject constructor(
                     p2PillIoBrokerId = p2PillIoBrokerId,
                     p2PillValueMode  = p2PillValueMode,
                     p2PillFixedValue = p2PillFixedValue,
+                    p2Pill1State     = p2Pill1State,
+                    p2Pill2Enabled    = p2Pill2Enabled,
+                    p2Pill2ColorTrue  = p2Pill2ColorTrue,
+                    p2Pill2ColorFalse = p2Pill2ColorFalse,
+                    p2Pill2IoBrokerId = p2Pill2IoBrokerId,
+                    p2Pill2ValueMode  = p2Pill2ValueMode,
+                    p2Pill2FixedValue = p2Pill2FixedValue,
+                    p2Pill2State      = p2Pill2State,
                     wfWeatherTempSource = wfWeatherTempSource,
                     wfWeatherIoBrokerId = wfWeatherIoBrokerId,
                     p2BarId         = p2BarId,
@@ -625,9 +655,10 @@ class MainViewModel @Inject constructor(
 
             dynamicBaseUrl.update(host, port)
             if (useIoSyncAdapter && ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUseHttps, ioSyncUsername, ioSyncPassword)
-            if (wfShowPhoneBattery) startBatteryPolling()
-            if (wfShowWeather) startWeatherPolling()
-            if (wfHrSource == "healthconnect" || wfKcalSource == "healthconnect" || wfOxygenSource == "healthconnect") HealthSyncService.start(context)
+            // Gesamter Hintergrund-Sync ans Watchface läuft im Foreground-Service,
+            // damit Wetter/Akku/Slots/Health auch bei geschlossener App aktualisiert werden.
+            IoSyncSyncService.start(context)
+            sendPhoneBattery() // Akkustand einmalig für die App-Anzeige
         }
 
         viewModelScope.launch {
@@ -804,7 +835,11 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /** Startet das periodische Abrufen vom IoSync Adapter (primäre Datenquelle). */
+    /**
+     * Aktualisiert die in der App-UI angezeigte Datenpunkt-Liste, solange die App
+     * geöffnet ist. Der Versand der Werte ans Watchface erfolgt unabhängig davon im
+     * [IoSyncSyncService] (überlebt das Schließen der App).
+     */
     private fun startIoSyncPolling(host: String, port: Int, useHttps: Boolean, username: String, password: String) {
         ioSyncPollingJob?.cancel()
         ioSyncPollingJob = viewModelScope.launch {
@@ -819,14 +854,6 @@ class MainViewModel @Inject constructor(
                                 filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
                             )
                         }
-                        if (_uiState.value.wfShowIoBrokerData) {
-                            wearDataLayerService.syncStatesToWear(states)
-                        }
-                        if (_uiState.value.showCustomSlots) syncCustomSlotValues()
-                        if (_uiState.value.p2Slot1Id.isNotBlank() || _uiState.value.p2Slot2Id.isNotBlank() ||
-                            _uiState.value.p2Slot3Id.isNotBlank() || _uiState.value.p2Slot4Id.isNotBlank()) {
-                            syncPage2SlotValues()
-                        }
                     }
                     .onFailure { /* Fehler werden im IoSyncClient geloggt */ }
                 delay(_uiState.value.slotPollIntervalSec * 1_000L)
@@ -835,6 +862,153 @@ class MainViewModel @Inject constructor(
     }
 
     // ── Watchface-Konfiguration ───────────────────────────────────────────────
+
+    /**
+     * Überträgt die vollständige Watchface-Konfiguration aus dem aktuellen [_uiState]
+     * an die Uhr. Persistiert NICHTS – dient als gemeinsame Sende-Logik für Live-Vorschau
+     * und Speichern.
+     */
+    private suspend fun pushFullConfigToWear() {
+        if (!wearDataLayerService.isWatchConnected()) {
+            _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
+            return
+        }
+        val s = _uiState.value
+        wearDataLayerService.syncWatchFaceConfigToWear(
+            s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
+            s.wfShowPhoneBattery, s.wfShowIoBrokerData, s.wfShowSecondsRing,
+            s.wfSecondsRingColor, s.wfSecondsRingWidth, s.wfSecondsGlowWidth, s.wfSecondsNumberColor,
+            s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
+            s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
+            s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories, s.wfShowSteps,
+            s.showCustomSlots, s.customSlot1Label, s.customSlot2Label,
+            s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
+            s.customSlot4BarShowLabel,
+            s.wfHrTextScale, s.wfKcalTextScale, s.wfStepsTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
+            s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
+            s.wfBatteryRingColor1, s.wfBatteryRingColor2, s.wfBatteryRingStrokeScale,
+            s.wfHealthDataSource,
+            s.wfHrSource, s.wfKcalSource, s.wfOxygenSource,
+            s.wfHrComplication, s.wfKcalComplication, s.wfOxygenComplication,
+            s.wfBatteryWarn1Color, s.wfBatteryWarn1Threshold,
+            s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold,
+            showBackground = s.wfShowBackground,
+            hrColor = s.wfHrColor, kcalColor = s.wfKcalColor, oxygenColor = s.wfOxygenColor,
+            stepsColor = s.wfStepsColor, sleepColor = s.wfSleepColor,
+            sunriseColor = s.wfSunriseColor, slotColor = s.wfSlotColor,
+            weatherTempSource = s.wfWeatherTempSource, weatherIoBrokerId = s.wfWeatherIoBrokerId
+        )
+    }
+
+    /**
+     * Live-Vorschau für Seite-1-Einstellungen: aktualisiert nur den In-Memory-State
+     * und überträgt an die Uhr – OHNE Persistenz im DataStore.
+     */
+    fun previewWatchFaceConfig(
+        timeColor: String,
+        dateColor: String,
+        showSeconds: Boolean,
+        showTicks: Boolean,
+        showWeekday: Boolean,
+        showPhoneBattery: Boolean,
+        showIoBrokerData: Boolean,
+        showSecondsRing: Boolean,
+        secondsRingColor: String,
+        secondsRingWidth: Int,
+        secondsGlowWidth: Int = 100,
+        secondsNumberColor: String = _uiState.value.wfSecondsNumberColor,
+        showWeather: Boolean,
+        showHeartRate: Boolean,
+        showOxygen: Boolean,
+        showCalories: Boolean,
+        showSteps: Boolean = _uiState.value.wfShowSteps,
+        showCustomSlots: Boolean = _uiState.value.showCustomSlots,
+        customSlot1Label: String = _uiState.value.customSlot1Label,
+        customSlot2Label: String = _uiState.value.customSlot2Label,
+        hrTextScale: Int = _uiState.value.wfHrTextScale,
+        kcalTextScale: Int = _uiState.value.wfKcalTextScale,
+        stepsTextScale: Int = _uiState.value.wfStepsTextScale,
+        weatherTextScale: Int = _uiState.value.wfWeatherTextScale,
+        sunriseTextScale: Int = _uiState.value.wfSunriseTextScale,
+        watchBatteryTextScale: Int = _uiState.value.wfWatchBatteryTextScale,
+        batteryRingColor1: String = _uiState.value.wfBatteryRingColor1,
+        batteryRingColor2: String = _uiState.value.wfBatteryRingColor2,
+        batteryRingStrokeScale: Int = _uiState.value.wfBatteryRingStrokeScale,
+        batteryWarn1Color: String = _uiState.value.wfBatteryWarn1Color,
+        batteryWarn1Threshold: Int = _uiState.value.wfBatteryWarn1Threshold,
+        batteryWarn2Color: String = _uiState.value.wfBatteryWarn2Color,
+        batteryWarn2Threshold: Int = _uiState.value.wfBatteryWarn2Threshold,
+        showBackground: Boolean = _uiState.value.wfShowBackground,
+        hrColor: String = _uiState.value.wfHrColor,
+        kcalColor: String = _uiState.value.wfKcalColor,
+        oxygenColor: String = _uiState.value.wfOxygenColor,
+        stepsColor: String = _uiState.value.wfStepsColor,
+        sleepColor: String = _uiState.value.wfSleepColor,
+        sunriseColor: String = _uiState.value.wfSunriseColor,
+        slotColor: String = _uiState.value.wfSlotColor,
+        weatherTempSource: String = _uiState.value.wfWeatherTempSource,
+        weatherIoBrokerId: String = _uiState.value.wfWeatherIoBrokerId
+    ) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    wfTimeColor        = timeColor,
+                    wfDateColor        = dateColor,
+                    wfShowSeconds      = showSeconds,
+                    wfShowTicks        = showTicks,
+                    wfShowWeekday      = showWeekday,
+                    wfShowPhoneBattery = showPhoneBattery,
+                    wfShowIoBrokerData = showIoBrokerData,
+                    wfShowSecondsRing  = showSecondsRing,
+                    wfSecondsRingColor  = secondsRingColor,
+                    wfSecondsRingWidth  = secondsRingWidth,
+                    wfSecondsGlowWidth  = secondsGlowWidth,
+                    wfSecondsNumberColor = secondsNumberColor,
+                    wfShowWeather       = showWeather,
+                    wfShowHeartRate    = showHeartRate,
+                    wfShowOxygen       = showOxygen,
+                    wfShowCalories     = showCalories,
+                    wfShowSteps        = showSteps,
+                    showCustomSlots    = showCustomSlots,
+                    customSlot1Label   = customSlot1Label,
+                    customSlot2Label   = customSlot2Label,
+                    wfHrTextScale      = hrTextScale,
+                    wfKcalTextScale    = kcalTextScale,
+                    wfStepsTextScale   = stepsTextScale,
+                    wfWeatherTextScale = weatherTextScale,
+                    wfSunriseTextScale = sunriseTextScale,
+                    wfWatchBatteryTextScale = watchBatteryTextScale,
+                    wfBatteryRingColor1       = batteryRingColor1,
+                    wfBatteryRingColor2       = batteryRingColor2,
+                    wfBatteryRingStrokeScale  = batteryRingStrokeScale,
+                    wfBatteryWarn1Color       = batteryWarn1Color,
+                    wfBatteryWarn1Threshold   = batteryWarn1Threshold,
+                    wfBatteryWarn2Color       = batteryWarn2Color,
+                    wfBatteryWarn2Threshold   = batteryWarn2Threshold,
+                    wfShowBackground   = showBackground,
+                    wfHrColor      = hrColor,
+                    wfKcalColor    = kcalColor,
+                    wfOxygenColor  = oxygenColor,
+                    wfStepsColor   = stepsColor,
+                    wfSleepColor   = sleepColor,
+                    wfSunriseColor = sunriseColor,
+                    wfSlotColor    = slotColor,
+                    wfWeatherTempSource = weatherTempSource,
+                    wfWeatherIoBrokerId = weatherIoBrokerId
+                )
+            }
+            try {
+                pushFullConfigToWear()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+            // Hintergrund-Sync-Service mit neuer Konfiguration neu starten
+            IoSyncSyncService.start(context)
+            if (showIoBrokerData && _uiState.value.ioSyncStates.isNotEmpty()) {
+                wearDataLayerService.syncStatesToWear(_uiState.value.ioSyncStates)
+            }
+        }
+    }
 
     fun updateWatchFaceConfig(
         timeColor: String,
@@ -993,55 +1167,18 @@ class MainViewModel @Inject constructor(
                 )
             }
             try {
-                if (!wearDataLayerService.isWatchConnected()) {
-                    _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
-                    return@launch
-                }
-                val s = _uiState.value
-                wearDataLayerService.syncWatchFaceConfigToWear(
-                    timeColor, dateColor, showSeconds, showTicks, showWeekday, showPhoneBattery, showIoBrokerData,
-                    showSecondsRing, secondsRingColor, secondsRingWidth, secondsGlowWidth, secondsNumberColor,
-                    s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
-                    s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
-                    showWeather, showHeartRate, showOxygen, showCalories, showSteps,
-                    showCustomSlots, customSlot1Label, customSlot2Label,
-                    customSlot3Label, customSlot4Label, customSlot4BarColor, customSlot4BarMin, customSlot4BarMax,
-                    s.customSlot4BarShowLabel,
-                    hrTextScale, kcalTextScale, stepsTextScale, slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale,
-                    weatherTextScale, sunriseTextScale, watchBatteryTextScale,
-                    batteryRingColor1, batteryRingColor2, batteryRingStrokeScale,
-                    healthDataSource,
-                    hrSource, kcalSource, oxygenSource,
-                    batteryWarn1Color = batteryWarn1Color, batteryWarn1Threshold = batteryWarn1Threshold,
-                    batteryWarn2Color = batteryWarn2Color, batteryWarn2Threshold = batteryWarn2Threshold,
-                    showBackground = showBackground,
-                    hrColor = hrColor, kcalColor = kcalColor, oxygenColor = oxygenColor,
-                    stepsColor = stepsColor, sleepColor = sleepColor,
-                    sunriseColor = sunriseColor, slotColor = slotColor,
-                    weatherTempSource = weatherTempSource, weatherIoBrokerId = weatherIoBrokerId
-                )
+                pushFullConfigToWear()
                 _uiState.update { it.copy(wearSyncLog = "Watchface-Konfiguration übertragen") }
             } catch (e: Exception) {
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
 
-            // Akku-Polling starten/stoppen je nach Konfiguration
-            if (showPhoneBattery && batteryPollingJob?.isActive != true) {
-                startBatteryPolling()
-            } else if (!showPhoneBattery) {
-                batteryPollingJob?.cancel()
-            }
+            // Hintergrund-Sync-Service mit neuer Konfiguration neu starten
+            IoSyncSyncService.start(context)
 
             // IoSync-States sofort an Watchface senden wenn gerade aktiviert
             if (showIoBrokerData && _uiState.value.ioSyncStates.isNotEmpty()) {
                 wearDataLayerService.syncStatesToWear(_uiState.value.ioSyncStates)
-            }
-
-            // Wetter-Polling starten/stoppen
-            if (showWeather && weatherPollingJob?.isActive != true) {
-                startWeatherPolling()
-            } else if (!showWeather) {
-                weatherPollingJob?.cancel()
             }
         }
     }
@@ -1061,7 +1198,6 @@ class MainViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(wearSyncLog = "Sende Aktions-Pille-Konfiguration …") }
-            val currentState = _uiState.value.actionPillState
             dataStore.edit { prefs ->
                 prefs[KEY_ACTION_PILL_ENABLED]     = enabled
                 prefs[KEY_ACTION_PILL_COLOR_TRUE]  = colorTrue
@@ -1081,34 +1217,38 @@ class MainViewModel @Inject constructor(
                 )
             }
             try {
-                if (!wearDataLayerService.isWatchConnected()) {
-                    _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
-                    return@launch
-                }
-                val s = _uiState.value
-                wearDataLayerService.syncWatchFaceConfigToWear(
-                    s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
-                    s.wfShowPhoneBattery, s.wfShowIoBrokerData, s.wfShowSecondsRing,
-                    s.wfSecondsRingColor, s.wfSecondsRingWidth, s.wfSecondsGlowWidth, s.wfSecondsNumberColor,
-                    enabled, colorTrue, colorFalse, ioBrokerId, valueMode, fixedValue, currentState,
-                    s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories,
-                    s.wfShowSteps, s.showCustomSlots, s.customSlot1Label, s.customSlot2Label,
-                    s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
-                    s.customSlot4BarShowLabel,
-                    s.wfHrTextScale, s.wfKcalTextScale, s.wfStepsTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
-                    s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
-                    s.wfBatteryRingColor1, s.wfBatteryRingColor2, s.wfBatteryRingStrokeScale,
-                    s.wfHealthDataSource,
-                    s.wfHrSource, s.wfKcalSource, s.wfOxygenSource,
-                    s.wfHrComplication, s.wfKcalComplication, s.wfOxygenComplication,
-                    s.wfBatteryWarn1Color, s.wfBatteryWarn1Threshold,
-                    s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold,
-                    showBackground = s.wfShowBackground,
-                    hrColor = s.wfHrColor, kcalColor = s.wfKcalColor, oxygenColor = s.wfOxygenColor,
-                    stepsColor = s.wfStepsColor, sleepColor = s.wfSleepColor,
-                    sunriseColor = s.wfSunriseColor, slotColor = s.wfSlotColor
-                )
+                pushFullConfigToWear()
                 _uiState.update { it.copy(wearSyncLog = "Aktions-Pille-Konfiguration übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Live-Vorschau der Aktions-Pille: nur In-Memory-State + Senden, keine Persistenz.
+     */
+    fun previewActionPillConfig(
+        enabled: Boolean,
+        colorTrue: String,
+        colorFalse: String,
+        ioBrokerId: String,
+        valueMode: String,
+        fixedValue: String
+    ) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    actionPillEnabled    = enabled,
+                    actionPillColorTrue  = colorTrue,
+                    actionPillColorFalse = colorFalse,
+                    actionPillIoBrokerId = ioBrokerId,
+                    actionPillValueMode  = valueMode,
+                    actionPillFixedValue = fixedValue
+                )
+            }
+            try {
+                pushFullConfigToWear()
             } catch (e: Exception) {
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
@@ -1127,6 +1267,22 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun updateP2Pill1State(newState: Boolean) {
+        viewModelScope.launch {
+            dataStore.edit { prefs -> prefs[KEY_P2_PILL1_STATE] = newState }
+            _uiState.update { it.copy(p2Pill1State = newState) }
+            wearDataLayerService.syncP2PillStatesToWear(newState, _uiState.value.p2Pill2State)
+        }
+    }
+
+    fun updateP2Pill2State(newState: Boolean) {
+        viewModelScope.launch {
+            dataStore.edit { prefs -> prefs[KEY_P2_PILL2_STATE] = newState }
+            _uiState.update { it.copy(p2Pill2State = newState) }
+            wearDataLayerService.syncP2PillStatesToWear(_uiState.value.p2Pill1State, newState)
+        }
+    }
+
     // ── Aktualisierungsintervalle ─────────────────────────────────────────────
 
     /** Speichert die Polling-Intervalle und startet die Jobs mit neuem Intervall neu. */
@@ -1138,13 +1294,9 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_HEALTH_POLL_INTERVAL]  = healthSec
             }
             _uiState.update { it.copy(batteryPollIntervalSec = batterySec, slotPollIntervalSec = slotSec, healthPollIntervalSec = healthSec) }
-            // Laufende Jobs mit neuem Intervall neu starten
-            if (batteryPollingJob?.isActive == true) startBatteryPolling()
-            // Health-Sync-Service mit neuem Intervall neu starten, falls eine Quelle Health Connect nutzt
-            val s0 = _uiState.value
-            if (s0.wfHrSource == "healthconnect" || s0.wfKcalSource == "healthconnect" || s0.wfOxygenSource == "healthconnect") {
-                HealthSyncService.start(context)
-            }
+            // Hintergrund-Sync-Service mit neuen Intervallen neu starten
+            IoSyncSyncService.start(context)
+            // UI-Liste mit neuem Intervall neu pollen
             if (ioSyncPollingJob?.isActive == true) {
                 val s = _uiState.value
                 if (s.ioSyncHost.isNotBlank()) startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
@@ -1237,31 +1389,69 @@ class MainViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(wearSyncLog = "Sende Slot-Daten …") }
                 syncCustomSlotValues()
-                val s2 = _uiState.value
-                wearDataLayerService.syncWatchFaceConfigToWear(
-                    s2.wfTimeColor, s2.wfDateColor, s2.wfShowSeconds, s2.wfShowTicks, s2.wfShowWeekday,
-                    s2.wfShowPhoneBattery, s2.wfShowIoBrokerData, s2.wfShowSecondsRing,
-                    s2.wfSecondsRingColor, s2.wfSecondsRingWidth, s2.wfSecondsGlowWidth, s2.wfSecondsNumberColor,
-                    s2.actionPillEnabled, s2.actionPillColorTrue, s2.actionPillColorFalse,
-                    s2.actionPillIoBrokerId, s2.actionPillValueMode, s2.actionPillFixedValue, s2.actionPillState,
-                    s2.wfShowWeather, s2.wfShowHeartRate, s2.wfShowOxygen, s2.wfShowCalories,
-                    s2.wfShowSteps, s2.showCustomSlots, s2.customSlot1Label, s2.customSlot2Label,
-                    s2.customSlot3Label, s2.customSlot4Label, s2.customSlot4BarColor, s2.customSlot4BarMin, s2.customSlot4BarMax,
-                    s2.customSlot4BarShowLabel,
-                    s2.wfHrTextScale, s2.wfKcalTextScale, s2.wfStepsTextScale, s2.wfSlot1TextScale, s2.wfSlot2TextScale, s2.wfSlot3TextScale, s2.wfSlot4TextScale,
-                    s2.wfWeatherTextScale, s2.wfSunriseTextScale, s2.wfWatchBatteryTextScale,
-                    s2.wfBatteryRingColor1, s2.wfBatteryRingColor2, s2.wfBatteryRingStrokeScale,
-                    s2.wfHealthDataSource,
-                    s2.wfHrSource, s2.wfKcalSource, s2.wfOxygenSource,
-                    s2.wfHrComplication, s2.wfKcalComplication, s2.wfOxygenComplication,
-                    s2.wfBatteryWarn1Color, s2.wfBatteryWarn1Threshold,
-                    s2.wfBatteryWarn2Color, s2.wfBatteryWarn2Threshold,
-                    showBackground = s2.wfShowBackground,
-                    hrColor = s2.wfHrColor, kcalColor = s2.wfKcalColor, oxygenColor = s2.wfOxygenColor,
-                    stepsColor = s2.wfStepsColor, sleepColor = s2.wfSleepColor,
-                    sunriseColor = s2.wfSunriseColor, slotColor = s2.wfSlotColor
-                )
+                pushFullConfigToWear()
                 _uiState.update { it.copy(wearSyncLog = "Slot-Daten übertragen") }
+            }
+        }
+    }
+
+    /**
+     * Live-Vorschau der Custom-Slots: nur In-Memory-State + Senden, keine Persistenz.
+     */
+    fun previewCustomSlotsConfig(
+        enabled: Boolean,
+        slot1Id: String,
+        slot1Label: String,
+        slot2Id: String,
+        slot2Label: String,
+        slot3Id: String = "",
+        slot3Label: String = "",
+        slot4Id: String = "",
+        slot4Label: String = "",
+        slot4BarColor: String = "neon_yellow",
+        slot4BarMin: Float = 0f,
+        slot4BarMax: Float = 100f,
+        slot4BarShowLabel: Boolean = true,
+        slot1TextScale: Int = _uiState.value.wfSlot1TextScale,
+        slot2TextScale: Int = _uiState.value.wfSlot2TextScale,
+        slot3TextScale: Int = _uiState.value.wfSlot3TextScale,
+        slot4TextScale: Int = _uiState.value.wfSlot4TextScale,
+        slot4Warn1Color: String = _uiState.value.customSlot4Warn1Color,
+        slot4Warn1Value: Float = _uiState.value.customSlot4Warn1Value,
+        slot4Warn2Color: String = _uiState.value.customSlot4Warn2Color,
+        slot4Warn2Value: Float = _uiState.value.customSlot4Warn2Value
+    ) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    showCustomSlots  = enabled,
+                    customSlot1Id    = slot1Id,
+                    customSlot1Label = slot1Label,
+                    customSlot2Id    = slot2Id,
+                    customSlot2Label = slot2Label,
+                    customSlot3Id    = slot3Id,
+                    customSlot3Label = slot3Label,
+                    customSlot4Id    = slot4Id,
+                    customSlot4Label = slot4Label,
+                    customSlot4BarColor      = slot4BarColor,
+                    customSlot4BarMin        = slot4BarMin,
+                    customSlot4BarMax        = slot4BarMax,
+                    customSlot4BarShowLabel  = slot4BarShowLabel,
+                    customSlot4Warn1Color    = slot4Warn1Color,
+                    customSlot4Warn1Value    = slot4Warn1Value,
+                    customSlot4Warn2Color    = slot4Warn2Color,
+                    customSlot4Warn2Value    = slot4Warn2Value,
+                    wfSlot1TextScale = slot1TextScale,
+                    wfSlot2TextScale = slot2TextScale,
+                    wfSlot3TextScale = slot3TextScale,
+                    wfSlot4TextScale = slot4TextScale
+                )
+            }
+            try {
+                if (enabled) syncCustomSlotValues()
+                pushFullConfigToWear()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
         }
     }
@@ -1312,6 +1502,12 @@ class MainViewModel @Inject constructor(
         p2PillIoBrokerId: String,
         p2PillValueMode: String,
         p2PillFixedValue: String,
+        p2Pill2Enabled: Boolean,
+        p2Pill2ColorTrue: String,
+        p2Pill2ColorFalse: String,
+        p2Pill2IoBrokerId: String,
+        p2Pill2ValueMode: String,
+        p2Pill2FixedValue: String,
         p2BarId: String = _uiState.value.p2BarId,
         p2BarLabel: String = _uiState.value.p2BarLabel,
         p2BarColor: String = _uiState.value.p2BarColor,
@@ -1345,6 +1541,12 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_P2_PILL_IOBROKER_ID]  = p2PillIoBrokerId
                 prefs[KEY_P2_PILL_VALUE_MODE]   = p2PillValueMode
                 prefs[KEY_P2_PILL_FIXED_VALUE]  = p2PillFixedValue
+                prefs[KEY_P2_PILL2_ENABLED]     = p2Pill2Enabled
+                prefs[KEY_P2_PILL2_COLOR_TRUE]  = p2Pill2ColorTrue
+                prefs[KEY_P2_PILL2_COLOR_FALSE] = p2Pill2ColorFalse
+                prefs[KEY_P2_PILL2_IOBROKER_ID] = p2Pill2IoBrokerId
+                prefs[KEY_P2_PILL2_VALUE_MODE]  = p2Pill2ValueMode
+                prefs[KEY_P2_PILL2_FIXED_VALUE] = p2Pill2FixedValue
                 prefs[KEY_P2_BAR_ID]          = p2BarId
                 prefs[KEY_P2_BAR_LABEL]       = p2BarLabel
                 prefs[KEY_P2_BAR_COLOR]       = p2BarColor
@@ -1372,6 +1574,12 @@ class MainViewModel @Inject constructor(
                     p2PillIoBrokerId = p2PillIoBrokerId,
                     p2PillValueMode  = p2PillValueMode,
                     p2PillFixedValue = p2PillFixedValue,
+                    p2Pill2Enabled    = p2Pill2Enabled,
+                    p2Pill2ColorTrue  = p2Pill2ColorTrue,
+                    p2Pill2ColorFalse = p2Pill2ColorFalse,
+                    p2Pill2IoBrokerId = p2Pill2IoBrokerId,
+                    p2Pill2ValueMode  = p2Pill2ValueMode,
+                    p2Pill2FixedValue = p2Pill2FixedValue,
                     p2BarId          = p2BarId,
                     p2BarLabel       = p2BarLabel,
                     p2BarColor       = p2BarColor,
@@ -1385,21 +1593,115 @@ class MainViewModel @Inject constructor(
                     p2BarWarn2Value  = p2BarWarn2Value
                 )
             }
-            if (!wearDataLayerService.isWatchConnected()) {
-                _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
-                return@launch
-            }
             _uiState.update { it.copy(wearSyncLog = "Sende Seite-2-Konfig …") }
-            val s = _uiState.value
-            wearDataLayerService.syncPage2ConfigToWear(
-                p2PillEnabled, p2PillColorTrue, p2PillColorFalse,
-                p2PillIoBrokerId, p2PillValueMode, p2PillFixedValue,
-                slot1TextScale, slot2TextScale, slot3TextScale, slot4TextScale, sleepTextScale,
-                p2BarLabel, p2BarColor, p2BarMin, p2BarMax, p2BarShowLabel, p2BarTextScale,
-                p2BarWarn1Color, p2BarWarn1Value, p2BarWarn2Color, p2BarWarn2Value
-            )
-            syncPage2SlotValues()
-            _uiState.update { it.copy(wearSyncLog = "Seite-2-Konfig übertragen") }
+            try {
+                pushPage2ConfigToWear()
+                _uiState.update { it.copy(wearSyncLog = "Seite-2-Konfig übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Überträgt die vollständige Seite-2-Konfiguration aus dem aktuellen [_uiState]
+     * an die Uhr (inkl. Slot-Werte). Persistiert NICHTS.
+     */
+    private suspend fun pushPage2ConfigToWear() {
+        if (!wearDataLayerService.isWatchConnected()) {
+            _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
+            return
+        }
+        val s = _uiState.value
+        wearDataLayerService.syncPage2ConfigToWear(
+            s.p2PillEnabled, s.p2PillColorTrue, s.p2PillColorFalse,
+            s.p2PillIoBrokerId, s.p2PillValueMode, s.p2PillFixedValue,
+            s.p2Pill2Enabled, s.p2Pill2ColorTrue, s.p2Pill2ColorFalse,
+            s.p2Pill2IoBrokerId, s.p2Pill2ValueMode, s.p2Pill2FixedValue,
+            s.p2Slot1TextScale, s.p2Slot2TextScale, s.p2Slot3TextScale, s.p2Slot4TextScale, s.wfSleepTextScale,
+            s.p2BarLabel, s.p2BarColor, s.p2BarMin, s.p2BarMax, s.p2BarShowLabel, s.p2BarTextScale,
+            s.p2BarWarn1Color, s.p2BarWarn1Value, s.p2BarWarn2Color, s.p2BarWarn2Value
+        )
+        syncPage2SlotValues()
+    }
+
+    /**
+     * Live-Vorschau der Seite-2-Konfiguration: nur In-Memory-State + Senden, keine Persistenz.
+     */
+    fun previewPage2Config(
+        slot1Id: String, slot1Label: String,
+        slot2Id: String, slot2Label: String,
+        slot3Id: String, slot3Label: String,
+        slot4Id: String, slot4Label: String,
+        slot1TextScale: Int = _uiState.value.p2Slot1TextScale,
+        slot2TextScale: Int = _uiState.value.p2Slot2TextScale,
+        slot3TextScale: Int = _uiState.value.p2Slot3TextScale,
+        slot4TextScale: Int = _uiState.value.p2Slot4TextScale,
+        sleepTextScale: Int = _uiState.value.wfSleepTextScale,
+        p2PillEnabled: Boolean,
+        p2PillColorTrue: String,
+        p2PillColorFalse: String,
+        p2PillIoBrokerId: String,
+        p2PillValueMode: String,
+        p2PillFixedValue: String,
+        p2Pill2Enabled: Boolean,
+        p2Pill2ColorTrue: String,
+        p2Pill2ColorFalse: String,
+        p2Pill2IoBrokerId: String,
+        p2Pill2ValueMode: String,
+        p2Pill2FixedValue: String,
+        p2BarId: String = _uiState.value.p2BarId,
+        p2BarLabel: String = _uiState.value.p2BarLabel,
+        p2BarColor: String = _uiState.value.p2BarColor,
+        p2BarMin: Float = _uiState.value.p2BarMin,
+        p2BarMax: Float = _uiState.value.p2BarMax,
+        p2BarShowLabel: Boolean = _uiState.value.p2BarShowLabel,
+        p2BarTextScale: Int = _uiState.value.p2BarTextScale,
+        p2BarWarn1Color: String = _uiState.value.p2BarWarn1Color,
+        p2BarWarn1Value: Float = _uiState.value.p2BarWarn1Value,
+        p2BarWarn2Color: String = _uiState.value.p2BarWarn2Color,
+        p2BarWarn2Value: Float = _uiState.value.p2BarWarn2Value
+    ) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    p2Slot1Id    = slot1Id,    p2Slot1Label = slot1Label,
+                    p2Slot2Id    = slot2Id,    p2Slot2Label = slot2Label,
+                    p2Slot3Id    = slot3Id,    p2Slot3Label = slot3Label,
+                    p2Slot4Id    = slot4Id,    p2Slot4Label = slot4Label,
+                    p2Slot1TextScale = slot1TextScale, p2Slot2TextScale = slot2TextScale,
+                    p2Slot3TextScale = slot3TextScale, p2Slot4TextScale = slot4TextScale,
+                    wfSleepTextScale = sleepTextScale,
+                    p2PillEnabled    = p2PillEnabled,
+                    p2PillColorTrue  = p2PillColorTrue,
+                    p2PillColorFalse = p2PillColorFalse,
+                    p2PillIoBrokerId = p2PillIoBrokerId,
+                    p2PillValueMode  = p2PillValueMode,
+                    p2PillFixedValue = p2PillFixedValue,
+                    p2Pill2Enabled    = p2Pill2Enabled,
+                    p2Pill2ColorTrue  = p2Pill2ColorTrue,
+                    p2Pill2ColorFalse = p2Pill2ColorFalse,
+                    p2Pill2IoBrokerId = p2Pill2IoBrokerId,
+                    p2Pill2ValueMode  = p2Pill2ValueMode,
+                    p2Pill2FixedValue = p2Pill2FixedValue,
+                    p2BarId          = p2BarId,
+                    p2BarLabel       = p2BarLabel,
+                    p2BarColor       = p2BarColor,
+                    p2BarMin         = p2BarMin,
+                    p2BarMax         = p2BarMax,
+                    p2BarShowLabel   = p2BarShowLabel,
+                    p2BarTextScale   = p2BarTextScale,
+                    p2BarWarn1Color  = p2BarWarn1Color,
+                    p2BarWarn1Value  = p2BarWarn1Value,
+                    p2BarWarn2Color  = p2BarWarn2Color,
+                    p2BarWarn2Value  = p2BarWarn2Value
+                )
+            }
+            try {
+                pushPage2ConfigToWear()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
         }
     }
 
@@ -1428,51 +1730,23 @@ class MainViewModel @Inject constructor(
 
     // ── Handy-Akku ────────────────────────────────────────────────────────────
 
-    /** Startet das periodische Senden des Handy-Akkustands ans Watchface. */
-    private fun startBatteryPolling() {
-        batteryPollingJob?.cancel()
-        batteryPollingJob = viewModelScope.launch {
-            while (true) {
-                sendPhoneBattery()
-                delay(_uiState.value.batteryPollIntervalSec * 1_000L)
-            }
-        }
-    }
-
-    /** Liest den aktuellen Akkustand und überträgt ihn an das Watchface. */
+    /**
+     * Liest den aktuellen Akkustand für die App-Anzeige aus. Das periodische Senden
+     * ans Watchface übernimmt der [IoSyncSyncService] im Hintergrund.
+     */
     fun sendPhoneBattery() {
         viewModelScope.launch {
             val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             if (batteryIntent != null) {
                 val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
                 val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
-                val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                        status == BatteryManager.BATTERY_STATUS_FULL
                 val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
-                if (percent >= 0) {
-                    _uiState.update { it.copy(phoneBatteryLevel = percent) }
-                    wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging)
-                }
+                if (percent >= 0) _uiState.update { it.copy(phoneBatteryLevel = percent) }
             }
         }
     }
 
     // ── Wetter ─────────────────────────────────────────────────────────────────
-
-    /** Startet das periodische Abrufen und Übertragen der Wetterdaten an die Uhr. */
-    private fun startWeatherPolling() {
-        weatherPollingJob?.cancel()
-        weatherPollingJob = viewModelScope.launch {
-            while (true) {
-                weatherService.fetchWeather()
-                    .onSuccess { weather ->
-                        wearDataLayerService.syncWeatherToWear(weather.temperature, weather.condition)
-                    }
-                delay(WEATHER_SYNC_INTERVAL_MS)
-            }
-        }
-    }
 
     private var weatherSearchJob: Job? = null
 
@@ -1589,45 +1863,50 @@ class MainViewModel @Inject constructor(
 
             // Config an Uhr übertragen (damit sie weiß welche Quellen pro Typ gelten)
             try {
-                if (!wearDataLayerService.isWatchConnected()) {
-                    _uiState.update { it.copy(wearSyncLog = "Fehler: Keine Uhr verbunden") }
-                    return@launch
-                }
-                val s = _uiState.value
-                wearDataLayerService.syncWatchFaceConfigToWear(
-                    s.wfTimeColor, s.wfDateColor, s.wfShowSeconds, s.wfShowTicks, s.wfShowWeekday,
-                    s.wfShowPhoneBattery, s.wfShowIoBrokerData, s.wfShowSecondsRing,
-                    s.wfSecondsRingColor, s.wfSecondsRingWidth, s.wfSecondsGlowWidth, s.wfSecondsNumberColor,
-                    s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
-                    s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
-                    s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories,
-                    s.wfShowSteps, s.showCustomSlots, s.customSlot1Label, s.customSlot2Label,
-                    s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
-                    s.customSlot4BarShowLabel,
-                    s.wfHrTextScale, s.wfKcalTextScale, s.wfStepsTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
-                    s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
-                    s.wfBatteryRingColor1, s.wfBatteryRingColor2, s.wfBatteryRingStrokeScale,
-                    globalSource,
-                    hrSource, kcalSource, oxygenSource,
-                    hrComplication, kcalComplication, oxygenComplication,
-                    s.wfBatteryWarn1Color, s.wfBatteryWarn1Threshold,
-                    s.wfBatteryWarn2Color, s.wfBatteryWarn2Threshold,
-                    showBackground = s.wfShowBackground,
-                    hrColor = s.wfHrColor, kcalColor = s.wfKcalColor, oxygenColor = s.wfOxygenColor,
-                    stepsColor = s.wfStepsColor, sleepColor = s.wfSleepColor,
-                    sunriseColor = s.wfSunriseColor, slotColor = s.wfSlotColor
-                )
+                pushFullConfigToWear()
                 _uiState.update { it.copy(wearSyncLog = "Health-Quellen-Konfiguration übertragen") }
             } catch (e: Exception) {
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
 
-            // Health-Sync-Service starten/stoppen (läuft als Foreground-Service im Hintergrund)
-            if (anyHealthConnect) {
-                HealthSyncService.start(context)
-            } else {
-                HealthSyncService.stop(context)
+            // Hintergrund-Sync-Service neu starten, damit er die neue Health-Quelle übernimmt
+            IoSyncSyncService.start(context)
+        }
+    }
+
+    /**
+     * Live-Vorschau der Health-Quellen: nur In-Memory-State + Senden, keine Persistenz.
+     * Startet zusätzlich den Hintergrund-Sync-Service, damit die Vorschau auch
+     * tatsächlich Daten liefert.
+     */
+    fun previewHealthSourceConfig(
+        hrSource: String,
+        kcalSource: String,
+        oxygenSource: String,
+        hrComplication: String = "",
+        kcalComplication: String = "",
+        oxygenComplication: String = ""
+    ) {
+        viewModelScope.launch {
+            val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" || oxygenSource == "healthconnect"
+            val globalSource = if (anyHealthConnect) "phone" else "local"
+            _uiState.update {
+                it.copy(
+                    wfHrSource = hrSource,
+                    wfKcalSource = kcalSource,
+                    wfOxygenSource = oxygenSource,
+                    wfHrComplication = hrComplication,
+                    wfKcalComplication = kcalComplication,
+                    wfOxygenComplication = oxygenComplication,
+                    wfHealthDataSource = globalSource
+                )
             }
+            try {
+                pushFullConfigToWear()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+            IoSyncSyncService.start(context)
         }
     }
 

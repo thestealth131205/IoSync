@@ -155,6 +155,13 @@ private const val KEY_WF_P2_PILL_COLOR_FALSE    = "wf_p2_pill_color_false"
 private const val KEY_WF_P2_PILL_IOBROKER_ID    = "wf_p2_pill_iobroker_id"
 private const val KEY_WF_P2_PILL_VALUE_MODE     = "wf_p2_pill_value_mode"
 private const val KEY_WF_P2_PILL_FIXED_VALUE    = "wf_p2_pill_fixed_value"
+private const val KEY_WF_P2_PILL2_ENABLED       = "wf_p2_pill2_enabled"
+private const val KEY_WF_P2_PILL2_COLOR_TRUE    = "wf_p2_pill2_color_true"
+private const val KEY_WF_P2_PILL2_COLOR_FALSE   = "wf_p2_pill2_color_false"
+private const val KEY_WF_P2_PILL2_IOBROKER_ID   = "wf_p2_pill2_iobroker_id"
+private const val KEY_WF_P2_PILL2_VALUE_MODE    = "wf_p2_pill2_value_mode"
+private const val KEY_WF_P2_PILL2_FIXED_VALUE   = "wf_p2_pill2_fixed_value"
+private const val PATH_P2_PILL_STATES           = "/iosync/watchface/p2_pill_states"
 private const val KEY_WF_P2_SLOT1_TEXT_SCALE    = "wf_p2_slot1_text_scale"
 private const val KEY_WF_P2_SLOT2_TEXT_SCALE    = "wf_p2_slot2_text_scale"
 private const val KEY_WF_P2_SLOT3_TEXT_SCALE    = "wf_p2_slot3_text_scale"
@@ -258,6 +265,12 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     val state = dataMap.getBoolean(KEY_PILL_STATE, false)
                     Log.d(TAG, "Aktions-Pille Status empfangen: $state")
                     WatchFaceConfigCache.actionPillState = state
+                }
+                PATH_P2_PILL_STATES -> {
+                    val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    if (dataMap.containsKey("wf_p2_pill1_state")) WatchFaceConfigCache.p2Pill1State = dataMap.getBoolean("wf_p2_pill1_state")
+                    if (dataMap.containsKey("wf_p2_pill2_state")) WatchFaceConfigCache.p2Pill2State = dataMap.getBoolean("wf_p2_pill2_state")
+                    Log.d(TAG, "Seite-2-Pillen-Status empfangen: pill1=${WatchFaceConfigCache.p2Pill1State}, pill2=${WatchFaceConfigCache.p2Pill2State}")
                 }
                 PATH_CUSTOM_SLOTS_P2 -> {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -424,13 +437,22 @@ object WatchFaceConfigCache {
     @Volatile var p2BarWarn2Color: String = "red"
     @Volatile var p2BarWarn2Value: Float = Float.NaN
 
-    // ── Seite 2 Pillen ────────────────────────────────────────────────────────
+    // ── Seite 2 Pillen – Pille 1 (7 Uhr) ─────────────────────────────────────
     @Volatile var p2PillEnabled: Boolean = false
     @Volatile var p2PillColorTrue: String = "cyan"
     @Volatile var p2PillColorFalse: String = "red"
     @Volatile var p2PillIoBrokerId: String = ""
     @Volatile var p2PillValueMode: String = "toggle"
     @Volatile var p2PillFixedValue: String = ""
+    @Volatile var p2Pill1State: Boolean = false
+    // ── Seite 2 Pillen – Pille 2 (5 Uhr) ─────────────────────────────────────
+    @Volatile var p2Pill2Enabled: Boolean = false
+    @Volatile var p2Pill2ColorTrue: String = "cyan"
+    @Volatile var p2Pill2ColorFalse: String = "red"
+    @Volatile var p2Pill2IoBrokerId: String = ""
+    @Volatile var p2Pill2ValueMode: String = "toggle"
+    @Volatile var p2Pill2FixedValue: String = ""
+    @Volatile var p2Pill2State: Boolean = false
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
@@ -510,6 +532,12 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_P2_PILL_IOBROKER_ID)?.let { p2PillIoBrokerId = it }
         dataMap.getString(KEY_WF_P2_PILL_VALUE_MODE)?.let  { p2PillValueMode  = it }
         dataMap.getString(KEY_WF_P2_PILL_FIXED_VALUE)?.let { p2PillFixedValue = it }
+        if (dataMap.containsKey(KEY_WF_P2_PILL2_ENABLED))   p2Pill2Enabled    = dataMap.getBoolean(KEY_WF_P2_PILL2_ENABLED)
+        dataMap.getString(KEY_WF_P2_PILL2_COLOR_TRUE)?.let  { p2Pill2ColorTrue  = it }
+        dataMap.getString(KEY_WF_P2_PILL2_COLOR_FALSE)?.let { p2Pill2ColorFalse = it }
+        dataMap.getString(KEY_WF_P2_PILL2_IOBROKER_ID)?.let { p2Pill2IoBrokerId = it }
+        dataMap.getString(KEY_WF_P2_PILL2_VALUE_MODE)?.let  { p2Pill2ValueMode  = it }
+        dataMap.getString(KEY_WF_P2_PILL2_FIXED_VALUE)?.let { p2Pill2FixedValue = it }
         if (dataMap.containsKey(KEY_WF_P2_SLOT1_TEXT_SCALE)) p2Slot1TextScale = dataMap.getInt(KEY_WF_P2_SLOT1_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_P2_SLOT2_TEXT_SCALE)) p2Slot2TextScale = dataMap.getInt(KEY_WF_P2_SLOT2_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_P2_SLOT3_TEXT_SCALE)) p2Slot3TextScale = dataMap.getInt(KEY_WF_P2_SLOT3_TEXT_SCALE)

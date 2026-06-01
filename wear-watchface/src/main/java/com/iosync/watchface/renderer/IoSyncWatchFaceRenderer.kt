@@ -43,6 +43,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.ZonedDateTime
@@ -376,6 +377,9 @@ class IoSyncWatchFaceRenderer(
         private const val PATH_CUSTOM_SLOTS_P2   = "/iosync/watchface/custom_slots_p2"
         private const val PATH_CONFIG_P2         = "/iosync/watchface/config_p2"
         private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
+        private const val PATH_P2_PILL_STATES    = "/iosync/watchface/p2_pill_states"
+        private const val PATH_P2_PILL1_TRIGGER  = "/iosync/watchface/p2_pill1_trigger"
+        private const val PATH_P2_PILL2_TRIGGER  = "/iosync/watchface/p2_pill2_trigger"
         private const val PATH_STATES            = "/iosync/smarthome/states"
     }
 
@@ -416,6 +420,17 @@ class IoSyncWatchFaceRenderer(
                     accentTickPaint.color = accentColor
                 }
                 invalidate()
+            }
+        }
+
+        // Puls-Messung (MeasureClient) nur bei sichtbarem, nicht-ambientem Watchface
+        // aktiv halten → kontinuierliche HR-Samples ohne Dauer-Akkuverbrauch.
+        scope.launch {
+            combine(watchState.isVisible, watchState.isAmbient) { visible, ambient ->
+                visible && !ambient
+            }.collect { active ->
+                if (active) healthSensorManager.startHeartRate()
+                else healthSensorManager.stopHeartRate()
             }
         }
     }
@@ -525,6 +540,10 @@ class IoSyncWatchFaceRenderer(
                 }
                 PATH_ACTION_PILL_STATE -> {
                     WatchFaceConfigCache.actionPillState = dataMap.getBoolean("pill_state", false)
+                }
+                PATH_P2_PILL_STATES -> {
+                    if (dataMap.containsKey("wf_p2_pill1_state")) WatchFaceConfigCache.p2Pill1State = dataMap.getBoolean("wf_p2_pill1_state")
+                    if (dataMap.containsKey("wf_p2_pill2_state")) WatchFaceConfigCache.p2Pill2State = dataMap.getBoolean("wf_p2_pill2_state")
                 }
                 PATH_STATES -> {
                     dataMap.getString("states_json")?.let { SmartHomeStateCache.updateFromJson(it) }
@@ -977,6 +996,23 @@ class IoSyncWatchFaceRenderer(
                 }
             } catch (e: Exception) {
                 Log.w(TAG_PILL, "Aktions-Trigger fehlgeschlagen: ${e.message}")
+            }
+        }
+    }
+
+    /** Sendet einen Seite-2-Pillen-Trigger (pill=1 → 7-Uhr, pill=2 → 5-Uhr) an die App. */
+    private fun triggerP2PillAction(pill: Int) {
+        val path = if (pill == 1) PATH_P2_PILL1_TRIGGER else PATH_P2_PILL2_TRIGGER
+        scope.launch {
+            try {
+                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
+                if (nodes.isEmpty()) { Log.w(TAG_PILL, "Kein verbundenes Gerät für P2-Pille"); return@launch }
+                nodes.forEach { node ->
+                    Wearable.getMessageClient(context).sendMessage(node.id, path, byteArrayOf()).await()
+                    Log.d(TAG_PILL, "P2-Pille-$pill-Trigger an ${node.displayName} gesendet")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG_PILL, "P2-Pille-$pill-Trigger fehlgeschlagen: ${e.message}")
             }
         }
     }
@@ -1729,9 +1765,11 @@ class IoSyncWatchFaceRenderer(
             if (tapType == TapType.UP) {
                 page2TouchActive = false
                 page2TouchReleasedAt = System.currentTimeMillis()
-                // Pille 7 Uhr oder 5 Uhr → Aktion auslösen
-                if (page2Pill1TapBounds.contains(x, y) || page2Pill2TapBounds.contains(x, y)) {
-                    triggerPillAction()
+                // Pille 7 Uhr → Aktion Pille 1; Pille 5 Uhr → Aktion Pille 2
+                if (!page2Pill1TapBounds.isEmpty && page2Pill1TapBounds.contains(x, y)) {
+                    triggerP2PillAction(1)
+                } else if (!page2Pill2TapBounds.isEmpty && page2Pill2TapBounds.contains(x, y)) {
+                    triggerP2PillAction(2)
                 }
                 invalidate()
             }
@@ -1899,48 +1937,45 @@ class IoSyncWatchFaceRenderer(
      */
     private fun drawPage2Pills(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config  = WatchFaceConfigCache
-        val halfW   = radius * 0.133f   // halb so lang wie Seite-1-Pille (0.266)
+        val halfW   = radius * 0.133f
         val halfH   = radius * 0.060f
         val tapPad  = halfH * 1.5f
 
-        // 7 Uhr: 210° von 12 → Einheitsvektor (cos120°, sin120°) = (−0.5, 0.866)
-        // 5 Uhr: 150° von 12 → Einheitsvektor (cos 60°, sin 60°) = (+0.5, 0.866)
-        val dist  = radius * 0.63f
+        val dist   = radius * 0.63f
         val pill7X = cx - dist * 0.50f
         val pill7Y = cy + dist * 0.866f
         val pill5X = cx + dist * 0.50f
         val pill5Y = cy + dist * 0.866f
 
-        // Eigene Pille-Farben für Seite 2 (Standard: gleiche wie Seite-1-Pille, überschreibbar)
-        val colorTrue  = if (config.p2PillColorTrue.isNotBlank())  config.p2PillColorTrue  else config.actionPillColorTrue
-        val colorFalse = if (config.p2PillColorFalse.isNotBlank()) config.p2PillColorFalse else config.actionPillColorFalse
-        val stateColor = colorFromPillId(
-            if (config.actionPillState) colorTrue else colorFalse
-        )
+        // Pille 1 (7 Uhr) – unabhängige Konfiguration
+        if (config.p2PillEnabled) {
+            val c1True  = if (config.p2PillColorTrue.isNotBlank())  config.p2PillColorTrue  else "cyan"
+            val c1False = if (config.p2PillColorFalse.isNotBlank()) config.p2PillColorFalse else "red"
+            val sc1 = colorFromPillId(if (config.p2Pill1State) c1True else c1False)
+            page2PillFillPaint.color   = Color.argb(180, Color.red(sc1), Color.green(sc1), Color.blue(sc1))
+            page2PillStrokePaint.color = sc1
+            page2Pill1Bounds.set(pill7X - halfW, pill7Y - halfH, pill7X + halfW, pill7Y + halfH)
+            page2Pill1TapBounds.set(pill7X - halfW - tapPad, pill7Y - halfH - tapPad, pill7X + halfW + tapPad, pill7Y + halfH + tapPad)
+            canvas.drawRoundRect(page2Pill1Bounds, halfH, halfH, page2PillFillPaint)
+            canvas.drawRoundRect(page2Pill1Bounds, halfH, halfH, page2PillStrokePaint)
+        } else {
+            page2Pill1TapBounds.setEmpty()
+        }
 
-        page2PillFillPaint.color = Color.argb(
-            180,
-            Color.red(stateColor), Color.green(stateColor), Color.blue(stateColor)
-        )
-        page2PillStrokePaint.color = stateColor
-
-        // Pille bei 7 Uhr
-        page2Pill1Bounds.set(pill7X - halfW, pill7Y - halfH, pill7X + halfW, pill7Y + halfH)
-        page2Pill1TapBounds.set(
-            pill7X - halfW - tapPad, pill7Y - halfH - tapPad,
-            pill7X + halfW + tapPad, pill7Y + halfH + tapPad
-        )
-        canvas.drawRoundRect(page2Pill1Bounds, halfH, halfH, page2PillFillPaint)
-        canvas.drawRoundRect(page2Pill1Bounds, halfH, halfH, page2PillStrokePaint)
-
-        // Pille bei 5 Uhr
-        page2Pill2Bounds.set(pill5X - halfW, pill5Y - halfH, pill5X + halfW, pill5Y + halfH)
-        page2Pill2TapBounds.set(
-            pill5X - halfW - tapPad, pill5Y - halfH - tapPad,
-            pill5X + halfW + tapPad, pill5Y + halfH + tapPad
-        )
-        canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillFillPaint)
-        canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillStrokePaint)
+        // Pille 2 (5 Uhr) – unabhängige Konfiguration
+        if (config.p2Pill2Enabled) {
+            val c2True  = if (config.p2Pill2ColorTrue.isNotBlank())  config.p2Pill2ColorTrue  else "cyan"
+            val c2False = if (config.p2Pill2ColorFalse.isNotBlank()) config.p2Pill2ColorFalse else "red"
+            val sc2 = colorFromPillId(if (config.p2Pill2State) c2True else c2False)
+            page2PillFillPaint.color   = Color.argb(180, Color.red(sc2), Color.green(sc2), Color.blue(sc2))
+            page2PillStrokePaint.color = sc2
+            page2Pill2Bounds.set(pill5X - halfW, pill5Y - halfH, pill5X + halfW, pill5Y + halfH)
+            page2Pill2TapBounds.set(pill5X - halfW - tapPad, pill5Y - halfH - tapPad, pill5X + halfW + tapPad, pill5Y + halfH + tapPad)
+            canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillFillPaint)
+            canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillStrokePaint)
+        } else {
+            page2Pill2TapBounds.setEmpty()
+        }
     }
 
     /**

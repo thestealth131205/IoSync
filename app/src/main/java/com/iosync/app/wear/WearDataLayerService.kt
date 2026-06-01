@@ -108,8 +108,9 @@ private const val KEY_WF_ACTION_PILL_FIXED_VALUE = "wf_action_pill_fixed_value"
 private const val KEY_WF_ACTION_PILL_STATE       = "wf_action_pill_state"
 
 // ── Aktions-Pille Status-Pfad ─────────────────────────────────────────────────
-private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
-private const val KEY_PILL_STATE         = "pill_state"
+private const val PATH_ACTION_PILL_STATE  = "/iosync/watchface/action_pill_state"
+private const val KEY_PILL_STATE          = "pill_state"
+private const val PATH_P2_PILL_STATES     = "/iosync/watchface/p2_pill_states"
 
 // ── Akku-Keys ─────────────────────────────────────────────────────────────────
 private const val KEY_BATTERY_LEVEL   = "battery_level"
@@ -449,6 +450,25 @@ class WearDataLayerService @Inject constructor(
     }
 
     /**
+     * Überträgt den Status der beiden Seite-2-Pillen ans Watchface.
+     */
+    suspend fun syncP2PillStatesToWear(pill1State: Boolean, pill2State: Boolean) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_P2_PILL_STATES).apply {
+                    dataMap.putBoolean("wf_p2_pill1_state", pill1State)
+                    dataMap.putBoolean("wf_p2_pill2_state", pill2State)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Seite-2-Pillen-Status ($pill1State/$pill2State) an Wear OS übertragen")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncP2PillStatesToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
      * Überträgt die aktuellen Werte der Custom ioBroker-Slots ans Watchface.
      */
     suspend fun syncCustomSlotsToWear(
@@ -533,6 +553,12 @@ class WearDataLayerService @Inject constructor(
         p2PillIoBrokerId: String,
         p2PillValueMode: String,
         p2PillFixedValue: String,
+        p2Pill2Enabled: Boolean,
+        p2Pill2ColorTrue: String,
+        p2Pill2ColorFalse: String,
+        p2Pill2IoBrokerId: String,
+        p2Pill2ValueMode: String,
+        p2Pill2FixedValue: String,
         p2Slot1TextScale: Int,
         p2Slot2TextScale: Int,
         p2Slot3TextScale: Int,
@@ -558,6 +584,12 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString("wf_p2_pill_iobroker_id",    p2PillIoBrokerId)
                     dataMap.putString("wf_p2_pill_value_mode",     p2PillValueMode)
                     dataMap.putString("wf_p2_pill_fixed_value",    p2PillFixedValue)
+                    dataMap.putBoolean("wf_p2_pill2_enabled",      p2Pill2Enabled)
+                    dataMap.putString("wf_p2_pill2_color_true",    p2Pill2ColorTrue)
+                    dataMap.putString("wf_p2_pill2_color_false",   p2Pill2ColorFalse)
+                    dataMap.putString("wf_p2_pill2_iobroker_id",   p2Pill2IoBrokerId)
+                    dataMap.putString("wf_p2_pill2_value_mode",    p2Pill2ValueMode)
+                    dataMap.putString("wf_p2_pill2_fixed_value",   p2Pill2FixedValue)
                     dataMap.putInt("wf_p2_slot1_text_scale",       p2Slot1TextScale)
                     dataMap.putInt("wf_p2_slot2_text_scale",       p2Slot2TextScale)
                     dataMap.putInt("wf_p2_slot3_text_scale",       p2Slot3TextScale)

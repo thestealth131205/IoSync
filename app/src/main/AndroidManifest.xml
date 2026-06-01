@@ -67,11 +67,11 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- Health-Sync Background Service (überträgt Health-Connect-Daten ans Watchface) -->
+        <!-- Zentraler Hintergrund-Sync (Wetter, Akku, ioBroker-Slots, Health) ans Watchface -->
         <service
-            android:name=".data.health.HealthSyncService"
+            android:name=".data.sync.IoSyncSyncService"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync|connectedDevice" />
 
         <!-- Health Connect: Berechtigungs-Rationale → leitet auf MainActivity -->
         <activity-alias
