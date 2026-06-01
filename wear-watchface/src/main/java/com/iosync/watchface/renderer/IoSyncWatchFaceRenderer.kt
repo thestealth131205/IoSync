@@ -1585,7 +1585,7 @@ class IoSyncWatchFaceRenderer(
             (slot.renderer as? CanvasComplicationDrawable)?.drawable?.activeStyle?.apply {
                 textSize     = (30f * sunriseScale).toInt().coerceAtLeast(8)
                 titleSize    = (22f * sunriseScale).toInt().coerceAtLeast(6)
-                primaryColor = sunriseArgb
+                textColor = sunriseArgb
             }
         }
         // Slot 6 (Schritte) wird nicht mehr nativ gerendert – die Schritte werden
