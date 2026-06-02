@@ -262,6 +262,7 @@ class IoSyncSyncService : Service() {
 
     private suspend fun weatherLoop() {
         while (true) {
+            var nextDelayMs = WEATHER_INTERVAL_MS
             try {
                 val prefs = dataStore.data.first()
                 val showWeather = prefs[MainViewModel.KEY_WF_SHOW_WEATHER] ?: true
@@ -277,8 +278,12 @@ class IoSyncSyncService : Service() {
 
                     weatherService.fetchWeather()
                         .onSuccess { wearDataLayerService.syncWeatherToWear(it.temperature, it.condition) }
+                        .onFailure { err ->
+                            Log.e(TAG, "weatherLoop Fetch fehlgeschlagen, Retry in 60s: ${err.message}")
+                            nextDelayMs = 60_000L
+                        }
                 }
-                delay(WEATHER_INTERVAL_MS)
+                delay(nextDelayMs)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {

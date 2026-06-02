@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.net.URL
 import javax.inject.Inject
@@ -102,10 +103,18 @@ class WeatherService @Inject constructor(
                     return@withContext Result.failure(SecurityException("Standort-Berechtigung fehlt"))
                 }
 
-                val location = fusedLocationClient.getCurrentLocation(
-                    Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                    CancellationTokenSource().token
-                ).await()
+                // getCurrentLocation kann im Hintergrund hängen (kein GPS-Fix) → Timeout + lastLocation-Fallback
+                val cts = CancellationTokenSource()
+                val location = withTimeoutOrNull(10_000L) {
+                    fusedLocationClient.getCurrentLocation(
+                        Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                        cts.token
+                    ).await()
+                } ?: run {
+                    cts.cancel()
+                    Log.w(TAG, "getCurrentLocation Timeout – versuche letzte bekannte Position")
+                    fusedLocationClient.lastLocation.await()
+                }
 
                 if (location == null) {
                     return@withContext Result.failure(Exception("Standort nicht verfügbar"))

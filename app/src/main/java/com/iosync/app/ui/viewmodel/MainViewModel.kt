@@ -1013,6 +1013,13 @@ class MainViewModel @Inject constructor(
                     wfWeatherIoBrokerId = weatherIoBrokerId
                 )
             }
+            // Wetter-Quelle sofort im DataStore persistieren, da der Hintergrund-Service
+            // (IoSyncSyncService) ausschließlich den DataStore liest und sonst bei einem
+            // Preview-only-Wechsel (ohne "Auf Uhr übertragen") den falschen Wert sieht.
+            dataStore.edit { prefs ->
+                prefs[KEY_WF_WEATHER_TEMP_SOURCE] = weatherTempSource
+                prefs[KEY_WF_WEATHER_IOBROKER_ID] = weatherIoBrokerId
+            }
             try {
                 pushFullConfigToWear()
             } catch (e: Exception) {
@@ -1020,6 +1027,11 @@ class MainViewModel @Inject constructor(
             }
             // Hintergrund-Sync-Service mit neuer Konfiguration neu starten
             IoSyncSyncService.start(context)
+            // Sofort Wetterdaten abrufen wenn Quelle OpenWeather ist
+            if (weatherTempSource == "openweather") {
+                weatherService.fetchWeather()
+                    .onSuccess { wearDataLayerService.syncWeatherToWear(it.temperature, it.condition) }
+            }
             if (showIoBrokerData && _uiState.value.ioSyncStates.isNotEmpty()) {
                 wearDataLayerService.syncStatesToWear(_uiState.value.ioSyncStates)
             }

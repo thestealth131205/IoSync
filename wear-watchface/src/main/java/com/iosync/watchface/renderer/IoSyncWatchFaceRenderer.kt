@@ -895,15 +895,23 @@ class IoSyncWatchFaceRenderer(
         // Füll-Bogen mit Gradient (von 12 Uhr im Uhrzeigersinn)
         if (level > 0) {
             val sweepAngle = level / 100f * 360f
-            // Warnstufen: nur die Startfarbe (von 0 an) wird ersetzt, der Verlauf zur
-            // Endfarbe bleibt bestehen. Schwelle 0 = deaktiviert; Stufe 2 hat Vorrang.
+            // Warnstufen: nur die Startfarbe (von 0 an) wird ersetzt.
+            // Priorität: die Warnstufe mit dem KLEINEREN Schwellwert (kritischer) hat Vorrang.
+            // Liegt der Akkustand über ALLEN Schwellen, wird immer color1 (konfigurierte Farbe) angezeigt.
             val cfg = WatchFaceConfigCache
-            var startColor = color1
-            if (cfg.batteryWarn1Threshold > 0 && level <= cfg.batteryWarn1Threshold) {
-                startColor = colorFromId(cfg.batteryWarn1Color)
-            }
-            if (cfg.batteryWarn2Threshold > 0 && level <= cfg.batteryWarn2Threshold) {
-                startColor = colorFromId(cfg.batteryWarn2Color)
+            val w1Active = cfg.batteryWarn1Threshold > 0 && level <= cfg.batteryWarn1Threshold
+            val w2Active = cfg.batteryWarn2Threshold > 0 && level <= cfg.batteryWarn2Threshold
+            val startColor = when {
+                w1Active && w2Active -> {
+                    // Beide aktiv → die mit dem kleineren Schwellwert gewinnt (kritischer)
+                    if (cfg.batteryWarn1Threshold <= cfg.batteryWarn2Threshold)
+                        colorFromId(cfg.batteryWarn1Color)
+                    else
+                        colorFromId(cfg.batteryWarn2Color)
+                }
+                w1Active -> colorFromId(cfg.batteryWarn1Color)
+                w2Active -> colorFromId(cfg.batteryWarn2Color)
+                else     -> color1  // über allen Schwellen → zurück zur konfigurierten Farbe
             }
             val shader = SweepGradient(ringCx, ringCy, intArrayOf(startColor, color2), null)
             val matrix = Matrix()
@@ -1454,16 +1462,19 @@ class IoSyncWatchFaceRenderer(
 
         val dp7 = 7f * context.resources.displayMetrics.density
         val gap = radius * 0.035f
-
-        var nextY = clockBottomY + dp7
+        // Alle 4 Slots etwas nach links und oben verschoben
+        val slotsCx = cx - radius * 0.06f
+        var nextY = clockBottomY - radius * 0.05f
 
         // ── Slot 4: Balken-Graph ───────────────────────────────────────────
         if (config.customSlot4Label.isNotBlank()) {
             val slot4Scale = config.slot4TextScale / 100f
-            val barW     = radius * 0.88f
+            // Balken doppelt so breit + zusätzlich nach links verschoben
+            val barW     = radius * 1.76f
             val barH     = radius * 0.055f
-            val barLeft  = cx - barW / 2f
-            val barRight = cx + barW / 2f
+            val barCx    = slotsCx - radius * 0.06f
+            val barLeft  = barCx - barW / 2f
+            val barRight = barCx + barW / 2f
             val barCorner = barH / 2f
 
             val minVal = config.customSlot4BarMin
@@ -1549,7 +1560,7 @@ class IoSyncWatchFaceRenderer(
         val count = activeSlots.size
         if (count > 0) {
             val totalWidth = (count - 1) * slotSpacing
-            val startX = cx - totalWidth / 2f
+            val startX = slotsCx - totalWidth / 2f
             for ((i, slot) in activeSlots.withIndex()) {
                 drawSlot(slot.label, slot.value, startX + i * slotSpacing, slot.scale)
             }
@@ -1925,11 +1936,11 @@ class IoSyncWatchFaceRenderer(
      */
     private fun drawPage2Pills(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config  = WatchFaceConfigCache
-        val halfW   = radius * 0.133f
-        val halfH   = radius * 0.060f
+        val halfW   = radius * 0.162f
+        val halfH   = radius * 0.075f
         val tapPad  = halfH * 1.5f
 
-        val dist   = radius * 0.63f
+        val dist   = radius * 0.69f
         val pill7X = cx - dist * 0.50f
         val pill7Y = cy + dist * 0.866f
         val pill5X = cx + dist * 0.50f
