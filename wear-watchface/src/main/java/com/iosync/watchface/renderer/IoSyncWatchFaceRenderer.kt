@@ -1503,19 +1503,15 @@ class IoSyncWatchFaceRenderer(
 
         val dp7 = 7f * context.resources.displayMetrics.density
         val gap = radius * 0.035f
-        // Alle 4 Slots etwas nach links und oben verschoben
-        val slotsCx = cx - radius * 0.06f
-        var nextY = clockBottomY - radius * 0.05f
+        var nextY = clockBottomY + dp7
 
         // ── Slot 4: Balken-Graph ───────────────────────────────────────────
         if (config.customSlot4Label.isNotBlank()) {
             val slot4Scale = config.slot4TextScale / 100f
-            // Balken doppelt so breit + zusätzlich nach links verschoben
-            val barW     = radius * 1.76f
+            val barW     = radius * 0.88f
             val barH     = radius * 0.055f
-            val barCx    = slotsCx - radius * 0.06f
-            val barLeft  = barCx - barW / 2f
-            val barRight = barCx + barW / 2f
+            val barLeft  = cx - barW / 2f
+            val barRight = cx + barW / 2f
             val barCorner = barH / 2f
 
             val minVal = config.customSlot4BarMin
@@ -1601,7 +1597,7 @@ class IoSyncWatchFaceRenderer(
         val count = activeSlots.size
         if (count > 0) {
             val totalWidth = (count - 1) * slotSpacing
-            val startX = slotsCx - totalWidth / 2f
+            val startX = cx - totalWidth / 2f
             for ((i, slot) in activeSlots.withIndex()) {
                 drawSlot(slot.label, slot.value, startX + i * slotSpacing, slot.scale)
             }
