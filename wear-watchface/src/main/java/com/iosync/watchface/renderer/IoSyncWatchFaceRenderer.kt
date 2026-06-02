@@ -1742,7 +1742,6 @@ class IoSyncWatchFaceRenderer(
                 if (now - page2LastTapTime <= DOUBLE_TAP_MS) {
                     currentPage = 1 - currentPage
                     page2LastTapTime = 0L
-                    page2TouchActive = false
                     invalidate()
                 } else {
                     page2LastTapTime = now
