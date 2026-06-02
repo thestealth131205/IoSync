@@ -96,7 +96,8 @@ private const val KEY_PHONE_SPO2             = "phone_spo2"
 private const val KEY_PHONE_CALORIES         = "phone_calories"
 
 // ── Hintergrund ───────────────────────────────────────────────────────────────
-private const val KEY_WF_SHOW_BACKGROUND = "wf_show_background"
+private const val KEY_WF_SHOW_BACKGROUND    = "wf_show_background"
+private const val KEY_WF_P2_SHOW_BACKGROUND = "wf_p2_show_background"
 
 // ── Gesundheitsdaten-Farben ───────────────────────────────────────────────────
 private const val KEY_WF_HR_COLOR      = "wf_hr_color"
@@ -305,6 +306,7 @@ class WatchFaceDataListenerService : WearableListenerService() {
 object WatchFaceConfigCache {
 
     @Volatile var showBackground: Boolean = false
+    @Volatile var showBackgroundPage2: Boolean = false
     @Volatile var timeColorId: String = "light_gray"
     @Volatile var dateColorId: String = "cyan"
     @Volatile var showSeconds: Boolean = true
@@ -423,6 +425,8 @@ object WatchFaceConfigCache {
     @Volatile var p2Slot3TextScale: Int = 100
     @Volatile var p2Slot4TextScale: Int = 100
     @Volatile var sleepTextScale: Int = 100
+    @Volatile var sleepSource: String = "healthconnect"
+    @Volatile var sleepComplication: String = ""
 
     // ── Seite 2 – vertikaler Balken ───────────────────────────────────────────
     @Volatile var p2BarLabel: String = ""
@@ -543,6 +547,8 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_P2_SLOT3_TEXT_SCALE)) p2Slot3TextScale = dataMap.getInt(KEY_WF_P2_SLOT3_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_P2_SLOT4_TEXT_SCALE)) p2Slot4TextScale = dataMap.getInt(KEY_WF_P2_SLOT4_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_SLEEP_TEXT_SCALE))    sleepTextScale   = dataMap.getInt(KEY_WF_SLEEP_TEXT_SCALE)
+        dataMap.getString("wf_sleep_source")?.let      { sleepSource      = it }
+        dataMap.getString("wf_sleep_complication")?.let { sleepComplication = it }
         // Seite 2 – vertikaler Balken
         dataMap.getString(KEY_WF_P2_BAR_LABEL)?.let  { p2BarLabel = it }
         dataMap.getString(KEY_WF_P2_BAR_VALUE)?.let  { p2BarValue = it }
@@ -555,6 +561,7 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_P2_BAR_WARN2_COLOR)?.let { p2BarWarn2Color = it }
         if (dataMap.containsKey(KEY_WF_P2_BAR_WARN1_VALUE)) p2BarWarn1Value = dataMap.getFloat(KEY_WF_P2_BAR_WARN1_VALUE)
         if (dataMap.containsKey(KEY_WF_P2_BAR_WARN2_VALUE)) p2BarWarn2Value = dataMap.getFloat(KEY_WF_P2_BAR_WARN2_VALUE)
+        if (dataMap.containsKey(KEY_WF_P2_SHOW_BACKGROUND)) showBackgroundPage2 = dataMap.getBoolean(KEY_WF_P2_SHOW_BACKGROUND)
     }
 }
 

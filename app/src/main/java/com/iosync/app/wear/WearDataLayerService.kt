@@ -564,6 +564,8 @@ class WearDataLayerService @Inject constructor(
         p2Slot3TextScale: Int,
         p2Slot4TextScale: Int,
         sleepTextScale: Int,
+        sleepSource: String = "healthconnect",
+        sleepComplication: String = "",
         p2BarLabel: String = "",
         p2BarColor: String = "neon_yellow",
         p2BarMin: Float = 0f,
@@ -573,7 +575,8 @@ class WearDataLayerService @Inject constructor(
         p2BarWarn1Color: String = "orange",
         p2BarWarn1Value: Float = Float.NaN,
         p2BarWarn2Color: String = "red",
-        p2BarWarn2Value: Float = Float.NaN
+        p2BarWarn2Value: Float = Float.NaN,
+        p2ShowBackground: Boolean = false
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -595,6 +598,8 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt("wf_p2_slot3_text_scale",       p2Slot3TextScale)
                     dataMap.putInt("wf_p2_slot4_text_scale",       p2Slot4TextScale)
                     dataMap.putInt("wf_sleep_text_scale",          sleepTextScale)
+                    dataMap.putString("wf_sleep_source",           sleepSource)
+                    dataMap.putString("wf_sleep_complication",     sleepComplication)
                     dataMap.putString(KEY_WF_P2_BAR_LABEL,        p2BarLabel)
                     dataMap.putString(KEY_WF_P2_BAR_COLOR,        p2BarColor)
                     dataMap.putFloat(KEY_WF_P2_BAR_MIN,           p2BarMin)
@@ -605,6 +610,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putFloat(KEY_WF_P2_BAR_WARN1_VALUE,   p2BarWarn1Value)
                     dataMap.putString(KEY_WF_P2_BAR_WARN2_COLOR,  p2BarWarn2Color)
                     dataMap.putFloat(KEY_WF_P2_BAR_WARN2_VALUE,   p2BarWarn2Value)
+                    dataMap.putBoolean("wf_p2_show_background",   p2ShowBackground)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

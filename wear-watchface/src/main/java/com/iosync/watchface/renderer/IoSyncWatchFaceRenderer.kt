@@ -317,18 +317,13 @@ class IoSyncWatchFaceRenderer(
     private var currentPage = 0          // 0 = Hauptseite, 1 = Zweite Seite
     private var nineOClockTapBounds = RectF()
     private var page2LastTapTime = 0L
-    private var page2TouchActive = false
-    private var page2TouchReleasedAt = 0L
-    private val PAGE2_TOUCH_FADE_MS = 500L
+    private var page2Pill1LastTapTime = 0L
+    private var page2Pill2LastTapTime = 0L
     private var page2Pill1Bounds = RectF()
     private var page2Pill2Bounds = RectF()
     private var page2Pill1TapBounds = RectF()
     private var page2Pill2TapBounds = RectF()
 
-    private val page2OverlayPaint = Paint().apply {
-        style = Paint.Style.FILL
-        isAntiAlias = true
-    }
     private val page2PillFillPaint = Paint().apply {
         isAntiAlias = true
         style = Paint.Style.FILL
@@ -581,7 +576,8 @@ class IoSyncWatchFaceRenderer(
 
         canvas.drawRect(0f, 0f, bounds.width().toFloat(), bounds.height().toFloat(), backgroundPaint)
 
-        if (!isAmbient && config.showBackground) {
+        val showBg = if (currentPage == 1) config.showBackgroundPage2 else config.showBackground
+        if (!isAmbient && showBg) {
             val w = bounds.width()
             val h = bounds.height()
             if (backgroundBitmapScaled?.width != w || backgroundBitmapScaled?.height != h) {
@@ -1755,21 +1751,29 @@ class IoSyncWatchFaceRenderer(
             return
         }
 
-        // ── Seite 2: Touch-Overlay + Pillen ─────────────────────────────────
+        // ── Seite 2: Pillen (Doppeltipp wie Seite-1-Pille) ──────────────────
         if (currentPage == 1) {
-            if (tapType == TapType.DOWN) {
-                page2TouchActive = true
-                invalidate()
-                return
-            }
             if (tapType == TapType.UP) {
-                page2TouchActive = false
-                page2TouchReleasedAt = System.currentTimeMillis()
-                // Pille 7 Uhr → Aktion Pille 1; Pille 5 Uhr → Aktion Pille 2
+                val now = System.currentTimeMillis()
                 if (!page2Pill1TapBounds.isEmpty && page2Pill1TapBounds.contains(x, y)) {
-                    triggerP2PillAction(1)
+                    if (now - page2Pill1LastTapTime <= DOUBLE_TAP_MS) {
+                        page2Pill1LastTapTime = 0L
+                        triggerP2PillAction(1)
+                    } else {
+                        page2Pill1LastTapTime = now
+                        page2Pill2LastTapTime = 0L
+                    }
                 } else if (!page2Pill2TapBounds.isEmpty && page2Pill2TapBounds.contains(x, y)) {
-                    triggerP2PillAction(2)
+                    if (now - page2Pill2LastTapTime <= DOUBLE_TAP_MS) {
+                        page2Pill2LastTapTime = 0L
+                        triggerP2PillAction(2)
+                    } else {
+                        page2Pill2LastTapTime = now
+                        page2Pill1LastTapTime = 0L
+                    }
+                } else {
+                    page2Pill1LastTapTime = 0L
+                    page2Pill2LastTapTime = 0L
                 }
                 invalidate()
             }
@@ -1861,21 +1865,6 @@ class IoSyncWatchFaceRenderer(
      *   - 2 halbe Aktions-Pillen bei 7 Uhr und 5 Uhr
      */
     private fun drawPage2(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
-        // Touch-Overlay: unsichtbar bis berührt, danach stark transparentes Weiß
-        val alpha = if (page2TouchActive) {
-            48
-        } else {
-            val elapsed = System.currentTimeMillis() - page2TouchReleasedAt
-            if (elapsed < PAGE2_TOUCH_FADE_MS) {
-                (48 * (1f - elapsed.toFloat() / PAGE2_TOUCH_FADE_MS)).toInt()
-            } else 0
-        }
-        if (alpha > 0) {
-            page2OverlayPaint.color = Color.argb(alpha, 255, 255, 255)
-            canvas.drawCircle(cx, cy, radius, page2OverlayPaint)
-            invalidate() // weiter animieren während Fade-out
-        }
-
         // Schlafdauer (oben, über den Slots)
         drawPage2Sleep(canvas, cx, cy, radius)
 
@@ -1947,6 +1936,8 @@ class IoSyncWatchFaceRenderer(
         val pill5X = cx + dist * 0.50f
         val pill5Y = cy + dist * 0.866f
 
+        val pillTextSize = halfH * 1.1f
+
         // Pille 1 (7 Uhr) – unabhängige Konfiguration
         if (config.p2PillEnabled) {
             val c1True  = if (config.p2PillColorTrue.isNotBlank())  config.p2PillColorTrue  else "cyan"
@@ -1958,6 +1949,10 @@ class IoSyncWatchFaceRenderer(
             page2Pill1TapBounds.set(pill7X - halfW - tapPad, pill7Y - halfH - tapPad, pill7X + halfW + tapPad, pill7Y + halfH + tapPad)
             canvas.drawRoundRect(page2Pill1Bounds, halfH, halfH, page2PillFillPaint)
             canvas.drawRoundRect(page2Pill1Bounds, halfH, halfH, page2PillStrokePaint)
+            pillTextPaint.color    = Color.WHITE
+            pillTextPaint.textSize = pillTextSize
+            val fm1 = pillTextPaint.fontMetrics
+            canvas.drawText(if (config.p2Pill1State) "AN" else "AUS", pill7X, pill7Y - (fm1.ascent + fm1.descent) / 2f, pillTextPaint)
         } else {
             page2Pill1TapBounds.setEmpty()
         }
@@ -1973,6 +1968,10 @@ class IoSyncWatchFaceRenderer(
             page2Pill2TapBounds.set(pill5X - halfW - tapPad, pill5Y - halfH - tapPad, pill5X + halfW + tapPad, pill5Y + halfH + tapPad)
             canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillFillPaint)
             canvas.drawRoundRect(page2Pill2Bounds, halfH, halfH, page2PillStrokePaint)
+            pillTextPaint.color    = Color.WHITE
+            pillTextPaint.textSize = pillTextSize
+            val fm2 = pillTextPaint.fontMetrics
+            canvas.drawText(if (config.p2Pill2State) "AN" else "AUS", pill5X, pill5Y - (fm2.ascent + fm2.descent) / 2f, pillTextPaint)
         } else {
             page2Pill2TapBounds.setEmpty()
         }

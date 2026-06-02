@@ -132,6 +132,7 @@ class IoSyncSyncService : Service() {
                         if (hasPage2Slots(prefs)) {
                             syncPage2Slots(prefs, states)
                         }
+                        syncPage2PillStates(prefs, states)
                         // ioBroker als Wetter-Temperatur-Quelle
                         if (prefs[MainViewModel.KEY_WF_SHOW_WEATHER] != false &&
                             prefs[MainViewModel.KEY_WF_WEATHER_TEMP_SOURCE] == "iobroker"
@@ -139,6 +140,18 @@ class IoSyncSyncService : Service() {
                             val id = prefs[MainViewModel.KEY_WF_WEATHER_IOBROKER_ID] ?: ""
                             states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.let { temp ->
                                 wearDataLayerService.syncWeatherToWear(temp.toInt(), "clear")
+                            }
+                        }
+                        // ioBroker als Schlaf-Quelle
+                        if (prefs[MainViewModel.KEY_WF_SLEEP_SOURCE] == "iobroker") {
+                            val id = prefs[MainViewModel.KEY_WF_SLEEP_IOBROKER_ID] ?: ""
+                            if (id.isNotBlank()) {
+                                states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.toInt()?.let { mins ->
+                                    if (mins > 0) {
+                                        lastKnownSleep = mins
+                                        wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, mins)
+                                    }
+                                }
                             }
                         }
                     }
@@ -184,6 +197,22 @@ class IoSyncSyncService : Service() {
             prefs[MainViewModel.KEY_P2_SLOT4_LABEL] ?: "", formatSlotValue(valOf(MainViewModel.KEY_P2_SLOT4_ID)),
             p2BarValue = if (barId.isNotBlank()) formatSlotValue(valOf(MainViewModel.KEY_P2_BAR_ID)) else "--"
         )
+    }
+
+    private suspend fun syncPage2PillStates(prefs: Preferences, states: List<SmartHomeState>) {
+        val pill1Enabled = prefs[MainViewModel.KEY_P2_PILL_ENABLED] ?: false
+        val pill2Enabled = prefs[MainViewModel.KEY_P2_PILL2_ENABLED] ?: false
+        if (!pill1Enabled && !pill2Enabled) return
+        val pill1Id = if (pill1Enabled) prefs[MainViewModel.KEY_P2_PILL_IOBROKER_ID] ?: "" else ""
+        val pill2Id = if (pill2Enabled) prefs[MainViewModel.KEY_P2_PILL2_IOBROKER_ID] ?: "" else ""
+        if (pill1Id.isBlank() && pill2Id.isBlank()) return
+        fun boolOf(id: String, fallbackKey: androidx.datastore.preferences.core.Preferences.Key<Boolean>): Boolean {
+            val v = states.firstOrNull { it.id == id }?.value ?: return prefs[fallbackKey] ?: false
+            return v == "true" || v == "1"
+        }
+        val s1 = if (pill1Id.isNotBlank()) boolOf(pill1Id, MainViewModel.KEY_P2_PILL1_STATE) else prefs[MainViewModel.KEY_P2_PILL1_STATE] ?: false
+        val s2 = if (pill2Id.isNotBlank()) boolOf(pill2Id, MainViewModel.KEY_P2_PILL2_STATE) else prefs[MainViewModel.KEY_P2_PILL2_STATE] ?: false
+        wearDataLayerService.syncP2PillStatesToWear(s1, s2)
     }
 
     private fun formatSlotValue(value: String?): String {
@@ -242,17 +271,19 @@ class IoSyncSyncService : Service() {
     private suspend fun healthLoop() {
         while (true) {
             val prefs = dataStore.data.first()
-            val hrSource     = prefs[MainViewModel.KEY_WF_HR_SOURCE]     ?: "local"
-            val kcalSource   = prefs[MainViewModel.KEY_WF_KCAL_SOURCE]   ?: "local"
-            val oxygenSource = prefs[MainViewModel.KEY_WF_OXYGEN_SOURCE] ?: "local"
+            val hrSource     = prefs[MainViewModel.KEY_WF_HR_SOURCE]      ?: "local"
+            val kcalSource   = prefs[MainViewModel.KEY_WF_KCAL_SOURCE]    ?: "local"
+            val oxygenSource = prefs[MainViewModel.KEY_WF_OXYGEN_SOURCE]  ?: "local"
+            val sleepSource  = prefs[MainViewModel.KEY_WF_SLEEP_SOURCE]   ?: "healthconnect"
             val intervalSec  = prefs[MainViewModel.KEY_HEALTH_POLL_INTERVAL] ?: 60
 
-            val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" || oxygenSource == "healthconnect"
+            val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" ||
+                oxygenSource == "healthconnect" || sleepSource == "healthconnect"
             if (anyHealthConnect) {
-                if (hrSource == "healthconnect") healthConnectManager.readLatestHeartRate()?.let { if (it > 0) lastKnownHr = it }
-                if (kcalSource == "healthconnect") healthConnectManager.readTodayCalories()?.let { if (it > 0) lastKnownKcal = it }
+                if (hrSource == "healthconnect")     healthConnectManager.readLatestHeartRate()?.let { if (it > 0) lastKnownHr = it }
+                if (kcalSource == "healthconnect")   healthConnectManager.readTodayCalories()?.let { if (it > 0) lastKnownKcal = it }
                 if (oxygenSource == "healthconnect") healthConnectManager.readLatestOxygenSaturation()?.let { if (it > 0) lastKnownO2 = it }
-                healthConnectManager.readTodaySleepMinutes()?.let { if (it > 0) lastKnownSleep = it }
+                if (sleepSource == "healthconnect")  healthConnectManager.readTodaySleepMinutes()?.let { if (it > 0) lastKnownSleep = it }
 
                 if (lastKnownHr > 0 || lastKnownO2 > 0 || lastKnownKcal > 0 || lastKnownSleep > 0) {
                     wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, lastKnownSleep)

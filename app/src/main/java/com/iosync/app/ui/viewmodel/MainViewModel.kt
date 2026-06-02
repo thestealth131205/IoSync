@@ -149,6 +149,7 @@ data class MainUiState(
     val wfOxygenComplication: String = "",
     // Watchface: Hintergrundbild
     val wfShowBackground: Boolean = false,
+    val p2ShowBackground: Boolean = false,
     // Gesundheitsdaten-Farben
     val wfHrColor: String      = "red",
     val wfKcalColor: String    = "orange",
@@ -175,6 +176,9 @@ data class MainUiState(
     val p2Slot3TextScale: Int = 100,
     val p2Slot4TextScale: Int = 100,
     val wfSleepTextScale: Int = 100,
+    val wfSleepSource: String = "healthconnect",
+    val wfSleepIoBrokerId: String = "",
+    val wfSleepComplication: String = "",
     // ── Seite 2 Pillen – Pille 1 (7 Uhr) ───────────────────────────────────────
     val p2PillEnabled: Boolean = false,
     val p2PillColorTrue: String = "cyan",
@@ -292,6 +296,7 @@ class MainViewModel @Inject constructor(
         val KEY_WF_SUNRISE_TEXT_SCALE        = intPreferencesKey("wf_sunrise_text_scale")
         val KEY_WF_WATCH_BATTERY_TEXT_SCALE = intPreferencesKey("wf_watch_battery_text_scale")
         val KEY_WF_SHOW_BACKGROUND           = booleanPreferencesKey("wf_show_background")
+        val KEY_P2_SHOW_BACKGROUND           = booleanPreferencesKey("p2_show_background")
         val KEY_WF_HR_COLOR      = stringPreferencesKey("wf_hr_color")
         val KEY_WF_KCAL_COLOR    = stringPreferencesKey("wf_kcal_color")
         val KEY_WF_OXYGEN_COLOR  = stringPreferencesKey("wf_oxygen_color")
@@ -328,7 +333,10 @@ class MainViewModel @Inject constructor(
         val KEY_P2_SLOT2_TEXT_SCALE  = intPreferencesKey("p2_slot2_text_scale")
         val KEY_P2_SLOT3_TEXT_SCALE  = intPreferencesKey("p2_slot3_text_scale")
         val KEY_P2_SLOT4_TEXT_SCALE  = intPreferencesKey("p2_slot4_text_scale")
-        val KEY_WF_SLEEP_TEXT_SCALE  = intPreferencesKey("wf_sleep_text_scale")
+        val KEY_WF_SLEEP_TEXT_SCALE   = intPreferencesKey("wf_sleep_text_scale")
+        val KEY_WF_SLEEP_SOURCE       = stringPreferencesKey("wf_sleep_source")
+        val KEY_WF_SLEEP_IOBROKER_ID  = stringPreferencesKey("wf_sleep_iobroker_id")
+        val KEY_WF_SLEEP_COMPLICATION = stringPreferencesKey("wf_sleep_complication")
         // Seite 2 Pillen
         val KEY_P2_PILL_ENABLED      = booleanPreferencesKey("p2_pill_enabled")
         val KEY_P2_PILL_COLOR_TRUE   = stringPreferencesKey("p2_pill_color_true")
@@ -485,7 +493,10 @@ class MainViewModel @Inject constructor(
             val p2Slot2TextScale  = prefs[KEY_P2_SLOT2_TEXT_SCALE]  ?: 100
             val p2Slot3TextScale  = prefs[KEY_P2_SLOT3_TEXT_SCALE]  ?: 100
             val p2Slot4TextScale  = prefs[KEY_P2_SLOT4_TEXT_SCALE]  ?: 100
-            val wfSleepTextScale  = prefs[KEY_WF_SLEEP_TEXT_SCALE]  ?: 100
+            val wfSleepTextScale    = prefs[KEY_WF_SLEEP_TEXT_SCALE]   ?: 100
+            val wfSleepSource       = prefs[KEY_WF_SLEEP_SOURCE]       ?: "healthconnect"
+            val wfSleepIoBrokerId   = prefs[KEY_WF_SLEEP_IOBROKER_ID]  ?: ""
+            val wfSleepComplication = prefs[KEY_WF_SLEEP_COMPLICATION] ?: ""
             // Seite 2 Pillen – Pille 1 (7 Uhr)
             val p2PillEnabled    = prefs[KEY_P2_PILL_ENABLED]     ?: false
             val p2PillColorTrue  = prefs[KEY_P2_PILL_COLOR_TRUE]  ?: "cyan"
@@ -502,6 +513,7 @@ class MainViewModel @Inject constructor(
             val p2Pill2ValueMode  = prefs[KEY_P2_PILL2_VALUE_MODE]  ?: "toggle"
             val p2Pill2FixedValue = prefs[KEY_P2_PILL2_FIXED_VALUE] ?: ""
             val p2Pill2State      = prefs[KEY_P2_PILL2_STATE]       ?: false
+            val p2ShowBackground  = prefs[KEY_P2_SHOW_BACKGROUND]   ?: false
             // Seite 2 – vertikaler Balken
             val p2BarId         = prefs[KEY_P2_BAR_ID]         ?: ""
             val p2BarLabel      = prefs[KEY_P2_BAR_LABEL]      ?: ""
@@ -622,8 +634,11 @@ class MainViewModel @Inject constructor(
                     p2Slot2TextScale = p2Slot2TextScale,
                     p2Slot3TextScale = p2Slot3TextScale,
                     p2Slot4TextScale = p2Slot4TextScale,
-                    wfSleepTextScale = wfSleepTextScale,
-                    p2PillEnabled    = p2PillEnabled,
+                    wfSleepTextScale    = wfSleepTextScale,
+                    wfSleepSource       = wfSleepSource,
+                    wfSleepIoBrokerId   = wfSleepIoBrokerId,
+                    wfSleepComplication = wfSleepComplication,
+                    p2PillEnabled       = p2PillEnabled,
                     p2PillColorTrue  = p2PillColorTrue,
                     p2PillColorFalse = p2PillColorFalse,
                     p2PillIoBrokerId = p2PillIoBrokerId,
@@ -648,8 +663,9 @@ class MainViewModel @Inject constructor(
                     p2BarTextScale  = p2BarTextScale,
                     p2BarWarn1Color = p2BarWarn1Color,
                     p2BarWarn1Value = p2BarWarn1Value,
-                    p2BarWarn2Color = p2BarWarn2Color,
-                    p2BarWarn2Value = p2BarWarn2Value
+                    p2BarWarn2Color  = p2BarWarn2Color,
+                    p2BarWarn2Value  = p2BarWarn2Value,
+                    p2ShowBackground = p2ShowBackground
                 )
             }
 
@@ -1496,6 +1512,9 @@ class MainViewModel @Inject constructor(
         slot3TextScale: Int = _uiState.value.p2Slot3TextScale,
         slot4TextScale: Int = _uiState.value.p2Slot4TextScale,
         sleepTextScale: Int = _uiState.value.wfSleepTextScale,
+        sleepSource: String = _uiState.value.wfSleepSource,
+        sleepIoBrokerId: String = _uiState.value.wfSleepIoBrokerId,
+        sleepComplication: String = _uiState.value.wfSleepComplication,
         p2PillEnabled: Boolean,
         p2PillColorTrue: String,
         p2PillColorFalse: String,
@@ -1518,7 +1537,8 @@ class MainViewModel @Inject constructor(
         p2BarWarn1Color: String = _uiState.value.p2BarWarn1Color,
         p2BarWarn1Value: Float = _uiState.value.p2BarWarn1Value,
         p2BarWarn2Color: String = _uiState.value.p2BarWarn2Color,
-        p2BarWarn2Value: Float = _uiState.value.p2BarWarn2Value
+        p2BarWarn2Value: Float = _uiState.value.p2BarWarn2Value,
+        p2ShowBackground: Boolean = _uiState.value.p2ShowBackground
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -1534,8 +1554,11 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_P2_SLOT2_TEXT_SCALE] = slot2TextScale
                 prefs[KEY_P2_SLOT3_TEXT_SCALE] = slot3TextScale
                 prefs[KEY_P2_SLOT4_TEXT_SCALE] = slot4TextScale
-                prefs[KEY_WF_SLEEP_TEXT_SCALE] = sleepTextScale
-                prefs[KEY_P2_PILL_ENABLED]      = p2PillEnabled
+                prefs[KEY_WF_SLEEP_TEXT_SCALE]   = sleepTextScale
+                prefs[KEY_WF_SLEEP_SOURCE]       = sleepSource
+                prefs[KEY_WF_SLEEP_IOBROKER_ID]  = sleepIoBrokerId
+                prefs[KEY_WF_SLEEP_COMPLICATION] = sleepComplication
+                prefs[KEY_P2_PILL_ENABLED]       = p2PillEnabled
                 prefs[KEY_P2_PILL_COLOR_TRUE]   = p2PillColorTrue
                 prefs[KEY_P2_PILL_COLOR_FALSE]  = p2PillColorFalse
                 prefs[KEY_P2_PILL_IOBROKER_ID]  = p2PillIoBrokerId
@@ -1558,6 +1581,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_P2_BAR_WARN1_VALUE] = p2BarWarn1Value.toString()
                 prefs[KEY_P2_BAR_WARN2_COLOR] = p2BarWarn2Color
                 prefs[KEY_P2_BAR_WARN2_VALUE] = p2BarWarn2Value.toString()
+                prefs[KEY_P2_SHOW_BACKGROUND] = p2ShowBackground
             }
             _uiState.update {
                 it.copy(
@@ -1567,7 +1591,10 @@ class MainViewModel @Inject constructor(
                     p2Slot4Id    = slot4Id,    p2Slot4Label = slot4Label,
                     p2Slot1TextScale = slot1TextScale, p2Slot2TextScale = slot2TextScale,
                     p2Slot3TextScale = slot3TextScale, p2Slot4TextScale = slot4TextScale,
-                    wfSleepTextScale = sleepTextScale,
+                    wfSleepTextScale    = sleepTextScale,
+                    wfSleepSource       = sleepSource,
+                    wfSleepIoBrokerId   = sleepIoBrokerId,
+                    wfSleepComplication = sleepComplication,
                     p2PillEnabled    = p2PillEnabled,
                     p2PillColorTrue  = p2PillColorTrue,
                     p2PillColorFalse = p2PillColorFalse,
@@ -1590,7 +1617,8 @@ class MainViewModel @Inject constructor(
                     p2BarWarn1Color  = p2BarWarn1Color,
                     p2BarWarn1Value  = p2BarWarn1Value,
                     p2BarWarn2Color  = p2BarWarn2Color,
-                    p2BarWarn2Value  = p2BarWarn2Value
+                    p2BarWarn2Value  = p2BarWarn2Value,
+                    p2ShowBackground = p2ShowBackground
                 )
             }
             _uiState.update { it.copy(wearSyncLog = "Sende Seite-2-Konfig …") }
@@ -1619,8 +1647,10 @@ class MainViewModel @Inject constructor(
             s.p2Pill2Enabled, s.p2Pill2ColorTrue, s.p2Pill2ColorFalse,
             s.p2Pill2IoBrokerId, s.p2Pill2ValueMode, s.p2Pill2FixedValue,
             s.p2Slot1TextScale, s.p2Slot2TextScale, s.p2Slot3TextScale, s.p2Slot4TextScale, s.wfSleepTextScale,
+            s.wfSleepSource, s.wfSleepComplication,
             s.p2BarLabel, s.p2BarColor, s.p2BarMin, s.p2BarMax, s.p2BarShowLabel, s.p2BarTextScale,
-            s.p2BarWarn1Color, s.p2BarWarn1Value, s.p2BarWarn2Color, s.p2BarWarn2Value
+            s.p2BarWarn1Color, s.p2BarWarn1Value, s.p2BarWarn2Color, s.p2BarWarn2Value,
+            s.p2ShowBackground
         )
         syncPage2SlotValues()
     }
@@ -1638,6 +1668,9 @@ class MainViewModel @Inject constructor(
         slot3TextScale: Int = _uiState.value.p2Slot3TextScale,
         slot4TextScale: Int = _uiState.value.p2Slot4TextScale,
         sleepTextScale: Int = _uiState.value.wfSleepTextScale,
+        sleepSource: String = _uiState.value.wfSleepSource,
+        sleepIoBrokerId: String = _uiState.value.wfSleepIoBrokerId,
+        sleepComplication: String = _uiState.value.wfSleepComplication,
         p2PillEnabled: Boolean,
         p2PillColorTrue: String,
         p2PillColorFalse: String,
@@ -1660,7 +1693,8 @@ class MainViewModel @Inject constructor(
         p2BarWarn1Color: String = _uiState.value.p2BarWarn1Color,
         p2BarWarn1Value: Float = _uiState.value.p2BarWarn1Value,
         p2BarWarn2Color: String = _uiState.value.p2BarWarn2Color,
-        p2BarWarn2Value: Float = _uiState.value.p2BarWarn2Value
+        p2BarWarn2Value: Float = _uiState.value.p2BarWarn2Value,
+        p2ShowBackground: Boolean = _uiState.value.p2ShowBackground
     ) {
         viewModelScope.launch {
             _uiState.update {
@@ -1671,7 +1705,10 @@ class MainViewModel @Inject constructor(
                     p2Slot4Id    = slot4Id,    p2Slot4Label = slot4Label,
                     p2Slot1TextScale = slot1TextScale, p2Slot2TextScale = slot2TextScale,
                     p2Slot3TextScale = slot3TextScale, p2Slot4TextScale = slot4TextScale,
-                    wfSleepTextScale = sleepTextScale,
+                    wfSleepTextScale    = sleepTextScale,
+                    wfSleepSource       = sleepSource,
+                    wfSleepIoBrokerId   = sleepIoBrokerId,
+                    wfSleepComplication = sleepComplication,
                     p2PillEnabled    = p2PillEnabled,
                     p2PillColorTrue  = p2PillColorTrue,
                     p2PillColorFalse = p2PillColorFalse,
@@ -1694,7 +1731,8 @@ class MainViewModel @Inject constructor(
                     p2BarWarn1Color  = p2BarWarn1Color,
                     p2BarWarn1Value  = p2BarWarn1Value,
                     p2BarWarn2Color  = p2BarWarn2Color,
-                    p2BarWarn2Value  = p2BarWarn2Value
+                    p2BarWarn2Value  = p2BarWarn2Value,
+                    p2ShowBackground = p2ShowBackground
                 )
             }
             try {

@@ -198,7 +198,11 @@ fun SettingsScreen(
     var p2Slot2TextScale by remember(uiState.p2Slot2TextScale) { mutableStateOf(uiState.p2Slot2TextScale) }
     var p2Slot3TextScale by remember(uiState.p2Slot3TextScale) { mutableStateOf(uiState.p2Slot3TextScale) }
     var p2Slot4TextScale by remember(uiState.p2Slot4TextScale) { mutableStateOf(uiState.p2Slot4TextScale) }
-    var wfSleepTextScale by remember(uiState.wfSleepTextScale) { mutableStateOf(uiState.wfSleepTextScale) }
+    var wfSleepTextScale    by remember(uiState.wfSleepTextScale)    { mutableStateOf(uiState.wfSleepTextScale) }
+    var wfSleepSource       by remember(uiState.wfSleepSource)       { mutableStateOf(uiState.wfSleepSource) }
+    var wfSleepIoBrokerId   by remember(uiState.wfSleepIoBrokerId)   { mutableStateOf(uiState.wfSleepIoBrokerId) }
+    var wfSleepComplication by remember(uiState.wfSleepComplication) { mutableStateOf(uiState.wfSleepComplication) }
+    var p2ShowBackground    by remember(uiState.p2ShowBackground)    { mutableStateOf(uiState.p2ShowBackground) }
     // Seite 2 – Pille 1 (7 Uhr)
     var p2PillEnabled    by remember(uiState.p2PillEnabled)    { mutableStateOf(uiState.p2PillEnabled) }
     var p2PillColorTrue  by remember(uiState.p2PillColorTrue)  { mutableStateOf(uiState.p2PillColorTrue) }
@@ -383,10 +387,12 @@ fun SettingsScreen(
         p2Slot1Id, p2Slot1Label, p2Slot2Id, p2Slot2Label,
         p2Slot3Id, p2Slot3Label, p2Slot4Id, p2Slot4Label,
         p2Slot1TextScale, p2Slot2TextScale, p2Slot3TextScale, p2Slot4TextScale, wfSleepTextScale,
+        wfSleepSource, wfSleepIoBrokerId, wfSleepComplication,
         p2PillEnabled, p2PillColorTrue, p2PillColorFalse, p2PillIoBrokerId, p2PillValueMode, p2PillFixedValue,
         p2Pill2Enabled, p2Pill2ColorTrue, p2Pill2ColorFalse, p2Pill2IoBrokerId, p2Pill2ValueMode, p2Pill2FixedValue,
         p2BarId, p2BarLabel, p2BarColor, p2BarMin, p2BarMax, p2BarShowLabel, p2BarTextScale,
-        p2BarWarn1Color, p2BarWarn1Value, p2BarWarn2Color, p2BarWarn2Value
+        p2BarWarn1Color, p2BarWarn1Value, p2BarWarn2Color, p2BarWarn2Value,
+        p2ShowBackground
     ) {
         if (!page2Initialized) { page2Initialized = true; return@LaunchedEffect }
         delay(400)
@@ -398,6 +404,8 @@ fun SettingsScreen(
             slot1TextScale = p2Slot1TextScale, slot2TextScale = p2Slot2TextScale,
             slot3TextScale = p2Slot3TextScale, slot4TextScale = p2Slot4TextScale,
             sleepTextScale = wfSleepTextScale,
+            sleepSource = wfSleepSource, sleepIoBrokerId = wfSleepIoBrokerId.trim(),
+            sleepComplication = wfSleepComplication,
             p2PillEnabled = p2PillEnabled, p2PillColorTrue = p2PillColorTrue,
             p2PillColorFalse = p2PillColorFalse, p2PillIoBrokerId = p2PillIoBrokerId.trim(),
             p2PillValueMode = p2PillValueMode, p2PillFixedValue = p2PillFixedValue.trim(),
@@ -413,7 +421,8 @@ fun SettingsScreen(
             p2BarWarn1Color = p2BarWarn1Color,
             p2BarWarn1Value = p2BarWarn1Value.toFloatOrNull() ?: Float.NaN,
             p2BarWarn2Color = p2BarWarn2Color,
-            p2BarWarn2Value = p2BarWarn2Value.toFloatOrNull() ?: Float.NaN
+            p2BarWarn2Value = p2BarWarn2Value.toFloatOrNull() ?: Float.NaN,
+            p2ShowBackground = p2ShowBackground
         )
     }
 
@@ -1542,6 +1551,8 @@ fun SettingsScreen(
 
                 Text("4 Datenpunkte auf der zweiten Watchface-Seite (Doppeltipp 9 Uhr zum Öffnen)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
+                WatchFaceToggleRow(text = "Hintergrundbild anzeigen", subText = "Skeuomorphes Metalldesign als Hintergrund auf Seite 2", checked = p2ShowBackground, onCheckedChange = { p2ShowBackground = it })
+
                 Text("Slot 1", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = p2Slot1Label, onValueChange = { if (it.length <= 6) p2Slot1Label = it }, label = { Text("Name") }, placeholder = { Text("TEMP") }, modifier = Modifier.weight(1f), singleLine = true)
@@ -1584,6 +1595,35 @@ fun SettingsScreen(
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Schlafdauer (oben auf Seite 2)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Datenquelle", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    listOf("healthconnect" to "Health Connect", "iobroker" to "ioBroker (Lokal)").forEach { (src, label) ->
+                        OutlinedButton(
+                            onClick = { wfSleepSource = src },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (wfSleepSource == src) NeonYellow.copy(alpha = 0.15f) else Color.Transparent),
+                            border = BorderStroke(1.dp, if (wfSleepSource == src) NeonYellow else Color(0xFF444444))
+                        ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+                if (wfSleepSource == "iobroker") {
+                    Text("ioBroker-Datenpunkt (Schlafdauer in Minuten)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DatapointDropdown(selectedId = wfSleepIoBrokerId, availableStates = p2States, onSelect = { wfSleepIoBrokerId = it }, modifier = Modifier.fillMaxWidth())
+                }
+                Text("Komplikation", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Komplikations-ID", style = MaterialTheme.typography.labelSmall, color = Color(0xFFAAAAAA), modifier = Modifier.weight(1f))
+                    GenericValueDropdown(
+                        options = COMPLICATION_OPTIONS,
+                        selected = wfSleepComplication,
+                        onSelect = { wfSleepComplication = it },
+                        modifier = Modifier.weight(0.7f)
+                    )
+                }
                 Text("Schlafdauer-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceColorRow(selected = wfSleepColor, onSelect = { wfSleepColor = it })
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1723,6 +1763,8 @@ fun SettingsScreen(
                             slot1TextScale = p2Slot1TextScale, slot2TextScale = p2Slot2TextScale,
                             slot3TextScale = p2Slot3TextScale, slot4TextScale = p2Slot4TextScale,
                             sleepTextScale = wfSleepTextScale,
+                            sleepSource = wfSleepSource, sleepIoBrokerId = wfSleepIoBrokerId.trim(),
+                            sleepComplication = wfSleepComplication,
                             p2PillEnabled = p2PillEnabled, p2PillColorTrue = p2PillColorTrue,
                             p2PillColorFalse = p2PillColorFalse, p2PillIoBrokerId = p2PillIoBrokerId.trim(),
                             p2PillValueMode = p2PillValueMode, p2PillFixedValue = p2PillFixedValue.trim(),
@@ -1738,7 +1780,8 @@ fun SettingsScreen(
                             p2BarWarn1Color = p2BarWarn1Color,
                             p2BarWarn1Value = p2BarWarn1Value.toFloatOrNull() ?: Float.NaN,
                             p2BarWarn2Color = p2BarWarn2Color,
-                            p2BarWarn2Value = p2BarWarn2Value.toFloatOrNull() ?: Float.NaN
+                            p2BarWarn2Value = p2BarWarn2Value.toFloatOrNull() ?: Float.NaN,
+                            p2ShowBackground = p2ShowBackground
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
