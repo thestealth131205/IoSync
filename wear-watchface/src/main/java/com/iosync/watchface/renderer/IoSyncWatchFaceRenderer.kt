@@ -324,6 +324,10 @@ class IoSyncWatchFaceRenderer(
     private var page2Pill2Bounds = RectF()
     private var page2Pill1TapBounds = RectF()
     private var page2Pill2TapBounds = RectF()
+    private var page2Pill1Pressed = false
+    private var page2Pill1PressedAt = 0L
+    private var page2Pill2Pressed = false
+    private var page2Pill2PressedAt = 0L
 
     private val page2PillFillPaint = Paint().apply {
         isAntiAlias = true
@@ -377,6 +381,11 @@ class IoSyncWatchFaceRenderer(
         private const val PATH_P2_PILL1_TRIGGER  = "/iosync/watchface/p2_pill1_trigger"
         private const val PATH_P2_PILL2_TRIGGER  = "/iosync/watchface/p2_pill2_trigger"
         private const val PATH_STATES            = "/iosync/smarthome/states"
+        private const val PATH_PHONE_HEALTH      = "/iosync/watchface/phone_health"
+        private const val KEY_PHONE_HEART_RATE     = "phone_heart_rate"
+        private const val KEY_PHONE_SPO2           = "phone_spo2"
+        private const val KEY_PHONE_CALORIES       = "phone_calories"
+        private const val KEY_PHONE_SLEEP_MINUTES  = "phone_sleep_minutes"
     }
 
     // ── Formatter ─────────────────────────────────────────────────────────────
@@ -491,6 +500,22 @@ class IoSyncWatchFaceRenderer(
                             WatchFaceConfigCache.updateP2ConfigFromDataMap(dataMap)
                             Log.d(TAG_PILL, "Initiale Seite-2-Konfig geladen")
                         }
+                        PATH_STATES -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            dataMap.getString("states_json")?.let { SmartHomeStateCache.updateFromJson(it) }
+                        }
+                        PATH_PHONE_HEALTH -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            if (dataMap.containsKey(KEY_PHONE_HEART_RATE))    WatchFaceConfigCache.phoneHeartRate    = dataMap.getInt(KEY_PHONE_HEART_RATE)
+                            if (dataMap.containsKey(KEY_PHONE_SPO2))          WatchFaceConfigCache.phoneSpO2         = dataMap.getInt(KEY_PHONE_SPO2)
+                            if (dataMap.containsKey(KEY_PHONE_CALORIES))      WatchFaceConfigCache.phoneCalories     = dataMap.getInt(KEY_PHONE_CALORIES)
+                            if (dataMap.containsKey(KEY_PHONE_SLEEP_MINUTES)) WatchFaceConfigCache.phoneSleepMinutes = dataMap.getInt(KEY_PHONE_SLEEP_MINUTES)
+                        }
+                        PATH_P2_PILL_STATES -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            if (dataMap.containsKey("wf_p2_pill1_state")) WatchFaceConfigCache.p2Pill1State = dataMap.getBoolean("wf_p2_pill1_state")
+                            if (dataMap.containsKey("wf_p2_pill2_state")) WatchFaceConfigCache.p2Pill2State = dataMap.getBoolean("wf_p2_pill2_state")
+                        }
                     }
                 }
                 dataItems.release()
@@ -544,6 +569,18 @@ class IoSyncWatchFaceRenderer(
                 PATH_STATES -> {
                     dataMap.getString("states_json")?.let { SmartHomeStateCache.updateFromJson(it) }
                 }
+                PATH_PHONE_HEALTH -> {
+                    val newHr   = if (dataMap.containsKey(KEY_PHONE_HEART_RATE)) dataMap.getInt(KEY_PHONE_HEART_RATE) else WatchFaceConfigCache.phoneHeartRate
+                    val newSpO2 = if (dataMap.containsKey(KEY_PHONE_SPO2))       dataMap.getInt(KEY_PHONE_SPO2)       else WatchFaceConfigCache.phoneSpO2
+                    val newKcal = if (dataMap.containsKey(KEY_PHONE_CALORIES))   dataMap.getInt(KEY_PHONE_CALORIES)   else WatchFaceConfigCache.phoneCalories
+                    WatchFaceConfigCache.phoneHeartRate = newHr
+                    WatchFaceConfigCache.phoneSpO2      = newSpO2
+                    WatchFaceConfigCache.phoneCalories  = newKcal
+                    if (dataMap.containsKey(KEY_PHONE_SLEEP_MINUTES)) WatchFaceConfigCache.phoneSleepMinutes = dataMap.getInt(KEY_PHONE_SLEEP_MINUTES)
+                    if (newHr > 0 || newSpO2 > 0 || newKcal > 0) {
+                        WatchFaceConfigCache.phoneHealthLastReceived = System.currentTimeMillis()
+                    }
+                }
                 PATH_CUSTOM_SLOTS_P2 -> {
                     dataMap.getString("wf_p2_slot1_label")?.let { WatchFaceConfigCache.p2Slot1Label = it }
                     dataMap.getString("wf_p2_slot1_value")?.let { WatchFaceConfigCache.p2Slot1Value = it }
@@ -560,6 +597,9 @@ class IoSyncWatchFaceRenderer(
                 }
             }
         }
+        // Empfangene Updates sofort zeichnen — sonst bleiben neue Werte bei
+        // Display-aus/Ambient unsichtbar, da dort kein Sekunden-invalidate läuft.
+        invalidate()
     }
 
     override suspend fun createSharedAssets(): SharedAssets = object : SharedAssets {
@@ -1764,7 +1804,23 @@ class IoSyncWatchFaceRenderer(
 
         // ── Seite 2: Pillen (Doppeltipp wie Seite-1-Pille) ──────────────────
         if (currentPage == 1) {
+            // Visuelles Feedback: beim Berühren in der gewählten Farbe aufleuchten
+            if (tapType == TapType.DOWN) {
+                if (!page2Pill1TapBounds.isEmpty && page2Pill1TapBounds.contains(x, y)) {
+                    page2Pill1Pressed = true
+                    page2Pill1PressedAt = System.currentTimeMillis()
+                    invalidate()
+                    return
+                } else if (!page2Pill2TapBounds.isEmpty && page2Pill2TapBounds.contains(x, y)) {
+                    page2Pill2Pressed = true
+                    page2Pill2PressedAt = System.currentTimeMillis()
+                    invalidate()
+                    return
+                }
+            }
             if (tapType == TapType.UP) {
+                page2Pill1Pressed = false
+                page2Pill2Pressed = false
                 val now = System.currentTimeMillis()
                 if (!page2Pill1TapBounds.isEmpty && page2Pill1TapBounds.contains(x, y)) {
                     if (now - page2Pill1LastTapTime <= DOUBLE_TAP_MS) {
@@ -1900,17 +1956,20 @@ class IoSyncWatchFaceRenderer(
         val baseLabelSize = radius * 0.072f
         val baseValueSize = radius * 0.100f
         val colOffset = radius * 0.30f
+        // Alle 4 Slots etwas nach links und oben verschieben
+        val xShift = radius * 0.06f
+        val yShift = radius * 0.06f
 
         // Zeile 1: oberer Bereich; Zeile 2: knapp unterhalb der Mitte
-        val row1Y = cy - radius * 0.20f
-        val row2Y = cy + radius * 0.22f
+        val row1Y = cy - radius * 0.20f - yShift
+        val row2Y = cy + radius * 0.22f - yShift
 
         data class P2Slot(val label: String, val value: String, val slotCx: Float, val baseY: Float, val textScale: Float)
         val slots = listOf(
-            P2Slot(config.p2Slot1Label, config.p2Slot1Value, cx - colOffset, row1Y, config.p2Slot1TextScale / 100f),
-            P2Slot(config.p2Slot2Label, config.p2Slot2Value, cx + colOffset, row1Y, config.p2Slot2TextScale / 100f),
-            P2Slot(config.p2Slot3Label, config.p2Slot3Value, cx - colOffset, row2Y, config.p2Slot3TextScale / 100f),
-            P2Slot(config.p2Slot4Label, config.p2Slot4Value, cx + colOffset, row2Y, config.p2Slot4TextScale / 100f)
+            P2Slot(config.p2Slot1Label, config.p2Slot1Value, cx - colOffset - xShift, row1Y, config.p2Slot1TextScale / 100f),
+            P2Slot(config.p2Slot2Label, config.p2Slot2Value, cx + colOffset - xShift, row1Y, config.p2Slot2TextScale / 100f),
+            P2Slot(config.p2Slot3Label, config.p2Slot3Value, cx - colOffset - xShift, row2Y, config.p2Slot3TextScale / 100f),
+            P2Slot(config.p2Slot4Label, config.p2Slot4Value, cx + colOffset - xShift, row2Y, config.p2Slot4TextScale / 100f)
         )
 
         for (slot in slots) {
@@ -1937,8 +1996,8 @@ class IoSyncWatchFaceRenderer(
      */
     private fun drawPage2Pills(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config  = WatchFaceConfigCache
-        val halfW   = radius * 0.162f
-        val halfH   = radius * 0.075f
+        val halfW   = radius * 0.200f
+        val halfH   = radius * 0.095f
         val tapPad  = halfH * 1.5f
 
         val dist   = radius * 0.69f
@@ -1948,13 +2007,16 @@ class IoSyncWatchFaceRenderer(
         val pill5Y = cy + dist * 0.866f
 
         val pillTextSize = halfH * 1.1f
+        val now = System.currentTimeMillis()
 
         // Pille 1 (7 Uhr) – unabhängige Konfiguration
         if (config.p2PillEnabled) {
             val c1True  = if (config.p2PillColorTrue.isNotBlank())  config.p2PillColorTrue  else "cyan"
             val c1False = if (config.p2PillColorFalse.isNotBlank()) config.p2PillColorFalse else "red"
-            val sc1 = colorFromPillId(if (config.p2Pill1State) c1True else c1False)
-            page2PillFillPaint.color   = Color.argb(180, Color.red(sc1), Color.green(sc1), Color.blue(sc1))
+            // Beim Antippen kurz in der gewählten Farbe (True-Farbe) aufleuchten
+            val pressed1 = page2Pill1Pressed && (now - page2Pill1PressedAt < PILL_PRESS_DURATION_MS)
+            val sc1 = colorFromPillId(if (pressed1 || config.p2Pill1State) c1True else c1False)
+            page2PillFillPaint.color   = Color.argb(if (pressed1) 255 else 180, Color.red(sc1), Color.green(sc1), Color.blue(sc1))
             page2PillStrokePaint.color = sc1
             page2Pill1Bounds.set(pill7X - halfW, pill7Y - halfH, pill7X + halfW, pill7Y + halfH)
             page2Pill1TapBounds.set(pill7X - halfW - tapPad, pill7Y - halfH - tapPad, pill7X + halfW + tapPad, pill7Y + halfH + tapPad)
@@ -1972,8 +2034,10 @@ class IoSyncWatchFaceRenderer(
         if (config.p2Pill2Enabled) {
             val c2True  = if (config.p2Pill2ColorTrue.isNotBlank())  config.p2Pill2ColorTrue  else "cyan"
             val c2False = if (config.p2Pill2ColorFalse.isNotBlank()) config.p2Pill2ColorFalse else "red"
-            val sc2 = colorFromPillId(if (config.p2Pill2State) c2True else c2False)
-            page2PillFillPaint.color   = Color.argb(180, Color.red(sc2), Color.green(sc2), Color.blue(sc2))
+            // Beim Antippen kurz in der gewählten Farbe (True-Farbe) aufleuchten
+            val pressed2 = page2Pill2Pressed && (now - page2Pill2PressedAt < PILL_PRESS_DURATION_MS)
+            val sc2 = colorFromPillId(if (pressed2 || config.p2Pill2State) c2True else c2False)
+            page2PillFillPaint.color   = Color.argb(if (pressed2) 255 else 180, Color.red(sc2), Color.green(sc2), Color.blue(sc2))
             page2PillStrokePaint.color = sc2
             page2Pill2Bounds.set(pill5X - halfW, pill5Y - halfH, pill5X + halfW, pill5Y + halfH)
             page2Pill2TapBounds.set(pill5X - halfW - tapPad, pill5Y - halfH - tapPad, pill5X + halfW + tapPad, pill5Y + halfH + tapPad)
@@ -2024,12 +2088,12 @@ class IoSyncWatchFaceRenderer(
     private fun drawPage2VerticalBar(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
         val scale    = config.p2BarTextScale / 100f
-        val barW     = radius * 0.055f
+        val barW     = radius * 0.18f
         val barH     = radius * 0.68f
-        val barCx    = cx + radius * 0.76f
+        val barCx    = cx + radius * 0.74f
         val barTop   = cy - barH / 2f
         val barBot   = cy + barH / 2f
-        val barCorner = barW / 2f
+        val barCorner = barW * 0.18f
 
         val minVal = config.p2BarMin
         val maxVal = config.p2BarMax
