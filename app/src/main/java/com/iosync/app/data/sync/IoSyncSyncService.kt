@@ -67,7 +67,9 @@ class IoSyncSyncService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> {
+            ACTION_STOP -> stopEverything()
+            else -> {
+                // ACTION_START oder null (Android-Neustart nach Kill via START_STICKY)
                 try {
                     startForeground(NOTIFICATION_ID, buildNotification())
                     startLoops()
@@ -76,7 +78,6 @@ class IoSyncSyncService : Service() {
                     stopSelf()
                 }
             }
-            ACTION_STOP -> stopEverything()
         }
         return START_STICKY
     }
@@ -110,53 +111,60 @@ class IoSyncSyncService : Service() {
 
     private suspend fun dataLoop() {
         while (true) {
-            val prefs = dataStore.data.first()
-            val useAdapter = prefs[MainViewModel.KEY_USE_IOSYNC_ADAPTER] ?: true
-            val host       = prefs[MainViewModel.KEY_IOSYNC_HOST] ?: ""
-            val intervalSec = prefs[MainViewModel.KEY_SLOT_POLL_INTERVAL] ?: 300
+            try {
+                val prefs = dataStore.data.first()
+                val useAdapter = prefs[MainViewModel.KEY_USE_IOSYNC_ADAPTER] ?: true
+                val host       = prefs[MainViewModel.KEY_IOSYNC_HOST] ?: ""
+                val intervalSec = prefs[MainViewModel.KEY_SLOT_POLL_INTERVAL] ?: 300
 
-            if (useAdapter && host.isNotBlank()) {
-                val port     = prefs[MainViewModel.KEY_IOSYNC_PORT] ?: 7443
-                val useHttps = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS] ?: false
-                val username = prefs[MainViewModel.KEY_IOSYNC_USERNAME] ?: ""
-                val password = prefs[MainViewModel.KEY_IOSYNC_PASSWORD] ?: ""
+                if (useAdapter && host.isNotBlank()) {
+                    val port     = prefs[MainViewModel.KEY_IOSYNC_PORT] ?: 7443
+                    val useHttps = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS] ?: false
+                    val username = prefs[MainViewModel.KEY_IOSYNC_USERNAME] ?: ""
+                    val password = prefs[MainViewModel.KEY_IOSYNC_PASSWORD] ?: ""
 
-                ioSyncClient.fetchDataPoints(host, port, useHttps, username, password)
-                    .onSuccess { states ->
-                        if (prefs[MainViewModel.KEY_WF_SHOW_IOBROKER_DATA] == true) {
-                            wearDataLayerService.syncStatesToWear(states)
-                        }
-                        if (prefs[MainViewModel.KEY_SHOW_CUSTOM_SLOTS] == true) {
-                            syncCustomSlots(prefs, states)
-                        }
-                        if (hasPage2Slots(prefs)) {
-                            syncPage2Slots(prefs, states)
-                        }
-                        syncPage2PillStates(prefs, states)
-                        // ioBroker als Wetter-Temperatur-Quelle
-                        if (prefs[MainViewModel.KEY_WF_SHOW_WEATHER] != false &&
-                            prefs[MainViewModel.KEY_WF_WEATHER_TEMP_SOURCE] == "iobroker"
-                        ) {
-                            val id = prefs[MainViewModel.KEY_WF_WEATHER_IOBROKER_ID] ?: ""
-                            states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.let { temp ->
-                                wearDataLayerService.syncWeatherToWear(temp.toInt(), "clear")
+                    ioSyncClient.fetchDataPoints(host, port, useHttps, username, password)
+                        .onSuccess { states ->
+                            if (prefs[MainViewModel.KEY_WF_SHOW_IOBROKER_DATA] == true) {
+                                wearDataLayerService.syncStatesToWear(states)
                             }
-                        }
-                        // ioBroker als Schlaf-Quelle
-                        if (prefs[MainViewModel.KEY_WF_SLEEP_SOURCE] == "iobroker") {
-                            val id = prefs[MainViewModel.KEY_WF_SLEEP_IOBROKER_ID] ?: ""
-                            if (id.isNotBlank()) {
-                                states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.toInt()?.let { mins ->
-                                    if (mins > 0) {
-                                        lastKnownSleep = mins
-                                        wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, mins)
+                            if (prefs[MainViewModel.KEY_SHOW_CUSTOM_SLOTS] == true) {
+                                syncCustomSlots(prefs, states)
+                            }
+                            if (hasPage2Slots(prefs)) {
+                                syncPage2Slots(prefs, states)
+                            }
+                            syncPage2PillStates(prefs, states)
+                            // ioBroker als Wetter-Temperatur-Quelle
+                            if (prefs[MainViewModel.KEY_WF_SHOW_WEATHER] != false &&
+                                prefs[MainViewModel.KEY_WF_WEATHER_TEMP_SOURCE] == "iobroker"
+                            ) {
+                                val id = prefs[MainViewModel.KEY_WF_WEATHER_IOBROKER_ID] ?: ""
+                                states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.let { temp ->
+                                    wearDataLayerService.syncWeatherToWear(temp.toInt(), "clear")
+                                }
+                            }
+                            // ioBroker als Schlaf-Quelle
+                            if (prefs[MainViewModel.KEY_WF_SLEEP_SOURCE] == "iobroker") {
+                                val id = prefs[MainViewModel.KEY_WF_SLEEP_IOBROKER_ID] ?: ""
+                                if (id.isNotBlank()) {
+                                    states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.toInt()?.let { mins ->
+                                        if (mins > 0) {
+                                            lastKnownSleep = mins
+                                            wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, mins)
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
+                }
+                delay(intervalSec * 1_000L)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "dataLoop Ausnahme, Neuversuch in 30s: ${e.message}", e)
+                delay(30_000L)
             }
-            delay(intervalSec * 1_000L)
         }
     }
 
@@ -225,21 +233,28 @@ class IoSyncSyncService : Service() {
 
     private suspend fun batteryLoop() {
         while (true) {
-            val prefs = dataStore.data.first()
-            val intervalSec = prefs[MainViewModel.KEY_BATTERY_POLL_INTERVAL] ?: 60
-            if (prefs[MainViewModel.KEY_WF_SHOW_PHONE_BATTERY] == true) {
-                val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-                if (batteryIntent != null) {
-                    val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                    val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
-                    val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                    val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                            status == BatteryManager.BATTERY_STATUS_FULL
-                    val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
-                    if (percent >= 0) wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging)
+            try {
+                val prefs = dataStore.data.first()
+                val intervalSec = prefs[MainViewModel.KEY_BATTERY_POLL_INTERVAL] ?: 60
+                if (prefs[MainViewModel.KEY_WF_SHOW_PHONE_BATTERY] == true) {
+                    val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                    if (batteryIntent != null) {
+                        val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                        val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+                        val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                                status == BatteryManager.BATTERY_STATUS_FULL
+                        val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
+                        if (percent >= 0) wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging)
+                    }
                 }
+                delay(intervalSec * 1_000L)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "batteryLoop Ausnahme, Neuversuch in 30s: ${e.message}", e)
+                delay(30_000L)
             }
-            delay(intervalSec * 1_000L)
         }
     }
 
@@ -247,22 +262,29 @@ class IoSyncSyncService : Service() {
 
     private suspend fun weatherLoop() {
         while (true) {
-            val prefs = dataStore.data.first()
-            val showWeather = prefs[MainViewModel.KEY_WF_SHOW_WEATHER] ?: true
-            val tempSource  = prefs[MainViewModel.KEY_WF_WEATHER_TEMP_SOURCE] ?: "openweather"
-            // ioBroker-Temperaturquelle wird im dataLoop behandelt
-            if (showWeather && tempSource == "openweather") {
-                // Standort-Konfiguration aus DataStore in den Singleton spiegeln,
-                // damit der Service auch ohne laufendes ViewModel korrekt abfragt.
-                val useFixed = prefs[MainViewModel.KEY_WEATHER_USE_FIXED] ?: false
-                weatherService.useFixedLocation = useFixed
-                weatherService.fixedLat = if (useFixed) prefs[MainViewModel.KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() else null
-                weatherService.fixedLon = if (useFixed) prefs[MainViewModel.KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() else null
+            try {
+                val prefs = dataStore.data.first()
+                val showWeather = prefs[MainViewModel.KEY_WF_SHOW_WEATHER] ?: true
+                val tempSource  = prefs[MainViewModel.KEY_WF_WEATHER_TEMP_SOURCE] ?: "openweather"
+                // ioBroker-Temperaturquelle wird im dataLoop behandelt
+                if (showWeather && tempSource == "openweather") {
+                    // Standort-Konfiguration aus DataStore in den Singleton spiegeln,
+                    // damit der Service auch ohne laufendes ViewModel korrekt abfragt.
+                    val useFixed = prefs[MainViewModel.KEY_WEATHER_USE_FIXED] ?: false
+                    weatherService.useFixedLocation = useFixed
+                    weatherService.fixedLat = if (useFixed) prefs[MainViewModel.KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() else null
+                    weatherService.fixedLon = if (useFixed) prefs[MainViewModel.KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() else null
 
-                weatherService.fetchWeather()
-                    .onSuccess { wearDataLayerService.syncWeatherToWear(it.temperature, it.condition) }
+                    weatherService.fetchWeather()
+                        .onSuccess { wearDataLayerService.syncWeatherToWear(it.temperature, it.condition) }
+                }
+                delay(WEATHER_INTERVAL_MS)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "weatherLoop Ausnahme, Neuversuch in 60s: ${e.message}", e)
+                delay(60_000L)
             }
-            delay(WEATHER_INTERVAL_MS)
         }
     }
 
@@ -270,26 +292,33 @@ class IoSyncSyncService : Service() {
 
     private suspend fun healthLoop() {
         while (true) {
-            val prefs = dataStore.data.first()
-            val hrSource     = prefs[MainViewModel.KEY_WF_HR_SOURCE]      ?: "local"
-            val kcalSource   = prefs[MainViewModel.KEY_WF_KCAL_SOURCE]    ?: "local"
-            val oxygenSource = prefs[MainViewModel.KEY_WF_OXYGEN_SOURCE]  ?: "local"
-            val sleepSource  = prefs[MainViewModel.KEY_WF_SLEEP_SOURCE]   ?: "healthconnect"
-            val intervalSec  = prefs[MainViewModel.KEY_HEALTH_POLL_INTERVAL] ?: 60
+            try {
+                val prefs = dataStore.data.first()
+                val hrSource     = prefs[MainViewModel.KEY_WF_HR_SOURCE]      ?: "local"
+                val kcalSource   = prefs[MainViewModel.KEY_WF_KCAL_SOURCE]    ?: "local"
+                val oxygenSource = prefs[MainViewModel.KEY_WF_OXYGEN_SOURCE]  ?: "local"
+                val sleepSource  = prefs[MainViewModel.KEY_WF_SLEEP_SOURCE]   ?: "healthconnect"
+                val intervalSec  = prefs[MainViewModel.KEY_HEALTH_POLL_INTERVAL] ?: 60
 
-            val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" ||
-                oxygenSource == "healthconnect" || sleepSource == "healthconnect"
-            if (anyHealthConnect) {
-                if (hrSource == "healthconnect")     healthConnectManager.readLatestHeartRate()?.let { if (it > 0) lastKnownHr = it }
-                if (kcalSource == "healthconnect")   healthConnectManager.readTodayCalories()?.let { if (it > 0) lastKnownKcal = it }
-                if (oxygenSource == "healthconnect") healthConnectManager.readLatestOxygenSaturation()?.let { if (it > 0) lastKnownO2 = it }
-                if (sleepSource == "healthconnect")  healthConnectManager.readTodaySleepMinutes()?.let { if (it > 0) lastKnownSleep = it }
+                val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" ||
+                    oxygenSource == "healthconnect" || sleepSource == "healthconnect"
+                if (anyHealthConnect) {
+                    if (hrSource == "healthconnect")     healthConnectManager.readLatestHeartRate()?.let { if (it > 0) lastKnownHr = it }
+                    if (kcalSource == "healthconnect")   healthConnectManager.readTodayCalories()?.let { if (it > 0) lastKnownKcal = it }
+                    if (oxygenSource == "healthconnect") healthConnectManager.readLatestOxygenSaturation()?.let { if (it > 0) lastKnownO2 = it }
+                    if (sleepSource == "healthconnect")  healthConnectManager.readTodaySleepMinutes()?.let { if (it > 0) lastKnownSleep = it }
 
-                if (lastKnownHr > 0 || lastKnownO2 > 0 || lastKnownKcal > 0 || lastKnownSleep > 0) {
-                    wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, lastKnownSleep)
+                    if (lastKnownHr > 0 || lastKnownO2 > 0 || lastKnownKcal > 0 || lastKnownSleep > 0) {
+                        wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, lastKnownSleep)
+                    }
                 }
+                delay(intervalSec * 1_000L)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "healthLoop Ausnahme, Neuversuch in 30s: ${e.message}", e)
+                delay(30_000L)
             }
-            delay(intervalSec * 1_000L)
         }
     }
 
