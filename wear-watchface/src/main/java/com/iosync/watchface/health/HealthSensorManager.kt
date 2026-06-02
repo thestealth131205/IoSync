@@ -21,8 +21,13 @@ import kotlinx.coroutines.launch
 private const val TAG = "HealthSensorManager"
 
 /**
- * Verwaltet die Registrierung des Health Services Passive Listeners.
- * Daten werden asynchron vom HealthPassiveDataService in den HealthDataCache geschrieben.
+ * Verwaltet die Registrierung des Health Services Passive Listeners sowie
+ * des Health Connect Pollings (Kalorien, SpO2, Schlaf).
+ *
+ * Passive Monitoring liefert CALORIES_DAILY auf dem Mobvoi Atlas nur sehr
+ * selten. SpO2 und Schlaf sind gar nicht über den Passive Listener verfügbar.
+ * Der [WearHealthConnectManager] liest diese Werte alle 5 Minuten direkt aus
+ * Health Connect, wohin TicHealth die Daten schreibt.
  *
  * Benötigte Berechtigungen (AndroidManifest + Laufzeit):
  *   - android.permission.BODY_SENSORS
@@ -47,6 +52,10 @@ class HealthSensorManager private constructor(
     private val measureClient = if (!isNoop && context != null) {
         try { HealthServices.getClient(context).measureClient } catch (_: Exception) { null }
     } else null
+
+    // Health Connect Polling für Kalorien, SpO2 und Schlaf
+    private val wearHealthConnectManager: WearHealthConnectManager? =
+        if (!isNoop && context != null) WearHealthConnectManager(context) else null
 
     // Aktive Puls-Messung (MeasureClient) – liefert kontinuierliche Samples,
     // im Gegensatz zum Passive Listener (nur sporadisch bei Aktivität).
@@ -122,6 +131,9 @@ class HealthSensorManager private constructor(
                 Log.e(TAG, "Registrierung fehlgeschlagen: ${e.message}")
             }
         }
+
+        // Health Connect Polling starten (Kalorien, SpO2, Schlaf)
+        wearHealthConnectManager?.start()
     }
 
     /**
@@ -160,6 +172,7 @@ class HealthSensorManager private constructor(
 
     fun stop() {
         stopHeartRate()
+        wearHealthConnectManager?.stop()
         if (isNoop || passiveMonitoringClient == null || scope == null) return
         scope.launch {
             try {

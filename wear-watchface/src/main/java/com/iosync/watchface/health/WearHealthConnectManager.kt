@@ -1,0 +1,133 @@
+package com.iosync.watchface.health
+
+import android.content.Context
+import android.util.Log
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.OxygenSaturationRecord
+import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
+private const val TAG = "WearHealthConnect"
+private const val POLL_INTERVAL_MS = 5 * 60 * 1_000L // 5 Minuten
+
+/**
+ * Liest Gesundheitsdaten direkt aus Health Connect auf der Uhr (Wear OS 4).
+ *
+ * Hintergrund: Der Health Services Passive Listener liefert CALORIES_DAILY auf
+ * dem Mobvoi Atlas nur sehr selten (teils nur einmal täglich). SpO2 und Schlaf
+ * sind gar nicht über den Passive Listener verfügbar. TicHealth schreibt diese
+ * Daten jedoch direkt in Health Connect auf der Uhr – daher ist dieser direkte
+ * Weg deutlich zuverlässiger.
+ *
+ * Berechtigungen müssen über [WatchFaceConfigActivity] einmalig erteilt werden.
+ */
+class WearHealthConnectManager(private val context: Context) {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var pollJob: Job? = null
+
+    /** Berechtigungen, die in der Config-Activity angefragt werden. */
+    val requiredPermissions: Set<String> = setOf(
+        HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+        HealthPermission.getReadPermission(OxygenSaturationRecord::class),
+        HealthPermission.getReadPermission(SleepSessionRecord::class)
+    )
+
+    fun isAvailable(): Boolean = try {
+        HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
+    } catch (_: Exception) { false }
+
+    fun start() {
+        if (!isAvailable()) {
+            Log.d(TAG, "Health Connect nicht verfügbar – Polling nicht gestartet")
+            return
+        }
+        pollJob?.cancel()
+        pollJob = scope.launch {
+            // Sofort beim Start laden
+            refreshHealthData()
+            while (true) {
+                delay(POLL_INTERVAL_MS)
+                refreshHealthData()
+            }
+        }
+        Log.d(TAG, "Health Connect Polling gestartet (alle 5 min)")
+    }
+
+    fun stop() {
+        pollJob?.cancel()
+        scope.cancel()
+    }
+
+    private suspend fun refreshHealthData() {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val granted = client.permissionController.getGrantedPermissions()
+            val now = Instant.now()
+            val since24h = now.minus(24, ChronoUnit.HOURS)
+            val timeRange = TimeRangeFilter.between(since24h, now)
+
+            // Kalorien (Tagessumme über TotalCaloriesBurned)
+            if (granted.contains(HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class))) {
+                try {
+                    val resp = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, timeRange))
+                    val kcal = resp.records.sumOf { it.energy.inKilocalories }.toInt()
+                    if (kcal > 0) {
+                        HealthDataCache.calories = kcal
+                        Log.d(TAG, "Kalorien: $kcal kcal")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Kalorien lesen fehlgeschlagen: ${e.message}")
+                }
+            }
+
+            // SpO2 (letzter gemessener Wert der letzten 24h)
+            if (granted.contains(HealthPermission.getReadPermission(OxygenSaturationRecord::class))) {
+                try {
+                    val resp = client.readRecords(ReadRecordsRequest(OxygenSaturationRecord::class, timeRange))
+                    resp.records.lastOrNull()?.percentage?.value?.toInt()?.let { o2 ->
+                        if (o2 > 0) {
+                            HealthDataCache.spO2 = o2
+                            Log.d(TAG, "SpO2: $o2%")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "SpO2 lesen fehlgeschlagen: ${e.message}")
+                }
+            }
+
+            // Schlafdauer (Summe aller Schlaf-Sessions der letzten 24h in Minuten)
+            if (granted.contains(HealthPermission.getReadPermission(SleepSessionRecord::class))) {
+                try {
+                    val resp = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange))
+                    val sleepMin = resp.records.sumOf {
+                        ChronoUnit.MINUTES.between(it.startTime, it.endTime)
+                    }.toInt()
+                    if (sleepMin > 0) {
+                        HealthDataCache.sleepMinutes = sleepMin
+                        Log.d(TAG, "Schlaf: $sleepMin min")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Schlaf lesen fehlgeschlagen: ${e.message}")
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Health Connect Fehler: ${e.message}")
+        }
+    }
+}

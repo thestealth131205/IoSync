@@ -32,8 +32,8 @@ android {
         applicationId = "com.iosync.app"
         minSdk = 30  // Wear OS 3+ (API 30)
         targetSdk = 36
-        versionCode = 404
-        versionName = "4.0.4"
+        versionCode = 405
+        versionName = "4.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -96,9 +96,12 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
-    // Health Services
+    // Health Services (Passive Monitoring für HR, Steps)
     implementation(libs.health.services.client)
     implementation("com.google.guava:guava:33.0.0-android")
+
+    // Health Connect (direktes Lesen von Kalorien, SpO2, Schlaf aus der Watch-DB)
+    implementation(libs.health.connect.client)
 
     // Wearable Data Layer
     implementation(libs.play.services.wearable)

@@ -10,4 +10,5 @@ object HealthDataCache {
     @Volatile var calories: Int = 0
     @Volatile var steps: Int = 0
     @Volatile var spO2: Int = 0
+    @Volatile var sleepMinutes: Int = 0
 }

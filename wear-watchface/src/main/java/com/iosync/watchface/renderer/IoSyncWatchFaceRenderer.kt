@@ -38,6 +38,7 @@ import androidx.wear.watchface.complications.data.RangedValueComplicationData
 import androidx.wear.watchface.complications.data.ShortTextComplicationData
 import com.iosync.watchface.datalayer.SmartHomeStateCache
 import com.iosync.watchface.datalayer.WatchFaceConfigCache
+import com.iosync.watchface.health.HealthDataCache
 import com.iosync.watchface.health.HealthSensorManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -1998,7 +1999,8 @@ class IoSyncWatchFaceRenderer(
         val gap       = iconSize * 0.40f
         val rowY      = cy - radius * 0.62f
 
-        val sleepMin  = config.phoneSleepMinutes
+        // Schlaf: lokaler Health Connect (Watch) hat Vorrang vor Phone-Wert
+        val sleepMin  = if (HealthDataCache.sleepMinutes > 0) HealthDataCache.sleepMinutes else config.phoneSleepMinutes
         val sleepText = if (sleepMin > 0) "${sleepMin / 60}h ${sleepMin % 60}m" else "--"
 
         healthValuePaint.color     = colorFromId(config.sleepColor)
