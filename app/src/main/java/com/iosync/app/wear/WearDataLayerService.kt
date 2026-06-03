@@ -647,16 +647,17 @@ class WearDataLayerService @Inject constructor(
      * @param level      Akkustand in Prozent (0–100)
      * @param isCharging true wenn das Gerät gerade geladen wird
      */
-    suspend fun syncPhoneBatteryToWear(level: Int, isCharging: Boolean) {
+    suspend fun syncPhoneBatteryToWear(level: Int, isCharging: Boolean, showInWatchface: Boolean = true) {
         withContext(Dispatchers.IO) {
             try {
                 val request = PutDataMapRequest.create(PATH_PHONE_BATTERY).apply {
                     dataMap.putInt(KEY_BATTERY_LEVEL, level)
                     dataMap.putBoolean(KEY_IS_CHARGING, isCharging)
+                    dataMap.putBoolean("show_phone_battery", showInWatchface)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
-                Log.d(TAG, "Handy-Akku ($level %, lädt=$isCharging) an Wear OS übertragen")
+                Log.d(TAG, "Handy-Akku ($level %, lädt=$isCharging, zeigen=$showInWatchface) an Wear OS übertragen")
             } catch (e: Exception) {
                 Log.e(TAG, "syncPhoneBatteryToWear fehlgeschlagen", e)
             }

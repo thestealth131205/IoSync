@@ -91,7 +91,13 @@ class HealthSensorManager private constructor(
     val spO2: Int get() = HealthDataCache.spO2
 
     fun start() {
-        if (isNoop || passiveMonitoringClient == null || scope == null || context == null) return
+        if (isNoop || context == null) return
+
+        // Health Connect Polling unabhängig von BODY_SENSORS starten —
+        // HC braucht nur HC-Berechtigungen, nicht BODY_SENSORS.
+        wearHealthConnectManager?.start()
+
+        if (passiveMonitoringClient == null || scope == null) return
 
         // Runtime-Permission-Prüfung: ohne BODY_SENSORS liefert Health Services keine Daten,
         // und ohne ACTIVITY_RECOGNITION fehlen Schritte/Kalorien.
@@ -131,9 +137,6 @@ class HealthSensorManager private constructor(
                 Log.e(TAG, "Registrierung fehlgeschlagen: ${e.message}")
             }
         }
-
-        // Health Connect Polling starten (Kalorien, SpO2, Schlaf)
-        wearHealthConnectManager?.start()
     }
 
     /**

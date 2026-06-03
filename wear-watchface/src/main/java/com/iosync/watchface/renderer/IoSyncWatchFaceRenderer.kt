@@ -466,6 +466,9 @@ class IoSyncWatchFaceRenderer(
                             val dataMap = DataMapItem.fromDataItem(item).dataMap
                             WatchFaceConfigCache.phoneBatteryLevel = dataMap.getInt("battery_level", -1)
                             WatchFaceConfigCache.phoneBatteryCharging = dataMap.getBoolean("is_charging", false)
+                            if (dataMap.containsKey("show_phone_battery")) {
+                                WatchFaceConfigCache.showPhoneBattery = dataMap.getBoolean("show_phone_battery", false)
+                            }
                         }
                         PATH_CUSTOM_SLOTS -> {
                             val dataMap = DataMapItem.fromDataItem(item).dataMap
@@ -547,6 +550,9 @@ class IoSyncWatchFaceRenderer(
                 PATH_PHONE_BATTERY -> {
                     WatchFaceConfigCache.phoneBatteryLevel = dataMap.getInt("battery_level", -1)
                     WatchFaceConfigCache.phoneBatteryCharging = dataMap.getBoolean("is_charging", false)
+                    if (dataMap.containsKey("show_phone_battery")) {
+                        WatchFaceConfigCache.showPhoneBattery = dataMap.getBoolean("show_phone_battery", false)
+                    }
                 }
                 PATH_CUSTOM_SLOTS -> {
                     dataMap.getString("wf_custom_slot1_label")?.let { WatchFaceConfigCache.customSlot1Label = it }

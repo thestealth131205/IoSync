@@ -236,17 +236,18 @@ class IoSyncSyncService : Service() {
             try {
                 val prefs = dataStore.data.first()
                 val intervalSec = prefs[MainViewModel.KEY_BATTERY_POLL_INTERVAL] ?: 60
-                if (prefs[MainViewModel.KEY_WF_SHOW_PHONE_BATTERY] == true) {
-                    val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-                    if (batteryIntent != null) {
-                        val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                        val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
-                        val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                                status == BatteryManager.BATTERY_STATUS_FULL
-                        val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
-                        if (percent >= 0) wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging)
-                    }
+                val showBattery = prefs[MainViewModel.KEY_WF_SHOW_PHONE_BATTERY] ?: false
+                // Immer senden (auch wenn showBattery=false), damit die Uhr das Flag kennt
+                // und den Ring direkt zeigen/verstecken kann — ohne separaten Config-Push.
+                val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                if (batteryIntent != null) {
+                    val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                    val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+                    val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                    val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                            status == BatteryManager.BATTERY_STATUS_FULL
+                    val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
+                    if (percent >= 0) wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging, showBattery)
                 }
                 delay(intervalSec * 1_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {

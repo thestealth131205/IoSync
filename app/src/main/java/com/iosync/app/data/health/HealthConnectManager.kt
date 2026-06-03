@@ -15,6 +15,7 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -234,9 +235,15 @@ class HealthConnectManager @Inject constructor(
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, timeRange))
-            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            val records = if (sourceFilter.isNotEmpty()) {
+                val filtered = resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter }
+                if (filtered.isNotEmpty()) filtered else resp.records // Fallback: alle Quellen
+            } else resp.records
             records.lastOrNull()?.samples?.lastOrNull()?.beatsPerMinute?.toInt()
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            Log.w("HealthConnect", "readLatestHeartRate fehlgeschlagen (src=$sourceFilter): ${e.javaClass.simpleName}: ${e.message}")
+            null
+        }
     }
 
     /** Liest die Gesamtkalorien der letzten 24h aus Health Connect.
@@ -247,9 +254,17 @@ class HealthConnectManager @Inject constructor(
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, timeRange))
-            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
-            records.sumOf { it.energy.inKilocalories }.toInt().takeIf { it > 0 }
-        } catch (_: Exception) { null }
+            val records = if (sourceFilter.isNotEmpty()) {
+                val filtered = resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter }
+                if (filtered.isNotEmpty()) filtered else resp.records // Fallback: alle Quellen
+            } else resp.records
+            val total = records.sumOf { it.energy.inKilocalories }.toInt()
+            Log.d("HealthConnect", "Kalorien: $total kcal (Quellen: ${records.map { it.metadata.dataOrigin.packageName }.distinct()})")
+            total.takeIf { it > 0 }
+        } catch (e: Exception) {
+            Log.w("HealthConnect", "readTodayCalories fehlgeschlagen (src=$sourceFilter): ${e.javaClass.simpleName}: ${e.message}")
+            null
+        }
     }
 
     /** Liest den letzten SpO2-Wert aus Health Connect (letzte 24h).
@@ -260,9 +275,17 @@ class HealthConnectManager @Inject constructor(
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(OxygenSaturationRecord::class, timeRange))
-            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
-            records.lastOrNull()?.percentage?.value?.toInt()
-        } catch (_: Exception) { null }
+            val records = if (sourceFilter.isNotEmpty()) {
+                val filtered = resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter }
+                if (filtered.isNotEmpty()) filtered else resp.records // Fallback: alle Quellen
+            } else resp.records
+            val o2 = records.lastOrNull()?.percentage?.value?.toInt()
+            Log.d("HealthConnect", "SpO2: $o2% (${records.size} Einträge, Quellen: ${records.map { it.metadata.dataOrigin.packageName }.distinct()})")
+            o2
+        } catch (e: Exception) {
+            Log.w("HealthConnect", "readLatestOxygenSaturation fehlgeschlagen (src=$sourceFilter): ${e.javaClass.simpleName}: ${e.message}")
+            null
+        }
     }
 
     /**

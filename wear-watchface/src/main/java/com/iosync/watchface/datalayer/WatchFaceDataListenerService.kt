@@ -218,6 +218,9 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     Log.d(TAG, "Handy-Akku empfangen: $level % (lädt=$charging)")
                     WatchFaceConfigCache.phoneBatteryLevel = level
                     WatchFaceConfigCache.phoneBatteryCharging = charging
+                    if (dataMap.containsKey("show_phone_battery")) {
+                        WatchFaceConfigCache.showPhoneBattery = dataMap.getBoolean("show_phone_battery", false)
+                    }
                 }
                 PATH_WEATHER -> {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
