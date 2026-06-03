@@ -96,6 +96,8 @@ class IoSyncWatchFaceRenderer(
     }
     private var backgroundBitmap: Bitmap? = null
     private var backgroundBitmapScaled: Bitmap? = null
+    private var backgroundBitmapP2: Bitmap? = null
+    private var backgroundBitmapP2Scaled: Bitmap? = null
     private val backgroundBitmapPaint = Paint().apply { isAntiAlias = true }
 
     // ── Hauptzeit HH:mm ───────────────────────────────────────────────────────
@@ -617,19 +619,32 @@ class IoSyncWatchFaceRenderer(
 
         canvas.drawRect(0f, 0f, bounds.width().toFloat(), bounds.height().toFloat(), backgroundPaint)
 
-        val showBg = if (currentPage == 1) config.showBackgroundPage2 else config.showBackground
-        if (!isAmbient && showBg) {
+        if (!isAmbient) {
             val w = bounds.width()
             val h = bounds.height()
-            if (backgroundBitmapScaled?.width != w || backgroundBitmapScaled?.height != h) {
-                if (backgroundBitmap == null) {
-                    backgroundBitmap = BitmapFactory.decodeResource(context.resources, com.iosync.watchface.R.drawable.watchface_background)
+            if (currentPage == 1) {
+                // Seite 2: eigenes Hintergrundbild (unabhängig von Seite 1)
+                if (backgroundBitmapP2Scaled?.width != w || backgroundBitmapP2Scaled?.height != h) {
+                    if (backgroundBitmapP2 == null) {
+                        backgroundBitmapP2 = BitmapFactory.decodeResource(context.resources, com.iosync.watchface.R.drawable.watchface_background_p2)
+                    }
+                    backgroundBitmapP2Scaled = backgroundBitmapP2?.let {
+                        Bitmap.createScaledBitmap(it, w, h, true)
+                    }
                 }
-                backgroundBitmapScaled = backgroundBitmap?.let {
-                    Bitmap.createScaledBitmap(it, w, h, true)
+                backgroundBitmapP2Scaled?.let { canvas.drawBitmap(it, 0f, 0f, backgroundBitmapPaint) }
+            } else if (config.showBackground) {
+                // Seite 1: konfigurierbares Hintergrundbild
+                if (backgroundBitmapScaled?.width != w || backgroundBitmapScaled?.height != h) {
+                    if (backgroundBitmap == null) {
+                        backgroundBitmap = BitmapFactory.decodeResource(context.resources, com.iosync.watchface.R.drawable.watchface_background)
+                    }
+                    backgroundBitmapScaled = backgroundBitmap?.let {
+                        Bitmap.createScaledBitmap(it, w, h, true)
+                    }
                 }
+                backgroundBitmapScaled?.let { canvas.drawBitmap(it, 0f, 0f, backgroundBitmapPaint) }
             }
-            backgroundBitmapScaled?.let { canvas.drawBitmap(it, 0f, 0f, backgroundBitmapPaint) }
         }
 
         val cx     = bounds.exactCenterX()

@@ -727,6 +727,10 @@ class MainViewModel @Inject constructor(
                             )
                         }
                         if (s.wfShowIoBrokerData) wearDataLayerService.syncStatesToWear(states)
+                        // Frische Werte sofort ans Watchface senden (Custom-Slots & Seite-2-Slots),
+                        // damit das Watchface nicht auf den nächsten SyncService-Zyklus warten muss.
+                        syncCustomSlotValues()
+                        syncPage2SlotValues()
                     }
                     .onFailure { e ->
                         _uiState.update { it.copy(isLoading = false, error = "IoSync: ${e.message}") }
@@ -870,6 +874,12 @@ class MainViewModel @Inject constructor(
                                 filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
                             )
                         }
+                        // Frische Werte auch bei jedem Poll-Zyklus ans Watchface senden,
+                        // damit die Uhr genauso aktuell ist wie die App-Anzeige.
+                        val s = _uiState.value
+                        if (s.wfShowIoBrokerData) wearDataLayerService.syncStatesToWear(states)
+                        syncCustomSlotValues()
+                        syncPage2SlotValues()
                     }
                     .onFailure { /* Fehler werden im IoSyncClient geloggt */ }
                 delay(_uiState.value.slotPollIntervalSec * 1_000L)
