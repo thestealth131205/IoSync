@@ -19,6 +19,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 private const val TAG = "WearHealthConnect"
@@ -79,8 +81,8 @@ class WearHealthConnectManager(private val context: Context) {
             val client = HealthConnectClient.getOrCreate(context)
             val granted = client.permissionController.getGrantedPermissions()
             val now = Instant.now()
-            val since24h = now.minus(24, ChronoUnit.HOURS)
-            val timeRange = TimeRangeFilter.between(since24h, now)
+            val startOfToday = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
+            val timeRange = TimeRangeFilter.between(startOfToday, now)
 
             // Kalorien (Tagessumme: erst TotalCaloriesBurned, Fallback auf ActiveCaloriesBurned)
             // TicHealth auf dem Mobvoi Atlas schreibt je nach Version TotalCaloriesBurnedRecord

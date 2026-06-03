@@ -19,6 +19,8 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -252,7 +254,8 @@ class HealthConnectManager @Inject constructor(
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
-            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val startOfToday = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
+            val timeRange = TimeRangeFilter.between(startOfToday, now)
             val resp = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, timeRange))
             val records = if (sourceFilter.isNotEmpty()) {
                 val filtered = resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter }
@@ -337,7 +340,8 @@ class HealthConnectManager @Inject constructor(
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
-            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val startOfToday = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
+            val timeRange = TimeRangeFilter.between(startOfToday, now)
             val resp = client.readRecords(ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, timeRange))
             val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
             records.sumOf { it.energy.inKilocalories }.toInt().takeIf { it > 0 }

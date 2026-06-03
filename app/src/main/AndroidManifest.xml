@@ -48,7 +48,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Watchface Aktions-Pille Trigger (empfängt Doppelklick-Messages vom Watchface) -->
+        <!-- Watchface Pille Trigger (empfängt Doppelklick-Messages vom Watchface) -->
         <service
             android:name=".wear.WatchFaceTriggerListenerService"
             android:exported="true">
@@ -56,7 +56,7 @@
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
                 <data
                     android:host="*"
-                    android:pathPrefix="/iosync/watchface/action_trigger"
+                    android:pathPrefix="/iosync/watchface/"
                     android:scheme="wear" />
             </intent-filter>
         </service>
