@@ -2028,6 +2028,16 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" || oxygenSource == "healthconnect"
             val globalSource = if (anyHealthConnect) "phone" else "local"
+            // Persistenz erforderlich: SyncService liest immer aus DataStore
+            dataStore.edit { prefs ->
+                prefs[KEY_WF_HR_SOURCE]          = hrSource
+                prefs[KEY_WF_KCAL_SOURCE]        = kcalSource
+                prefs[KEY_WF_OXYGEN_SOURCE]      = oxygenSource
+                prefs[KEY_WF_HR_COMPLICATION]    = hrComplication
+                prefs[KEY_WF_KCAL_COMPLICATION]  = kcalComplication
+                prefs[KEY_WF_OXYGEN_COMPLICATION] = oxygenComplication
+                prefs[KEY_WF_HEALTH_DATA_SOURCE] = globalSource
+            }
             _uiState.update {
                 it.copy(
                     wfHrSource = hrSource,
