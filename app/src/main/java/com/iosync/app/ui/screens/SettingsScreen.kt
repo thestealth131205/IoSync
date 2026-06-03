@@ -67,7 +67,7 @@ import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.network.GeocodingResult
 import com.iosync.app.ui.theme.NeonYellow
 import com.iosync.app.data.health.HealthConnectStatus
-import HealthDataTypeInfo
+import com.iosync.app.data.health.HealthDataTypeInfo
 import com.iosync.app.ui.viewmodel.MainUiState
 import com.iosync.app.ui.viewmodel.MainViewModel
 
