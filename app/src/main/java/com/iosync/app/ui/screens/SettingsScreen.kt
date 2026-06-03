@@ -875,8 +875,9 @@ fun SettingsScreen(
                     label = "Puls-Quelle",
                     source = wfHrSource,
                     onSourceChange = { wfHrSource = it },
-                    hcTypeKey = wfHrComplication,
-                    onHcTypeKeyChange = { wfHrComplication = it },
+                    defaultHcTypeKey = "heart_rate",
+                    hcSourcePkg = wfHrComplication,
+                    onHcSourcePkgChange = { wfHrComplication = it },
                     availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
                 )
                 Text("Puls-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -894,8 +895,9 @@ fun SettingsScreen(
                     label = "Kcal-Quelle",
                     source = wfKcalSource,
                     onSourceChange = { wfKcalSource = it },
-                    hcTypeKey = wfKcalComplication,
-                    onHcTypeKeyChange = { wfKcalComplication = it },
+                    defaultHcTypeKey = "total_calories",
+                    hcSourcePkg = wfKcalComplication,
+                    onHcSourcePkgChange = { wfKcalComplication = it },
                     availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
                 )
                 Text("Kcal-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -913,8 +915,9 @@ fun SettingsScreen(
                     label = "SpO2-Quelle",
                     source = wfOxygenSource,
                     onSourceChange = { wfOxygenSource = it },
-                    hcTypeKey = wfOxygenComplication,
-                    onHcTypeKeyChange = { wfOxygenComplication = it },
+                    defaultHcTypeKey = "oxygen_saturation",
+                    hcSourcePkg = wfOxygenComplication,
+                    onHcSourcePkgChange = { wfOxygenComplication = it },
                     availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
                 )
                 Text("SpO2-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1615,12 +1618,13 @@ fun SettingsScreen(
                     DatapointDropdown(selectedId = wfSleepIoBrokerId, availableStates = p2States, onSelect = { wfSleepIoBrokerId = it }, modifier = Modifier.fillMaxWidth())
                 }
                 if (wfSleepSource == "healthconnect") {
-                    val availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
-                    if (availableHcTypes.isNotEmpty()) {
-                        Text("Health-Connect-Datentyp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        HealthConnectTypeDropdown(
-                            types = availableHcTypes,
-                            selectedKey = wfSleepComplication,
+                    val sleepTypeInfo = uiState.healthConnectStatus.dataTypes.find { it.key == "sleep" && it.available }
+                    if (sleepTypeInfo != null && sleepTypeInfo.sourcePackages.isNotEmpty()) {
+                        Text("Datenquelle", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        HealthConnectSourceDropdown(
+                            labels = sleepTypeInfo.sources,
+                            packages = sleepTypeInfo.sourcePackages,
+                            selectedPkg = wfSleepComplication,
                             onSelect = { wfSleepComplication = it },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -2603,17 +2607,21 @@ private val HEALTH_SOURCE_PER_TYPE_OPTIONS = listOf("local" to "Lokal (Uhr)", "h
 
 /**
  * Pro-Typ Gesundheitsdaten-Quelle: Dropdown (Lokal/Health Connect).
- * Bei Quelle "Health Connect" kann zusätzlich der gewünschte HC-Datentyp gewählt werden.
+ * Bei Quelle "Health Connect" werden die verfügbaren Quell-Apps für diesen HC-Typ angezeigt.
+ * defaultHcTypeKey: fester HC-Datentypschlüssel für diese Zeile (z.B. "heart_rate")
+ * hcSourcePkg: ausgewählter Package-Name der Quell-App (leer = alle Quellen)
  */
 @Composable
 private fun HealthSourcePerTypeRow(
     label: String,
     source: String,
     onSourceChange: (String) -> Unit,
-    hcTypeKey: String,
-    onHcTypeKeyChange: (String) -> Unit,
+    defaultHcTypeKey: String,
+    hcSourcePkg: String,
+    onHcSourcePkgChange: (String) -> Unit,
     availableHcTypes: List<HealthDataTypeInfo>
 ) {
+    val typeInfo = availableHcTypes.find { it.key == defaultHcTypeKey }
     Column(modifier = Modifier.padding(start = 16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2627,17 +2635,18 @@ private fun HealthSourcePerTypeRow(
                 modifier = Modifier.weight(0.7f)
             )
         }
-        if (source == "healthconnect" && availableHcTypes.isNotEmpty()) {
+        if (source == "healthconnect" && typeInfo != null && typeInfo.sourcePackages.isNotEmpty()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("HC-Datentyp", style = MaterialTheme.typography.bodySmall, color = Color(0xFFAAAAAA), modifier = Modifier.weight(1f))
-                HealthConnectTypeDropdown(
-                    types = availableHcTypes,
-                    selectedKey = hcTypeKey,
-                    onSelect = onHcTypeKeyChange,
+                Text("Datenquelle", style = MaterialTheme.typography.bodySmall, color = Color(0xFFAAAAAA), modifier = Modifier.weight(1f))
+                HealthConnectSourceDropdown(
+                    labels = typeInfo.sources,
+                    packages = typeInfo.sourcePackages,
+                    selectedPkg = hcSourcePkg,
+                    onSelect = onHcSourcePkgChange,
                     modifier = Modifier.weight(0.7f)
                 )
             }
@@ -2734,19 +2743,21 @@ private fun HealthSourcePerTypeDropdown(
 }
 
 /**
- * Dropdown für verfügbare Health-Connect-Datentypen.
- * "" = Automatisch (Standard-Datentyp für diesen Slot).
+ * Dropdown für verfügbare Health-Connect-Quell-Apps eines bestimmten Datentyps.
+ * "" = Alle Quellen (Standard).
+ * labels: App-Labels (für Anzeige), packages: Package-Namen (für Filterung) – gleiche Reihenfolge.
  */
 @Composable
-private fun HealthConnectTypeDropdown(
-    types: List<HealthDataTypeInfo>,
-    selectedKey: String,
+private fun HealthConnectSourceDropdown(
+    labels: List<String>,
+    packages: List<String>,
+    selectedPkg: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val displayName = if (selectedKey.isEmpty()) "Automatisch"
-        else types.firstOrNull { it.key == selectedKey }?.displayName ?: selectedKey
+    val displayName = if (selectedPkg.isEmpty()) "Alle Quellen"
+        else labels.getOrElse(packages.indexOf(selectedPkg)) { selectedPkg }
     Box(modifier = modifier) {
         OutlinedButton(
             onClick = { expanded = true },
@@ -2762,27 +2773,27 @@ private fun HealthConnectTypeDropdown(
             onDismissRequest = { expanded = false },
             modifier = Modifier.background(Color(0xFF1E1E1E))
         ) {
-            // Option "Automatisch"
             DropdownMenuItem(
                 text = {
                     Text(
-                        text = "Automatisch",
-                        color = if (selectedKey.isEmpty()) NeonYellow else Color.White,
+                        text = "Alle Quellen",
+                        color = if (selectedPkg.isEmpty()) NeonYellow else Color.White,
                         style = MaterialTheme.typography.bodySmall
                     )
                 },
                 onClick = { onSelect(""); expanded = false }
             )
-            types.forEach { type ->
+            packages.forEachIndexed { index, pkg ->
+                val label = labels.getOrElse(index) { pkg }
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = type.displayName,
-                            color = if (type.key == selectedKey) NeonYellow else Color.White,
+                            text = label,
+                            color = if (pkg == selectedPkg) NeonYellow else Color.White,
                             style = MaterialTheme.typography.bodySmall
                         )
                     },
-                    onClick = { onSelect(type.key); expanded = false }
+                    onClick = { onSelect(pkg); expanded = false }
                 )
             }
         }

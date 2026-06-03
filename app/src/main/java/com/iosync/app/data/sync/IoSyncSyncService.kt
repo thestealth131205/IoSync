@@ -305,29 +305,24 @@ class IoSyncSyncService : Service() {
                 val sleepSource  = prefs[MainViewModel.KEY_WF_SLEEP_SOURCE]   ?: "healthconnect"
                 val intervalSec  = prefs[MainViewModel.KEY_HEALTH_POLL_INTERVAL] ?: 60
 
-                val hrTypeKey     = prefs[MainViewModel.KEY_WF_HR_COMPLICATION]     ?: ""
-                val kcalTypeKey   = prefs[MainViewModel.KEY_WF_KCAL_COMPLICATION]   ?: ""
-                val oxygenTypeKey = prefs[MainViewModel.KEY_WF_OXYGEN_COMPLICATION] ?: ""
+                val hrSourcePkg     = prefs[MainViewModel.KEY_WF_HR_COMPLICATION]     ?: ""
+                val kcalSourcePkg   = prefs[MainViewModel.KEY_WF_KCAL_COMPLICATION]   ?: ""
+                val oxygenSourcePkg = prefs[MainViewModel.KEY_WF_OXYGEN_COMPLICATION] ?: ""
+                val sleepSourcePkg  = prefs[MainViewModel.KEY_WF_SLEEP_COMPLICATION]  ?: ""
 
                 val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" ||
                     oxygenSource == "healthconnect" || sleepSource == "healthconnect"
                 if (anyHealthConnect) {
                     if (hrSource == "healthconnect") {
-                        val v = if (hrTypeKey.isNotEmpty()) healthConnectManager.readLatestValueByKey(hrTypeKey)
-                                else healthConnectManager.readLatestHeartRate()
-                        v?.let { if (it > 0) lastKnownHr = it }
+                        healthConnectManager.readLatestHeartRate(hrSourcePkg)?.let { if (it > 0) lastKnownHr = it }
                     }
                     if (kcalSource == "healthconnect") {
-                        val v = if (kcalTypeKey.isNotEmpty()) healthConnectManager.readLatestValueByKey(kcalTypeKey)
-                                else healthConnectManager.readTodayCalories()
-                        v?.let { if (it > 0) lastKnownKcal = it }
+                        healthConnectManager.readTodayCalories(kcalSourcePkg)?.let { if (it > 0) lastKnownKcal = it }
                     }
                     if (oxygenSource == "healthconnect") {
-                        val v = if (oxygenTypeKey.isNotEmpty()) healthConnectManager.readLatestValueByKey(oxygenTypeKey)
-                                else healthConnectManager.readLatestOxygenSaturation()
-                        v?.let { if (it > 0) lastKnownO2 = it }
+                        healthConnectManager.readLatestOxygenSaturation(oxygenSourcePkg)?.let { if (it > 0) lastKnownO2 = it }
                     }
-                    if (sleepSource == "healthconnect")  healthConnectManager.readTodaySleepMinutes()?.let { if (it > 0) lastKnownSleep = it }
+                    if (sleepSource == "healthconnect") healthConnectManager.readTodaySleepMinutes(sleepSourcePkg)?.let { if (it > 0) lastKnownSleep = it }
 
                     if (lastKnownHr > 0 || lastKnownO2 > 0 || lastKnownKcal > 0 || lastKnownSleep > 0) {
                         wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, lastKnownSleep)

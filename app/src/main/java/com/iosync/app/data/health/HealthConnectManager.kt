@@ -32,7 +32,8 @@ data class HealthDataTypeInfo(
     val permission: String,
     val recordClass: KClass<*>,
     val available: Boolean = false,
-    val sources: List<String> = emptyList()
+    val sources: List<String> = emptyList(),        // App-Labels (für Anzeige)
+    val sourcePackages: List<String> = emptyList()  // Package-Namen (für Filterung)
 )
 
 /**
@@ -123,14 +124,15 @@ class HealthConnectManager @Inject constructor(
 
             val dataTypes = supportedTypes.map { def ->
                 val granted = grantedPermissions.contains(def.permission)
-                val sources = if (granted) querySourcesForType(client, def.recordClass) else emptyList()
+                val (labels, packages) = if (granted) querySourcesForType(client, def.recordClass) else Pair(emptyList(), emptyList())
                 HealthDataTypeInfo(
                     key = def.key,
                     displayName = def.displayName,
                     permission = def.permission,
                     recordClass = def.recordClass,
                     available = granted,
-                    sources = sources
+                    sources = labels,
+                    sourcePackages = packages
                 )
             }
 
@@ -148,14 +150,14 @@ class HealthConnectManager @Inject constructor(
     private suspend fun querySourcesForType(
         client: HealthConnectClient,
         recordClass: KClass<*>
-    ): List<String> {
+    ): Pair<List<String>, List<String>> {
         return try {
             val now = Instant.now()
             val dayAgo = now.minus(1, ChronoUnit.DAYS)
             val timeRange = TimeRangeFilter.between(dayAgo, now)
 
-            // Quellen über die letzten 24h ermitteln
-            val sources = when (recordClass) {
+            // Package-Namen über die letzten 24h ermitteln
+            val packages = when (recordClass) {
                 HeartRateRecord::class -> {
                     val resp = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, timeRange))
                     resp.records.mapNotNull { it.metadata.dataOrigin.packageName }.distinct()
@@ -198,147 +200,166 @@ class HealthConnectManager @Inject constructor(
                 }
                 else -> emptyList()
             }
-            // Package-Namen in lesbaren App-Namen umwandeln
-            sources.map { packageName -> getAppLabel(packageName) }
+            val labels = packages.map { getAppLabel(it) }
+            Pair(labels, packages)
         } catch (_: Exception) {
-            emptyList()
+            Pair(emptyList(), emptyList())
         }
     }
 
     /**
      * Liest den letzten Wert eines HC-Typs anhand seines Keys.
      * Gibt null zurück, wenn der Key unbekannt oder kein Wert vorhanden ist.
+     * sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen)
      */
-    suspend fun readLatestValueByKey(key: String): Int? = when (key) {
-        "heart_rate"        -> readLatestHeartRate()
-        "steps"             -> readTodaySteps()
-        "distance"          -> readTodayDistanceMeters()
-        "active_calories"   -> readTodayActiveCalories()
-        "total_calories"    -> readTodayCalories()
-        "oxygen_saturation" -> readLatestOxygenSaturation()
-        "body_temperature"  -> readLatestBodyTemperatureTenths()
-        "blood_pressure"    -> readLatestBloodPressureSystolic()
-        "sleep"             -> readTodaySleepMinutes()
-        "exercise"          -> readTodayExerciseMinutes()
+    suspend fun readLatestValueByKey(key: String, sourceFilter: String = ""): Int? = when (key) {
+        "heart_rate"        -> readLatestHeartRate(sourceFilter)
+        "steps"             -> readTodaySteps(sourceFilter)
+        "distance"          -> readTodayDistanceMeters(sourceFilter)
+        "active_calories"   -> readTodayActiveCalories(sourceFilter)
+        "total_calories"    -> readTodayCalories(sourceFilter)
+        "oxygen_saturation" -> readLatestOxygenSaturation(sourceFilter)
+        "body_temperature"  -> readLatestBodyTemperatureTenths(sourceFilter)
+        "blood_pressure"    -> readLatestBloodPressureSystolic(sourceFilter)
+        "sleep"             -> readTodaySleepMinutes(sourceFilter)
+        "exercise"          -> readTodayExerciseMinutes(sourceFilter)
         else                -> null
     }
 
-    /** Liest den letzten Herzfrequenz-Wert aus Health Connect (letzte 24h). */
-    suspend fun readLatestHeartRate(): Int? = withContext(Dispatchers.IO) {
+    /** Liest den letzten Herzfrequenz-Wert aus Health Connect (letzte 24h).
+     *  sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen) */
+    suspend fun readLatestHeartRate(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(HeartRateRecord::class, timeRange))
-            resp.records.lastOrNull()?.samples?.lastOrNull()?.beatsPerMinute?.toInt()
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.lastOrNull()?.samples?.lastOrNull()?.beatsPerMinute?.toInt()
         } catch (_: Exception) { null }
     }
 
-    /** Liest die Gesamtkalorien der letzten 24h aus Health Connect. */
-    suspend fun readTodayCalories(): Int? = withContext(Dispatchers.IO) {
+    /** Liest die Gesamtkalorien der letzten 24h aus Health Connect.
+     *  sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen) */
+    suspend fun readTodayCalories(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, timeRange))
-            resp.records.sumOf { it.energy.inKilocalories }.toInt().takeIf { it > 0 }
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.sumOf { it.energy.inKilocalories }.toInt().takeIf { it > 0 }
         } catch (_: Exception) { null }
     }
 
-    /** Liest den letzten SpO2-Wert aus Health Connect (letzte 24h). */
-    suspend fun readLatestOxygenSaturation(): Int? = withContext(Dispatchers.IO) {
+    /** Liest den letzten SpO2-Wert aus Health Connect (letzte 24h).
+     *  sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen) */
+    suspend fun readLatestOxygenSaturation(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(OxygenSaturationRecord::class, timeRange))
-            resp.records.lastOrNull()?.percentage?.value?.toInt()
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.lastOrNull()?.percentage?.value?.toInt()
         } catch (_: Exception) { null }
     }
 
     /**
      * Liest die Schlafdauer der letzten ~24h aus Health Connect in Minuten.
-     * Summiert die Dauer aller SleepSessionRecords innerhalb der letzten 24h.
+     * sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen)
      */
-    suspend fun readTodaySleepMinutes(): Int? = withContext(Dispatchers.IO) {
+    suspend fun readTodaySleepMinutes(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange))
-            resp.records
-                .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
                 .toInt()
                 .takeIf { it > 0 }
         } catch (_: Exception) { null }
     }
 
-    /** Liest die heutigen Schritte aus Health Connect. */
-    suspend fun readTodaySteps(): Int? = withContext(Dispatchers.IO) {
+    /** Liest die heutigen Schritte aus Health Connect.
+     *  sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen) */
+    suspend fun readTodaySteps(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(StepsRecord::class, timeRange))
-            resp.records.sumOf { it.count }.toInt().takeIf { it > 0 }
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.sumOf { it.count }.toInt().takeIf { it > 0 }
         } catch (_: Exception) { null }
     }
 
-    /** Liest die heutige zurückgelegte Distanz in Metern aus Health Connect. */
-    suspend fun readTodayDistanceMeters(): Int? = withContext(Dispatchers.IO) {
+    /** Liest die heutige zurückgelegte Distanz in Metern aus Health Connect.
+     *  sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen) */
+    suspend fun readTodayDistanceMeters(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(DistanceRecord::class, timeRange))
-            resp.records.sumOf { it.distance.inMeters }.toInt().takeIf { it > 0 }
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.sumOf { it.distance.inMeters }.toInt().takeIf { it > 0 }
         } catch (_: Exception) { null }
     }
 
-    /** Liest die aktiven Kalorien (ohne Grundumsatz) der letzten 24h aus Health Connect. */
-    suspend fun readTodayActiveCalories(): Int? = withContext(Dispatchers.IO) {
+    /** Liest die aktiven Kalorien (ohne Grundumsatz) der letzten 24h aus Health Connect.
+     *  sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen) */
+    suspend fun readTodayActiveCalories(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, timeRange))
-            resp.records.sumOf { it.energy.inKilocalories }.toInt().takeIf { it > 0 }
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.sumOf { it.energy.inKilocalories }.toInt().takeIf { it > 0 }
         } catch (_: Exception) { null }
     }
 
     /**
      * Liest die letzte Körpertemperatur aus Health Connect (letzte 24h).
      * Rückgabe in Zehntel-Grad (z. B. 366 = 36,6°C), damit kein Float-Verlust entsteht.
+     * sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen)
      */
-    suspend fun readLatestBodyTemperatureTenths(): Int? = withContext(Dispatchers.IO) {
+    suspend fun readLatestBodyTemperatureTenths(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(BodyTemperatureRecord::class, timeRange))
-            resp.records.lastOrNull()?.temperature?.inCelsius?.let { (it * 10).toInt() }
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.lastOrNull()?.temperature?.inCelsius?.let { (it * 10).toInt() }
         } catch (_: Exception) { null }
     }
 
-    /** Liest den letzten systolischen Blutdruckwert aus Health Connect (letzte 24h). */
-    suspend fun readLatestBloodPressureSystolic(): Int? = withContext(Dispatchers.IO) {
+    /** Liest den letzten systolischen Blutdruckwert aus Health Connect (letzte 24h).
+     *  sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen) */
+    suspend fun readLatestBloodPressureSystolic(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(BloodPressureRecord::class, timeRange))
-            resp.records.lastOrNull()?.systolic?.inMillimetersOfMercury?.toInt()
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.lastOrNull()?.systolic?.inMillimetersOfMercury?.toInt()
         } catch (_: Exception) { null }
     }
 
-    /** Liest die heutige Trainingsdauer in Minuten aus Health Connect. */
-    suspend fun readTodayExerciseMinutes(): Int? = withContext(Dispatchers.IO) {
+    /** Liest die heutige Trainingsdauer in Minuten aus Health Connect.
+     *  sourceFilter: optionaler Package-Name der Quell-App (leer = alle Quellen) */
+    suspend fun readTodayExerciseMinutes(sourceFilter: String = ""): Int? = withContext(Dispatchers.IO) {
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
             val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, timeRange))
-            resp.records.sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
+            val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
+            records.sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
                 .toInt().takeIf { it > 0 }
         } catch (_: Exception) { null }
     }
