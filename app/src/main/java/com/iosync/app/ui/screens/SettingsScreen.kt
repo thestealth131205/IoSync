@@ -67,7 +67,7 @@ import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.network.GeocodingResult
 import com.iosync.app.ui.theme.NeonYellow
 import com.iosync.app.data.health.HealthConnectStatus
-import com.iosync.app.data.health.HealthDataTypeInfo
+import HealthDataTypeInfo
 import com.iosync.app.ui.viewmodel.MainUiState
 import com.iosync.app.ui.viewmodel.MainViewModel
 
@@ -116,7 +116,7 @@ fun SettingsScreen(
     var wfHrSource         by remember(uiState.wfHrSource)         { mutableStateOf(uiState.wfHrSource) }
     var wfKcalSource       by remember(uiState.wfKcalSource)       { mutableStateOf(uiState.wfKcalSource) }
     var wfOxygenSource     by remember(uiState.wfOxygenSource)     { mutableStateOf(uiState.wfOxygenSource) }
-    // Pro-Typ gewählte Komplikation (Slot-ID als String, "" = keine)
+    // Pro-Typ gewählter Health-Connect-Datentyp (Key als String, "" = Automatisch/Standard)
     var wfHrComplication     by remember(uiState.wfHrComplication)     { mutableStateOf(uiState.wfHrComplication) }
     var wfKcalComplication   by remember(uiState.wfKcalComplication)   { mutableStateOf(uiState.wfKcalComplication) }
     var wfOxygenComplication by remember(uiState.wfOxygenComplication) { mutableStateOf(uiState.wfOxygenComplication) }
@@ -875,8 +875,9 @@ fun SettingsScreen(
                     label = "Puls-Quelle",
                     source = wfHrSource,
                     onSourceChange = { wfHrSource = it },
-                    complication = wfHrComplication,
-                    onComplicationChange = { wfHrComplication = it }
+                    hcTypeKey = wfHrComplication,
+                    onHcTypeKeyChange = { wfHrComplication = it },
+                    availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
                 )
                 Text("Puls-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceColorRow(selected = wfHrColor, onSelect = { wfHrColor = it })
@@ -893,8 +894,9 @@ fun SettingsScreen(
                     label = "Kcal-Quelle",
                     source = wfKcalSource,
                     onSourceChange = { wfKcalSource = it },
-                    complication = wfKcalComplication,
-                    onComplicationChange = { wfKcalComplication = it }
+                    hcTypeKey = wfKcalComplication,
+                    onHcTypeKeyChange = { wfKcalComplication = it },
+                    availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
                 )
                 Text("Kcal-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceColorRow(selected = wfKcalColor, onSelect = { wfKcalColor = it })
@@ -911,8 +913,9 @@ fun SettingsScreen(
                     label = "SpO2-Quelle",
                     source = wfOxygenSource,
                     onSourceChange = { wfOxygenSource = it },
-                    complication = wfOxygenComplication,
-                    onComplicationChange = { wfOxygenComplication = it }
+                    hcTypeKey = wfOxygenComplication,
+                    onHcTypeKeyChange = { wfOxygenComplication = it },
+                    availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
                 )
                 Text("SpO2-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceColorRow(selected = wfOxygenColor, onSelect = { wfOxygenColor = it })
@@ -1611,19 +1614,17 @@ fun SettingsScreen(
                     Text("ioBroker-Datenpunkt (Schlafdauer in Minuten)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     DatapointDropdown(selectedId = wfSleepIoBrokerId, availableStates = p2States, onSelect = { wfSleepIoBrokerId = it }, modifier = Modifier.fillMaxWidth())
                 }
-                Text("Komplikation", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Komplikations-ID", style = MaterialTheme.typography.labelSmall, color = Color(0xFFAAAAAA), modifier = Modifier.weight(1f))
-                    GenericValueDropdown(
-                        options = COMPLICATION_OPTIONS,
-                        selected = wfSleepComplication,
-                        onSelect = { wfSleepComplication = it },
-                        modifier = Modifier.weight(0.7f)
-                    )
+                if (wfSleepSource == "healthconnect") {
+                    val availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
+                    if (availableHcTypes.isNotEmpty()) {
+                        Text("Health-Connect-Datentyp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        HealthConnectTypeDropdown(
+                            types = availableHcTypes,
+                            selectedKey = wfSleepComplication,
+                            onSelect = { wfSleepComplication = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
                 Text("Schlafdauer-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceColorRow(selected = wfSleepColor, onSelect = { wfSleepColor = it })
@@ -2600,26 +2601,18 @@ private fun HealthDataTypeRow(dataType: HealthDataTypeInfo) {
 
 private val HEALTH_SOURCE_PER_TYPE_OPTIONS = listOf("local" to "Lokal (Uhr)", "healthconnect" to "Health Connect")
 
-// Komplikations-Slots des Watchface (die einzigen auf der Uhr vorhandenen Komplikationen).
-// "" = keine → es gilt die normale Quelle (Lokal/Health Connect).
-private val COMPLICATION_OPTIONS = listOf(
-    "" to "Aus",
-    "0" to "ID - 0 (Oben)",
-    "2" to "ID - 2 (Links)",
-    "6" to "ID - 6 (Schritte)"
-)
-
 /**
- * Pro-Typ Gesundheitsdaten-Quelle: Dropdown (Lokal/Health Connect) + Komplikations-Dropdown.
- * Ist eine Komplikation gewählt (≠ Aus), holt die Uhr den Wert aus dieser Komplikation.
+ * Pro-Typ Gesundheitsdaten-Quelle: Dropdown (Lokal/Health Connect).
+ * Bei Quelle "Health Connect" kann zusätzlich der gewünschte HC-Datentyp gewählt werden.
  */
 @Composable
 private fun HealthSourcePerTypeRow(
     label: String,
     source: String,
     onSourceChange: (String) -> Unit,
-    complication: String,
-    onComplicationChange: (String) -> Unit
+    hcTypeKey: String,
+    onHcTypeKeyChange: (String) -> Unit,
+    availableHcTypes: List<HealthDataTypeInfo>
 ) {
     Column(modifier = Modifier.padding(start = 16.dp)) {
         Row(
@@ -2634,18 +2627,20 @@ private fun HealthSourcePerTypeRow(
                 modifier = Modifier.weight(0.7f)
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Komplikation", style = MaterialTheme.typography.bodySmall, color = Color(0xFFAAAAAA), modifier = Modifier.weight(1f))
-            GenericValueDropdown(
-                options = COMPLICATION_OPTIONS,
-                selected = complication,
-                onSelect = onComplicationChange,
-                modifier = Modifier.weight(0.7f)
-            )
+        if (source == "healthconnect" && availableHcTypes.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("HC-Datentyp", style = MaterialTheme.typography.bodySmall, color = Color(0xFFAAAAAA), modifier = Modifier.weight(1f))
+                HealthConnectTypeDropdown(
+                    types = availableHcTypes,
+                    selectedKey = hcTypeKey,
+                    onSelect = onHcTypeKeyChange,
+                    modifier = Modifier.weight(0.7f)
+                )
+            }
         }
     }
 }
@@ -2732,6 +2727,62 @@ private fun HealthSourcePerTypeDropdown(
                         onSelect(value)
                         expanded = false
                     }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dropdown für verfügbare Health-Connect-Datentypen.
+ * "" = Automatisch (Standard-Datentyp für diesen Slot).
+ */
+@Composable
+private fun HealthConnectTypeDropdown(
+    types: List<HealthDataTypeInfo>,
+    selectedKey: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayName = if (selectedKey.isEmpty()) "Automatisch"
+        else types.firstOrNull { it.key == selectedKey }?.displayName ?: selectedKey
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFF444444))
+        ) {
+            Text(displayName, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color(0xFF1E1E1E))
+        ) {
+            // Option "Automatisch"
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = "Automatisch",
+                        color = if (selectedKey.isEmpty()) NeonYellow else Color.White,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                },
+                onClick = { onSelect(""); expanded = false }
+            )
+            types.forEach { type ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = type.displayName,
+                            color = if (type.key == selectedKey) NeonYellow else Color.White,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    onClick = { onSelect(type.key); expanded = false }
                 )
             }
         }

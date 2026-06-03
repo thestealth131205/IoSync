@@ -24,9 +24,10 @@ import javax.inject.Singleton
 import kotlin.reflect.KClass
 
 /**
- * Datentyp-Info: Name, Berechtigung und Record-Klasse
+ * Datentyp-Info: eindeutiger Key, Name, Berechtigung und Record-Klasse
  */
 data class HealthDataTypeInfo(
+    val key: String,
     val displayName: String,
     val permission: String,
     val recordClass: KClass<*>,
@@ -47,22 +48,29 @@ data class HealthConnectStatus(
 class HealthConnectManager @Inject constructor(
     private val context: Context
 ) {
-    // Alle unterstützten Datentypen
+    private data class HealthTypeDef(
+        val key: String,
+        val displayName: String,
+        val permission: String,
+        val recordClass: KClass<*>
+    )
+
+    // Alle unterstützten Datentypen mit eindeutigem Key
     private val supportedTypes = listOf(
-        Triple("Herzfrequenz", HealthPermission.getReadPermission(HeartRateRecord::class), HeartRateRecord::class),
-        Triple("Schritte", HealthPermission.getReadPermission(StepsRecord::class), StepsRecord::class),
-        Triple("Distanz", HealthPermission.getReadPermission(DistanceRecord::class), DistanceRecord::class),
-        Triple("Kalorien (aktiv)", HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class), ActiveCaloriesBurnedRecord::class),
-        Triple("Kalorien (gesamt)", HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class), TotalCaloriesBurnedRecord::class),
-        Triple("Sauerstoffsättigung", HealthPermission.getReadPermission(OxygenSaturationRecord::class), OxygenSaturationRecord::class),
-        Triple("Körpertemperatur", HealthPermission.getReadPermission(BodyTemperatureRecord::class), BodyTemperatureRecord::class),
-        Triple("Blutdruck", HealthPermission.getReadPermission(BloodPressureRecord::class), BloodPressureRecord::class),
-        Triple("Schlaf", HealthPermission.getReadPermission(SleepSessionRecord::class), SleepSessionRecord::class),
-        Triple("Training", HealthPermission.getReadPermission(ExerciseSessionRecord::class), ExerciseSessionRecord::class)
+        HealthTypeDef("heart_rate",        "Herzfrequenz",        HealthPermission.getReadPermission(HeartRateRecord::class),             HeartRateRecord::class),
+        HealthTypeDef("steps",             "Schritte",            HealthPermission.getReadPermission(StepsRecord::class),                 StepsRecord::class),
+        HealthTypeDef("distance",          "Distanz (m)",         HealthPermission.getReadPermission(DistanceRecord::class),              DistanceRecord::class),
+        HealthTypeDef("active_calories",   "Kalorien (aktiv)",    HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),  ActiveCaloriesBurnedRecord::class),
+        HealthTypeDef("total_calories",    "Kalorien (gesamt)",   HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),   TotalCaloriesBurnedRecord::class),
+        HealthTypeDef("oxygen_saturation", "Sauerstoffsättigung", HealthPermission.getReadPermission(OxygenSaturationRecord::class),      OxygenSaturationRecord::class),
+        HealthTypeDef("body_temperature",  "Körpertemperatur",    HealthPermission.getReadPermission(BodyTemperatureRecord::class),       BodyTemperatureRecord::class),
+        HealthTypeDef("blood_pressure",    "Blutdruck (syst.)",   HealthPermission.getReadPermission(BloodPressureRecord::class),         BloodPressureRecord::class),
+        HealthTypeDef("sleep",             "Schlaf (Min.)",       HealthPermission.getReadPermission(SleepSessionRecord::class),          SleepSessionRecord::class),
+        HealthTypeDef("exercise",          "Training (Min.)",     HealthPermission.getReadPermission(ExerciseSessionRecord::class),       ExerciseSessionRecord::class)
     )
 
     /** Alle benötigten Berechtigungen (inkl. Hintergrund-Lesezugriff für Watchface-Sync) */
-    val allPermissions: Set<String> = supportedTypes.map { it.second }.toSet() +
+    val allPermissions: Set<String> = supportedTypes.map { it.permission }.toSet() +
         setOf("android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND")
 
     /** Prüft ob Health Connect auf dem Gerät verfügbar ist */
@@ -113,17 +121,14 @@ class HealthConnectManager @Inject constructor(
             val client = HealthConnectClient.getOrCreate(context)
             val grantedPermissions = client.permissionController.getGrantedPermissions()
 
-            val dataTypes = supportedTypes.map { (name, permission, recordClass) ->
-                val granted = grantedPermissions.contains(permission)
-                val sources = if (granted) {
-                    querySourcesForType(client, recordClass)
-                } else {
-                    emptyList()
-                }
+            val dataTypes = supportedTypes.map { def ->
+                val granted = grantedPermissions.contains(def.permission)
+                val sources = if (granted) querySourcesForType(client, def.recordClass) else emptyList()
                 HealthDataTypeInfo(
-                    displayName = name,
-                    permission = permission,
-                    recordClass = recordClass,
+                    key = def.key,
+                    displayName = def.displayName,
+                    permission = def.permission,
+                    recordClass = def.recordClass,
                     available = granted,
                     sources = sources
                 )
@@ -200,6 +205,24 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
+    /**
+     * Liest den letzten Wert eines HC-Typs anhand seines Keys.
+     * Gibt null zurück, wenn der Key unbekannt oder kein Wert vorhanden ist.
+     */
+    suspend fun readLatestValueByKey(key: String): Int? = when (key) {
+        "heart_rate"        -> readLatestHeartRate()
+        "steps"             -> readTodaySteps()
+        "distance"          -> readTodayDistanceMeters()
+        "active_calories"   -> readTodayActiveCalories()
+        "total_calories"    -> readTodayCalories()
+        "oxygen_saturation" -> readLatestOxygenSaturation()
+        "body_temperature"  -> readLatestBodyTemperatureTenths()
+        "blood_pressure"    -> readLatestBloodPressureSystolic()
+        "sleep"             -> readTodaySleepMinutes()
+        "exercise"          -> readTodayExerciseMinutes()
+        else                -> null
+    }
+
     /** Liest den letzten Herzfrequenz-Wert aus Health Connect (letzte 24h). */
     suspend fun readLatestHeartRate(): Int? = withContext(Dispatchers.IO) {
         try {
@@ -247,6 +270,76 @@ class HealthConnectManager @Inject constructor(
                 .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
                 .toInt()
                 .takeIf { it > 0 }
+        } catch (_: Exception) { null }
+    }
+
+    /** Liest die heutigen Schritte aus Health Connect. */
+    suspend fun readTodaySteps(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val resp = client.readRecords(ReadRecordsRequest(StepsRecord::class, timeRange))
+            resp.records.sumOf { it.count }.toInt().takeIf { it > 0 }
+        } catch (_: Exception) { null }
+    }
+
+    /** Liest die heutige zurückgelegte Distanz in Metern aus Health Connect. */
+    suspend fun readTodayDistanceMeters(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val resp = client.readRecords(ReadRecordsRequest(DistanceRecord::class, timeRange))
+            resp.records.sumOf { it.distance.inMeters }.toInt().takeIf { it > 0 }
+        } catch (_: Exception) { null }
+    }
+
+    /** Liest die aktiven Kalorien (ohne Grundumsatz) der letzten 24h aus Health Connect. */
+    suspend fun readTodayActiveCalories(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val resp = client.readRecords(ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, timeRange))
+            resp.records.sumOf { it.energy.inKilocalories }.toInt().takeIf { it > 0 }
+        } catch (_: Exception) { null }
+    }
+
+    /**
+     * Liest die letzte Körpertemperatur aus Health Connect (letzte 24h).
+     * Rückgabe in Zehntel-Grad (z. B. 366 = 36,6°C), damit kein Float-Verlust entsteht.
+     */
+    suspend fun readLatestBodyTemperatureTenths(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val resp = client.readRecords(ReadRecordsRequest(BodyTemperatureRecord::class, timeRange))
+            resp.records.lastOrNull()?.temperature?.inCelsius?.let { (it * 10).toInt() }
+        } catch (_: Exception) { null }
+    }
+
+    /** Liest den letzten systolischen Blutdruckwert aus Health Connect (letzte 24h). */
+    suspend fun readLatestBloodPressureSystolic(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val resp = client.readRecords(ReadRecordsRequest(BloodPressureRecord::class, timeRange))
+            resp.records.lastOrNull()?.systolic?.inMillimetersOfMercury?.toInt()
+        } catch (_: Exception) { null }
+    }
+
+    /** Liest die heutige Trainingsdauer in Minuten aus Health Connect. */
+    suspend fun readTodayExerciseMinutes(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val now = Instant.now()
+            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            val resp = client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, timeRange))
+            resp.records.sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
+                .toInt().takeIf { it > 0 }
         } catch (_: Exception) { null }
     }
 
