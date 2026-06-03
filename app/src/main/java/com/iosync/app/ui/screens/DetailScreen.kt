@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.iosync.app.data.model.StateType
 import com.iosync.app.ui.theme.NeonYellow
 import com.iosync.app.ui.theme.SurfaceMid
@@ -58,7 +59,9 @@ fun DetailScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit
 ) {
-    val state = viewModel.getStateById(stateId)
+    // Reaktiv: wird automatisch neu gezeichnet wenn sich der State ändert
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val state = uiState.states.firstOrNull { it.id == stateId }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -175,14 +178,15 @@ fun DetailScreen(
                 StateType.BOOLEAN -> BooleanControl(
                     currentValue = state.value?.lowercase() == "true",
                     onToggle = { newValue ->
-                        viewModel.setStateValue(state.id, newValue.toString())
+                        // Nutzt automatisch IoSync oder Simple-API je nach Konfiguration
+                        viewModel.setStateValueSmart(state.id, newValue.toString())
                     }
                 )
                 StateType.NUMBER, StateType.STRING, StateType.MIXED -> TextControl(
                     currentValue = state.value ?: "",
                     unit = state.unit,
                     onSend = { newValue ->
-                        viewModel.setStateValue(state.id, newValue)
+                        viewModel.setStateValueSmart(state.id, newValue)
                     }
                 )
             }

@@ -1321,6 +1321,84 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /** Wählt automatisch Simple-API oder IoSync je nach aktueller Konfiguration. */
+    fun setStateValueSmart(id: String, value: String) {
+        val s = _uiState.value
+        if (s.useIoSyncAdapter && s.ioSyncHost.isNotBlank()) {
+            setStateValueViaIoSync(id, value)
+        } else {
+            setStateValue(id, value)
+        }
+    }
+
+    /** Sendet Pille-1-Aktion (Seite 2) direkt aus der App an ioBroker. */
+    fun toggleP2Pill1FromApp() {
+        viewModelScope.launch {
+            val s = _uiState.value
+            if (!s.p2PillEnabled) return@launch
+            val ioBrokerId = s.p2PillIoBrokerId
+            if (ioBrokerId.isBlank()) {
+                _uiState.update { it.copy(error = "Pille 1: Kein ioBroker-Datenpunkt konfiguriert") }
+                return@launch
+            }
+            if (s.ioSyncHost.isBlank()) {
+                _uiState.update { it.copy(error = "Pille 1: IoSync Adapter nicht konfiguriert") }
+                return@launch
+            }
+            val currentState = s.p2Pill1State
+            val valueToSend = when (s.p2PillValueMode) {
+                "true"  -> "true"
+                "false" -> "false"
+                "fixed" -> s.p2PillFixedValue
+                else    -> if (currentState) "false" else "true"
+            }
+            ioSyncClient.setState(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword, ioBrokerId, valueToSend)
+                .onSuccess {
+                    val newState = when (s.p2PillValueMode) {
+                        "toggle" -> !currentState; "true" -> true; "false" -> false; else -> currentState
+                    }
+                    dataStore.edit { p -> p[KEY_P2_PILL1_STATE] = newState }
+                    _uiState.update { it.copy(p2Pill1State = newState) }
+                    wearDataLayerService.syncP2PillStatesToWear(newState, _uiState.value.p2Pill2State)
+                }
+                .onFailure { err -> _uiState.update { st -> st.copy(error = "Pille 1: ${err.message}") } }
+        }
+    }
+
+    /** Sendet Pille-2-Aktion (Seite 2) direkt aus der App an ioBroker. */
+    fun toggleP2Pill2FromApp() {
+        viewModelScope.launch {
+            val s = _uiState.value
+            if (!s.p2Pill2Enabled) return@launch
+            val ioBrokerId = s.p2Pill2IoBrokerId
+            if (ioBrokerId.isBlank()) {
+                _uiState.update { it.copy(error = "Pille 2: Kein ioBroker-Datenpunkt konfiguriert") }
+                return@launch
+            }
+            if (s.ioSyncHost.isBlank()) {
+                _uiState.update { it.copy(error = "Pille 2: IoSync Adapter nicht konfiguriert") }
+                return@launch
+            }
+            val currentState = s.p2Pill2State
+            val valueToSend = when (s.p2Pill2ValueMode) {
+                "true"  -> "true"
+                "false" -> "false"
+                "fixed" -> s.p2Pill2FixedValue
+                else    -> if (currentState) "false" else "true"
+            }
+            ioSyncClient.setState(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword, ioBrokerId, valueToSend)
+                .onSuccess {
+                    val newState = when (s.p2Pill2ValueMode) {
+                        "toggle" -> !currentState; "true" -> true; "false" -> false; else -> currentState
+                    }
+                    dataStore.edit { p -> p[KEY_P2_PILL2_STATE] = newState }
+                    _uiState.update { it.copy(p2Pill2State = newState) }
+                    wearDataLayerService.syncP2PillStatesToWear(_uiState.value.p2Pill1State, newState)
+                }
+                .onFailure { err -> _uiState.update { st -> st.copy(error = "Pille 2: ${err.message}") } }
+        }
+    }
+
     // ── Aktualisierungsintervalle ─────────────────────────────────────────────
 
     /** Speichert die Polling-Intervalle und startet die Jobs mit neuem Intervall neu. */

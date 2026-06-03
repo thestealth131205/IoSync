@@ -62,6 +62,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.iosync.app.data.crash.CrashLogManager
 import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.network.GeocodingResult
 import com.iosync.app.ui.theme.NeonYellow
@@ -1667,6 +1668,15 @@ fun SettingsScreen(
                         PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p2PillColorFalse == "purple",     onClick = { p2PillColorFalse = "purple" })
                         PillColorChip(color = Color(0xFF888888), label = "Grau",   selected = p2PillColorFalse == "light_gray", onClick = { p2PillColorFalse = "light_gray" })
                     }
+                    // ── Pille 1 jetzt schalten ────────────────────────────────
+                    DoubleTapPillButton(
+                        label       = "Pille 1 schalten",
+                        hint        = "Doppeltipp = Befehl senden",
+                        pillState   = uiState.p2Pill1State,
+                        colorTrue   = uiState.p2PillColorTrue,
+                        colorFalse  = uiState.p2PillColorFalse,
+                        onDoubleTap = { viewModel.toggleP2Pill1FromApp() }
+                    )
                 }
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 // ── Pille 2 (5 Uhr) ───────────────────────────────────────────
@@ -1704,6 +1714,15 @@ fun SettingsScreen(
                         PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p2Pill2ColorFalse == "purple",     onClick = { p2Pill2ColorFalse = "purple" })
                         PillColorChip(color = Color(0xFF888888), label = "Grau",   selected = p2Pill2ColorFalse == "light_gray", onClick = { p2Pill2ColorFalse = "light_gray" })
                     }
+                    // ── Pille 2 jetzt schalten ────────────────────────────────
+                    DoubleTapPillButton(
+                        label       = "Pille 2 schalten",
+                        hint        = "Doppeltipp = Befehl senden",
+                        pillState   = uiState.p2Pill2State,
+                        colorTrue   = uiState.p2Pill2ColorTrue,
+                        colorFalse  = uiState.p2Pill2ColorFalse,
+                        onDoubleTap = { viewModel.toggleP2Pill2FromApp() }
+                    )
                 }
 
                 // Vertikaler Balken (p2Bar)
@@ -1824,6 +1843,59 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            // ── Crash-Log ─────────────────────────────────────────────────────
+            val ctx = LocalContext.current
+            var crashLogs by remember { mutableStateOf(CrashLogManager.readAllCrashLogs(ctx)) }
+            if (crashLogs.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Crash-Logs (${crashLogs.size})",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color(0xFFF44336)
+                )
+                crashLogs.forEach { (name, content) ->
+                    var expanded by remember { mutableStateOf(false) }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { expanded = !expanded }
+                            .background(Color(0xFF1A0000), RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFF44336),
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (expanded) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = content,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                overflow = TextOverflow.Ellipsis,
+                                maxLines = 80
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+                Button(
+                    onClick = {
+                        CrashLogManager.clearCrashLogs(ctx)
+                        crashLogs = emptyList()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF44336),
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Crash-Logs löschen")
+                }
             }
         }
     }
@@ -2706,6 +2778,74 @@ fun HealthSourceDropdown(
                     }
                 )
             }
+        }
+    }
+}
+
+// ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+
+/** Wandelt einen Farbschlüssel (wie er in der Config gespeichert ist) in eine Compose-Color um. */
+private fun pillColorFromKey(key: String): Color = when (key) {
+    "cyan"       -> Color(0xFF00BCD4)
+    "green"      -> Color(0xFF4CAF50)
+    "neon_yellow"-> Color(0xFFEAFF00)
+    "white"      -> Color.White
+    "red"        -> Color(0xFFF44336)
+    "orange"     -> Color(0xFFFF9800)
+    "purple"     -> Color(0xFF9C27B0)
+    "light_gray" -> Color(0xFF888888)
+    else         -> Color(0xFF888888)
+}
+
+/**
+ * Zeigt den aktuellen Pillen-Zustand als farbigen Button.
+ * Reagiert NUR auf Doppeltipp — einfaches Antippen tut nichts.
+ */
+@Composable
+private fun DoubleTapPillButton(
+    label: String,
+    hint: String,
+    pillState: Boolean,
+    colorTrue: String,
+    colorFalse: String,
+    onDoubleTap: () -> Unit
+) {
+    val activeColor = pillColorFromKey(if (pillState) colorTrue else colorFalse)
+    var lastTapMs by remember { mutableStateOf(0L) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Spacer(Modifier.height(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(hint,  style = MaterialTheme.typography.labelSmall,  color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF1E1E1E), RoundedCornerShape(10.dp))
+                .clickable {
+                    val now = System.currentTimeMillis()
+                    if (now - lastTapMs < 500L) {
+                        onDoubleTap()
+                        lastTapMs = 0L  // Reset damit kein Triple-Tap feuert
+                    } else {
+                        lastTapMs = now
+                    }
+                }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = if (pillState) "AN" else "AUS",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = activeColor
+            )
+            Box(
+                modifier = Modifier
+                    .size(32.dp, 14.dp)
+                    .background(activeColor, RoundedCornerShape(7.dp))
+            )
         }
     }
 }
