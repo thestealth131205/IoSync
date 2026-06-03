@@ -81,14 +81,25 @@ class WebSocketManager @Inject constructor(
 
     private fun openConnection() {
         if (_status.value == WebSocketStatus.CONNECTING) return
+        if (serverUrl.isBlank()) {
+            Log.w(TAG, "openConnection aufgerufen ohne gültige URL – abgebrochen")
+            _status.value = WebSocketStatus.DISCONNECTED
+            return
+        }
 
         _status.value = WebSocketStatus.CONNECTING
         Log.d(TAG, "Connecting to $serverUrl")
 
-        val request = Request.Builder()
-            .url(serverUrl)
-            .addHeader("User-Agent", "IoSync-Android/1.0")
-            .build()
+        val request = try {
+            Request.Builder()
+                .url(serverUrl)
+                .addHeader("User-Agent", "IoSync-Android/1.0")
+                .build()
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "Ungültige WebSocket-URL '$serverUrl': ${e.message}")
+            _status.value = WebSocketStatus.FAILED
+            return
+        }
 
         webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
 

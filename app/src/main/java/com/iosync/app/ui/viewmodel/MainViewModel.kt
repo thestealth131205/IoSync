@@ -755,6 +755,7 @@ class MainViewModel @Inject constructor(
                 })
             }
             WebSocketStatus.DISCONNECTED, WebSocketStatus.FAILED -> {
+                if (current.host.isBlank()) return
                 context.startForegroundService(Intent(context, SmartHomeWebSocketService::class.java).apply {
                     action = SmartHomeWebSocketService.ACTION_START
                     putExtra(SmartHomeWebSocketService.EXTRA_URL, "ws://${current.host}:${current.port}")

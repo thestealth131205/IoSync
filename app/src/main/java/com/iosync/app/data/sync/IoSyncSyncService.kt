@@ -318,16 +318,18 @@ class IoSyncSyncService : Service() {
                         healthConnectManager.readLatestHeartRate(hrSourcePkg)?.let { if (it > 0) lastKnownHr = it }
                     }
                     if (kcalSource == "healthconnect") {
-                        healthConnectManager.readTodayCalories(kcalSourcePkg)?.let { if (it > 0) lastKnownKcal = it }
+                        // Erst TotalCalories versuchen, dann ActiveCalories als Fallback (z.B. Google Fit)
+                        val kcal = healthConnectManager.readTodayCalories(kcalSourcePkg)
+                            ?: healthConnectManager.readTodayActiveCalories(kcalSourcePkg)
+                        kcal?.let { if (it > 0) lastKnownKcal = it }
                     }
                     if (oxygenSource == "healthconnect") {
                         healthConnectManager.readLatestOxygenSaturation(oxygenSourcePkg)?.let { if (it > 0) lastKnownO2 = it }
                     }
                     if (sleepSource == "healthconnect") healthConnectManager.readTodaySleepMinutes(sleepSourcePkg)?.let { if (it > 0) lastKnownSleep = it }
 
-                    if (lastKnownHr > 0 || lastKnownO2 > 0 || lastKnownKcal > 0 || lastKnownSleep > 0) {
-                        wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, lastKnownSleep)
-                    }
+                    // Immer senden (auch wenn alle 0), damit die Uhr den aktuellen Stand bekommt
+                    wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, lastKnownSleep)
                 }
                 delay(intervalSec * 1_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {

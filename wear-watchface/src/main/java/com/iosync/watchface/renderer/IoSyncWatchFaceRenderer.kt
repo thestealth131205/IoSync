@@ -585,9 +585,8 @@ class IoSyncWatchFaceRenderer(
                     WatchFaceConfigCache.phoneSpO2      = newSpO2
                     WatchFaceConfigCache.phoneCalories  = newKcal
                     if (dataMap.containsKey(KEY_PHONE_SLEEP_MINUTES)) WatchFaceConfigCache.phoneSleepMinutes = dataMap.getInt(KEY_PHONE_SLEEP_MINUTES)
-                    if (newHr > 0 || newSpO2 > 0 || newKcal > 0) {
-                        WatchFaceConfigCache.phoneHealthLastReceived = System.currentTimeMillis()
-                    }
+                    // Immer als "frisch" markieren – 0 bedeutet "kein Messwert", nicht "offline"
+                    WatchFaceConfigCache.phoneHealthLastReceived = System.currentTimeMillis()
                 }
                 PATH_CUSTOM_SLOTS_P2 -> {
                     dataMap.getString("wf_p2_slot1_label")?.let { WatchFaceConfigCache.p2Slot1Label = it }

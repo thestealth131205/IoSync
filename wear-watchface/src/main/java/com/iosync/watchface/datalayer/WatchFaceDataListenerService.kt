@@ -257,11 +257,11 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     WatchFaceConfigCache.phoneSpO2      = newSpO2
                     WatchFaceConfigCache.phoneCalories  = newKcal
                     if (dataMap.containsKey(KEY_PHONE_SLEEP_MINUTES)) WatchFaceConfigCache.phoneSleepMinutes = dataMap.getInt(KEY_PHONE_SLEEP_MINUTES)
-                    // Frische-Marker nur setzen wenn mindestens ein Wert > 0,
-                    // sonst würden 0-Updates die "frisch"-Logik austricksen
-                    if (newHr > 0 || newSpO2 > 0 || newKcal > 0) {
-                        WatchFaceConfigCache.phoneHealthLastReceived = System.currentTimeMillis()
-                    }
+                    // Immer als "frisch" markieren wenn Daten vom Handy empfangen wurden –
+                    // Wert 0 bedeutet "kein Messwert verfügbar", nicht "keine Verbindung".
+                    // Vorher: nur bei Wert > 0 → nach 30 min stale → kcal zeigt "--" obwohl
+                    // das Handy aktiv sendet und Health Connect einfach keine Daten liefert.
+                    WatchFaceConfigCache.phoneHealthLastReceived = System.currentTimeMillis()
                     Log.d(TAG, "Phone-Health-Daten empfangen: HR=$newHr, SpO2=$newSpO2, kcal=$newKcal")
                 }
                 PATH_ACTION_PILL_STATE -> {

@@ -6,6 +6,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -42,6 +43,7 @@ class WearHealthConnectManager(private val context: Context) {
     /** Berechtigungen, die in der Config-Activity angefragt werden. */
     val requiredPermissions: Set<String> = setOf(
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(OxygenSaturationRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class)
     )
@@ -80,17 +82,33 @@ class WearHealthConnectManager(private val context: Context) {
             val since24h = now.minus(24, ChronoUnit.HOURS)
             val timeRange = TimeRangeFilter.between(since24h, now)
 
-            // Kalorien (Tagessumme über TotalCaloriesBurned)
+            // Kalorien (Tagessumme: erst TotalCaloriesBurned, Fallback auf ActiveCaloriesBurned)
+            // TicHealth auf dem Mobvoi Atlas schreibt je nach Version TotalCaloriesBurnedRecord
+            // oder ActiveCaloriesBurnedRecord – daher beide prüfen.
+            var kcalFound = false
             if (granted.contains(HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class))) {
                 try {
                     val resp = client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class, timeRange))
                     val kcal = resp.records.sumOf { it.energy.inKilocalories }.toInt()
                     if (kcal > 0) {
                         HealthDataCache.calories = kcal
-                        Log.d(TAG, "Kalorien: $kcal kcal")
+                        kcalFound = true
+                        Log.d(TAG, "Kalorien (Total): $kcal kcal")
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Kalorien lesen fehlgeschlagen: ${e.message}")
+                    Log.w(TAG, "TotalCaloriesBurned lesen fehlgeschlagen: ${e.message}")
+                }
+            }
+            if (!kcalFound && granted.contains(HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class))) {
+                try {
+                    val resp = client.readRecords(ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, timeRange))
+                    val kcal = resp.records.sumOf { it.energy.inKilocalories }.toInt()
+                    if (kcal > 0) {
+                        HealthDataCache.calories = kcal
+                        Log.d(TAG, "Kalorien (Active, Fallback): $kcal kcal")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "ActiveCaloriesBurned lesen fehlgeschlagen: ${e.message}")
                 }
             }
 
