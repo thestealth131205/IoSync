@@ -130,6 +130,10 @@ private const val KEY_WF_SLEEP_COLOR   = "wf_sleep_color"
 private const val KEY_WF_SUNRISE_COLOR = "wf_sunrise_color"
 private const val KEY_WF_SLOT_COLOR    = "wf_slot_color"
 
+// ── NTP-Zeitkorrektur ─────────────────────────────────────────────────────────
+private const val KEY_WF_NTP_ENABLED = "wf_ntp_enabled"
+private const val KEY_WF_NTP_SERVER  = "wf_ntp_server"
+
 // ── Akku-Ring-Farben ──────────────────────────────────────────────────────────
 private const val KEY_WF_SHOW_BACKGROUND           = "wf_show_background"
 private const val KEY_WF_BATTERY_RING_COLOR1       = "wf_battery_ring_color1"
@@ -337,7 +341,9 @@ class WearDataLayerService @Inject constructor(
         kcalLabel: String = "KCAL",
         kcalUnit: String = "kcal",
         oxygenLabel: String = "OXYGEN",
-        oxygenUnit: String = "%"
+        oxygenUnit: String = "%",
+        ntpEnabled: Boolean = false,
+        ntpServer: String = "pool.ntp.org"
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -413,6 +419,8 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_KCAL_UNIT, kcalUnit)
                     dataMap.putString(KEY_WF_OXYGEN_LABEL, oxygenLabel)
                     dataMap.putString(KEY_WF_OXYGEN_UNIT, oxygenUnit)
+                    dataMap.putBoolean(KEY_WF_NTP_ENABLED, ntpEnabled)
+                    dataMap.putString(KEY_WF_NTP_SERVER, ntpServer)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

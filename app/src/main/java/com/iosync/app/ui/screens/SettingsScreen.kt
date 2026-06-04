@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -228,6 +229,11 @@ fun SettingsScreen(
     var sectionPage1   by remember { mutableStateOf(false) }
     var sectionPage2   by remember { mutableStateOf(false) }
     var sectionHealth  by remember { mutableStateOf(false) }
+    var sectionNtp     by remember { mutableStateOf(false) }
+
+    // NTP-Zeitkorrektur
+    var ntpEnabled by remember(uiState.wfNtpEnabled) { mutableStateOf(uiState.wfNtpEnabled) }
+    var ntpServer  by remember(uiState.wfNtpServer)  { mutableStateOf(uiState.wfNtpServer) }
 
     // Wetter-Temperatur-Quelle
     var weatherTempSource by remember(uiState.wfWeatherTempSource) { mutableStateOf(uiState.wfWeatherTempSource) }
@@ -1878,6 +1884,52 @@ fun SettingsScreen(
                 onToggle = { sectionHealth = !sectionHealth }
             ) {
                 HealthConnectSection(viewModel = viewModel, uiState = uiState)
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // ── Sektion 5: NTP-Zeitkorrektur ──────────────────────────────────
+            AccordionSection(
+                title = "Zeitkorrektur (NTP)",
+                expanded = sectionNtp,
+                onToggle = { sectionNtp = !sectionNtp }
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Exakte Uhrzeit (NTP)", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Das Watchface ermittelt per NTP einen Offset zur Systemzeit und zeigt damit die exakte Zeit. Der Offset wird alle 30 Minuten aktualisiert.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = ntpEnabled,
+                        onCheckedChange = {
+                            ntpEnabled = it
+                            viewModel.setNtpCorrection(it, ntpServer)
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF1A1A00), checkedTrackColor = NeonYellow)
+                    )
+                }
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("NTP-Server", style = MaterialTheme.typography.titleSmall,
+                    color = if (ntpEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = ntpServer == "de.pool.ntp.org",
+                        enabled = ntpEnabled,
+                        onClick = { ntpServer = "de.pool.ntp.org"; viewModel.setNtpCorrection(ntpEnabled, "de.pool.ntp.org") }
+                    )
+                    Text("Deutsche Zeit (de.pool.ntp.org)", style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = ntpServer == "pool.ntp.org",
+                        enabled = ntpEnabled,
+                        onClick = { ntpServer = "pool.ntp.org"; viewModel.setNtpCorrection(ntpEnabled, "pool.ntp.org") }
+                    )
+                    Text("Automatisch (pool.ntp.org)", style = MaterialTheme.typography.bodyMedium)
+                }
             }
 
             Spacer(Modifier.height(16.dp))

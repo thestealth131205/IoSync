@@ -104,6 +104,10 @@ private const val KEY_PHONE_CALORIES         = "phone_calories"
 private const val KEY_WF_SHOW_BACKGROUND    = "wf_show_background"
 private const val KEY_WF_P2_SHOW_BACKGROUND = "wf_p2_show_background"
 
+// ── NTP-Zeitkorrektur (Offset wird auf der Uhr per NTP ermittelt) ────────────
+private const val KEY_WF_NTP_ENABLED = "wf_ntp_enabled"
+private const val KEY_WF_NTP_SERVER  = "wf_ntp_server"
+
 // ── Gesundheitsdaten-Farben ───────────────────────────────────────────────────
 private const val KEY_WF_HR_COLOR      = "wf_hr_color"
 private const val KEY_WF_KCAL_COLOR    = "wf_kcal_color"
@@ -423,6 +427,13 @@ object WatchFaceConfigCache {
     @Volatile var phoneCalories: Int = 0
     @Volatile var phoneHealthLastReceived: Long = 0L
 
+    // ── NTP-Zeitkorrektur ─────────────────────────────────────────────────────
+    // ntpEnabled/ntpServer kommen vom Handy; ntpOffsetMs wird auf der Uhr per
+    // NTP-Abfrage ermittelt (alle 30 min) und auf die Systemzeit aufaddiert.
+    @Volatile var ntpEnabled: Boolean = false
+    @Volatile var ntpServer: String = "pool.ntp.org"
+    @Volatile var ntpOffsetMs: Long = 0L
+
     // ── Seite 2 ioBroker-Slots ────────────────────────────────────────────────
     @Volatile var p2Slot1Label: String = ""
     @Volatile var p2Slot1Value: String = "--"
@@ -545,6 +556,10 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_SLOT_COLOR)?.let    { slotColor    = it }
         dataMap.getString(KEY_WF_WEATHER_TEMP_SOURCE)?.let { weatherTempSource = it }
         dataMap.getString(KEY_WF_WEATHER_IOBROKER_ID)?.let { weatherIoBrokerId = it }
+        if (dataMap.containsKey(KEY_WF_NTP_ENABLED)) ntpEnabled = dataMap.getBoolean(KEY_WF_NTP_ENABLED)
+        dataMap.getString(KEY_WF_NTP_SERVER)?.let { ntpServer = it }
+        // Bei deaktivierter Korrektur sofort zur reinen Systemzeit zurückkehren
+        if (!ntpEnabled) ntpOffsetMs = 0L
     }
 
     fun updateP2ConfigFromDataMap(dataMap: DataMap) {

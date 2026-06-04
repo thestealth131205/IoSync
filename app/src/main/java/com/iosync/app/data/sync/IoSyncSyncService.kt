@@ -420,7 +420,11 @@ class IoSyncSyncService : Service() {
         while (true) {
             try {
                 val prefs = dataStore.data.first()
-                val intervalSec = prefs[MainViewModel.KEY_BATTERY_POLL_INTERVAL] ?: 60
+                // Akku-Fallback NICHT an das (evtl. große) "Akku-Sync"-Intervall koppeln:
+                // ACTION_BATTERY_CHANGED wird auf manchen Phones an Hintergrund-Receiver
+                // gedrosselt, dann ist dieser Loop der einzige Pfad. Auf max. 60 s deckeln,
+                // damit der Wert spätestens nach 1 Minute frisch ist.
+                val intervalSec = (prefs[MainViewModel.KEY_BATTERY_POLL_INTERVAL] ?: 60).coerceAtMost(60)
                 val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
                 if (batteryIntent != null) pushBattery(batteryIntent, force = true)
                 delay(intervalSec * 1_000L)

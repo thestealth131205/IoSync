@@ -43,13 +43,16 @@ import com.iosync.watchface.health.HealthSensorManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 private const val FRAME_PERIOD_MS_DEFAULT = 16L
 private const val FRAME_PERIOD_AMBIENT_MS = 60_000L
@@ -317,6 +320,31 @@ class IoSyncWatchFaceRenderer(
     private var pillPressedAt = 0L
     private val PILL_PRESS_DURATION_MS = 300L
 
+    // ── Stoppuhr ───────────────────────────────────────────────────────────────
+    private enum class StopwatchMode { OFF, READY, RUNNING, STOPPED }
+    private var stopwatchMode = StopwatchMode.OFF
+    private var stopwatchAccumMs = 0L    // bereits gestoppte Zeit (vor letztem Start)
+    private var stopwatchStartRt = 0L    // elapsedRealtime() beim letzten Start
+    private var lastTimeTapTime = 0L
+    private var pendingTimeTapJob: Job? = null
+
+    private var timeTapBounds = RectF()        // Stunden/Minuten → Stoppuhr
+    private var daySecondsTapBounds = RectF()  // Tages-Sekunden → Kalender-App
+    private var bpmTapBounds = RectF()         // Puls → Health-App
+    private var kcalTapBounds = RectF()        // Kalorien → Fitness-App
+
+    private val stopwatchRingFgPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        color = Color.parseColor("#00E5FF")
+    }
+    private val stopwatchRingBgPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        color = Color.argb(40, 0, 229, 255)
+    }
+
     // ── Seite 2 ───────────────────────────────────────────────────────────────
     private var currentPage = 0          // 0 = Hauptseite, 1 = Zweite Seite
     private var nineOClockTapBounds = RectF()
@@ -368,6 +396,10 @@ class IoSyncWatchFaceRenderer(
     }
     companion object {
         private const val DOUBLE_TAP_MS   = 400L
+        // NTP-Zeitkorrektur
+        private const val NTP_REFRESH_INTERVAL_MS = 30 * 60 * 1000L  // alle 30 min
+        private const val NTP_TIMEOUT_MS          = 5000
+        private const val NTP_EPOCH_OFFSET_SEC    = 2208988800L      // Sekunden zwischen 1900 und 1970
         private const val PATH_ACTION_TRIGGER = "/iosync/watchface/action_trigger"
         private const val TAG_PILL        = "WatchFacePill"
         private const val CONFIRM_DURATION_MS = 2000L
@@ -389,6 +421,7 @@ class IoSyncWatchFaceRenderer(
         private const val KEY_PHONE_SPO2           = "phone_spo2"
         private const val KEY_PHONE_CALORIES       = "phone_calories"
         private const val KEY_PHONE_SLEEP_MINUTES  = "phone_sleep_minutes"
+        private const val KEY_TIMESTAMP            = "timestamp"
     }
 
     // ── Formatter ─────────────────────────────────────────────────────────────
@@ -454,6 +487,15 @@ class IoSyncWatchFaceRenderer(
                 visible == true && ambient != true
             }.distinctUntilChanged().collect { active ->
                 if (active) loadInitialConfig()
+            }
+        }
+
+        // NTP-Zeitkorrektur: bei aktivierter Korrektur alle 30 min den Offset
+        // gegenüber der Systemzeit neu vom NTP-Server ermitteln.
+        scope.launch(Dispatchers.IO) {
+            while (true) {
+                refreshNtpOffset()
+                delay(NTP_REFRESH_INTERVAL_MS)
             }
         }
     }
@@ -531,6 +573,13 @@ class IoSyncWatchFaceRenderer(
                             if (dataMap.containsKey(KEY_PHONE_SPO2))          WatchFaceConfigCache.phoneSpO2         = dataMap.getInt(KEY_PHONE_SPO2)
                             if (dataMap.containsKey(KEY_PHONE_CALORIES))      WatchFaceConfigCache.phoneCalories     = dataMap.getInt(KEY_PHONE_CALORIES)
                             if (dataMap.containsKey(KEY_PHONE_SLEEP_MINUTES)) WatchFaceConfigCache.phoneSleepMinutes = dataMap.getInt(KEY_PHONE_SLEEP_MINUTES)
+                            // Frische-Zeitstempel mitsetzen: ohne ihn gilt der initial geladene
+                            // Wert als veraltet (phoneDataFresh = false) und der Health-Slot zeigt
+                            // dauerhaft "--" – bis zufaellig ein Live-onDataChanged eintrifft.
+                            // Den Sende-Zeitstempel des Data-Items verwenden, damit echt alte
+                            // Werte (>30 min) weiterhin korrekt als "--" behandelt werden.
+                            val ts = dataMap.getLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                            WatchFaceConfigCache.phoneHealthLastReceived = if (ts > 0) ts else System.currentTimeMillis()
                         }
                         PATH_P2_PILL_STATES -> {
                             val dataMap = DataMapItem.fromDataItem(item).dataMap
@@ -561,6 +610,8 @@ class IoSyncWatchFaceRenderer(
                 PATH_WATCHFACE_CONFIG -> {
                     Log.d(TAG_PILL, "Watchface-Config via DataClient-Listener empfangen")
                     WatchFaceConfigCache.updateFromDataMap(dataMap)
+                    // NTP-Korrektur ggf. sofort (neu) ermitteln, statt bis zu 30 min zu warten
+                    refreshNtpOffset()
                 }
                 PATH_WEATHER -> {
                     WatchFaceConfigCache.weatherTemp = dataMap.getInt("weather_temp", 0)
@@ -635,11 +686,18 @@ class IoSyncWatchFaceRenderer(
     override fun render(
         canvas: Canvas,
         bounds: Rect,
-        zonedDateTime: ZonedDateTime,
+        frameworkTime: ZonedDateTime,
         sharedAssets: SharedAssets
     ) {
         val isAmbient = renderParameters.drawMode == DrawMode.AMBIENT
         val config    = WatchFaceConfigCache
+
+        // NTP-Zeitkorrektur: bei aktivierter Korrektur den ermittelten Offset auf
+        // die Systemzeit aufaddieren, damit das Watchface die exakte Zeit zeigt.
+        val zonedDateTime: ZonedDateTime =
+            if (config.ntpEnabled && config.ntpOffsetMs != 0L)
+                frameworkTime.plus(config.ntpOffsetMs, ChronoUnit.MILLIS)
+            else frameworkTime
 
         canvas.drawRect(0f, 0f, bounds.width().toFloat(), bounds.height().toFloat(), backgroundPaint)
 
@@ -684,13 +742,22 @@ class IoSyncWatchFaceRenderer(
             return
         }
 
-        val timeStr      = timeFormatter.format(zonedDateTime)
+        // Stoppuhr-Modus aktiv? (nur auf Seite 1, nicht im Ambient)
+        val stopwatchActive = !isAmbient && currentPage == 0 && stopwatchMode != StopwatchMode.OFF
+        val swElapsed = if (stopwatchActive) stopwatchElapsedMs() else 0L
+
+        val timeStr      = if (stopwatchActive) formatStopwatchMain(swElapsed)
+                           else timeFormatter.format(zonedDateTime)
         val timeFontSize = radius * 0.437f
 
         try {
 
-        if (!isAmbient && config.showSecondsRing) {
-            drawSecondsRing(canvas, bounds, zonedDateTime.second)
+        if (!isAmbient) {
+            if (stopwatchActive) {
+                drawStopwatchRing(canvas, bounds, swElapsed)
+            } else if (config.showSecondsRing) {
+                drawSecondsRing(canvas, bounds, zonedDateTime.second)
+            }
         }
 
         if (!isAmbient && config.showTicks) {
@@ -718,7 +785,8 @@ class IoSyncWatchFaceRenderer(
             val weekdayBottomY: Float
 
             if (config.showSeconds) {
-                val secStr      = secondsFormatter.format(zonedDateTime)
+                val secStr      = if (stopwatchActive) formatStopwatchCenti(swElapsed)
+                                  else secondsFormatter.format(zonedDateTime)
                 val secFontSize = timeFontSize * 0.475f
                 secondsPaint.color    = if (config.secondsNumberColorId == "dim_time") dimColor(timeColor, 0.75f) else colorFromId(config.secondsNumberColorId)
                 secondsPaint.textSize = secFontSize
@@ -736,6 +804,13 @@ class IoSyncWatchFaceRenderer(
                 val secBaseline = timeBaseline + timeFm.ascent - secFm.ascent
                 canvas.drawText(secStr, secX, secBaseline, secondsPaint)
 
+                // Tipp-Zonen merken: Stunden/Minuten → Stoppuhr, Tages-Sekunden → Kalender
+                val tapPadV = timeFontSize * 0.12f
+                timeTapBounds.set(startX, timeBaseline + timeFm.ascent - tapPadV,
+                    startX + timeWidth, timeBaseline + timeFm.descent + tapPadV)
+                daySecondsTapBounds.set(secX - gap, secBaseline + secFm.ascent - tapPadV,
+                    secX + secWidth + gap, secBaseline + secFm.descent + tapPadV)
+
                 // Datum "MO DD" unterhalb der Sekunden, linksbündig mit Sekunden
                 weekdayBottomY = if (config.showWeekday) {
                     val dateStr      = "${weekdayShort(zonedDateTime)} ${zonedDateTime.dayOfMonth}"
@@ -752,6 +827,13 @@ class IoSyncWatchFaceRenderer(
             } else {
                 val timeWidth = timePaint.measureText(timeStr)
                 canvas.drawText(timeStr, cx - timeWidth / 2f, timeBaseline, timePaint)
+
+                // Tipp-Zone Stunden/Minuten merken; ohne Sekunden keine Kalender-Zone
+                val timeFm  = timePaint.fontMetrics
+                val tapPadV = timeFontSize * 0.12f
+                timeTapBounds.set(cx - timeWidth / 2f, timeBaseline + timeFm.ascent - tapPadV,
+                    cx + timeWidth / 2f, timeBaseline + timeFm.descent + tapPadV)
+                daySecondsTapBounds.setEmpty()
 
                 // Ohne Sekunden: Datum zentriert unterhalb der Zeit
                 weekdayBottomY = if (config.showWeekday) {
@@ -1307,6 +1389,9 @@ class IoSyncWatchFaceRenderer(
 
     private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float, bx: Float = 0f, by: Float = 0f) {
         val config = WatchFaceConfigCache
+        // Tipp-Zonen zurücksetzen; werden nur gesetzt wenn das Element gezeichnet wird
+        bpmTapBounds.setEmpty()
+        kcalTapBounds.setEmpty()
         // Daten gelten als "frisch" wenn in den letzten 30 Minuten empfangen
         val phoneDataFresh = (System.currentTimeMillis() - config.phoneHealthLastReceived) < 1_800_000L
         val items = mutableListOf<HealthItem>()
@@ -1422,6 +1507,17 @@ class IoSyncWatchFaceRenderer(
                 healthValuePaint.color = item.color
                 canvas.drawText(item.value, x, baseY + valueSize * 1.2f, healthValuePaint)
 
+                // Tipp-Zone für Puls/Kalorien merken (Symbol + Label + Wert umschließen)
+                if (item.icon == "heart" || item.icon == "flame") {
+                    val valueWidth = healthValuePaint.measureText(item.value)
+                    val pad   = radius * 0.04f
+                    val left  = minOf(labelStartX, x - valueWidth / 2f) - pad
+                    val right = maxOf(labelStartX + totalLabelWidth, x + valueWidth / 2f) + pad
+                    val top    = baseY - labelSize - pad
+                    val bottom = baseY + valueSize * 1.2f + valueSize * 0.4f + pad
+                    if (item.icon == "heart") bpmTapBounds.set(left, top, right, bottom)
+                    else kcalTapBounds.set(left, top, right, bottom)
+                }
             }
         }
     }
@@ -1908,6 +2004,30 @@ class IoSyncWatchFaceRenderer(
             return
         }
 
+        // ── Puls: tippen öffnet die Health-/Puls-App ─────────────────────────
+        if (tapType == TapType.UP && !bpmTapBounds.isEmpty && bpmTapBounds.contains(x, y)) {
+            openHeartApp()
+            return
+        }
+
+        // ── Kalorien: tippen öffnet die Fitness-App ──────────────────────────
+        if (tapType == TapType.UP && !kcalTapBounds.isEmpty && kcalTapBounds.contains(x, y)) {
+            openCaloriesApp()
+            return
+        }
+
+        // ── Tages-Sekunden: tippen öffnet die Kalender-App ───────────────────
+        if (tapType == TapType.UP && !daySecondsTapBounds.isEmpty && daySecondsTapBounds.contains(x, y)) {
+            openCalendarApp()
+            return
+        }
+
+        // ── Stunden/Minuten: Doppeltipp = Stoppuhr-Modus, Einzeltipp = Start/Stop
+        if (tapType == TapType.UP && !timeTapBounds.isEmpty && timeTapBounds.contains(x, y)) {
+            handleTimeZoneTap()
+            return
+        }
+
         // ── Aktions-Pille ────────────────────────────────────────────────────
         if (!config.actionPillEnabled) return
 
@@ -1973,6 +2093,259 @@ class IoSyncWatchFaceRenderer(
             launch(candidate.activityInfo.packageName)
         } else {
             Log.w(TAG_PILL, "Keine Wetter-App auf der Uhr gefunden")
+        }
+    }
+
+    /**
+     * Versucht eine App zu starten: zuerst über bekannte Paketnamen, dann optional
+     * über eine Kategorie-Intent (z.B. CATEGORY_APP_CALENDAR), zuletzt über die erste
+     * startbare App, deren Paketname einen der Hinweise enthält.
+     */
+    private fun launchAppByHints(
+        knownPackages: List<String>,
+        nameHints: List<String>,
+        categoryIntent: Intent? = null
+    ) {
+        val pm = context.packageManager
+
+        fun launch(pkg: String): Boolean {
+            val intent = pm.getLaunchIntentForPackage(pkg) ?: return false
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            return try {
+                context.startActivity(intent)
+                true
+            } catch (e: Exception) {
+                Log.w(TAG_PILL, "App-Start fehlgeschlagen ($pkg): ${e.message}")
+                false
+            }
+        }
+
+        for (pkg in knownPackages) {
+            if (launch(pkg)) return
+        }
+
+        if (categoryIntent != null) {
+            categoryIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                context.startActivity(categoryIntent)
+                return
+            } catch (e: Exception) {
+                Log.w(TAG_PILL, "Kategorie-Intent fehlgeschlagen: ${e.message}")
+            }
+        }
+
+        val mainIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val candidate = pm.queryIntentActivities(mainIntent, 0)
+            .firstOrNull { ri -> nameHints.any { ri.activityInfo.packageName.contains(it, ignoreCase = true) } }
+        if (candidate != null) {
+            launch(candidate.activityInfo.packageName)
+        } else {
+            Log.w(TAG_PILL, "Keine passende App gefunden (Hinweise: $nameHints)")
+        }
+    }
+
+    /** Öffnet die Puls-/Health-App auf der Uhr (Mobvoi TicHealth/TicCare, sonst Fitness). */
+    private fun openHeartApp() = launchAppByHints(
+        knownPackages = listOf(
+            "com.mobvoi.wear.health", "com.mobvoi.ticwear.health", "com.mobvoi.health",
+            "com.google.android.apps.fitness", "com.google.android.wearable.fitness"
+        ),
+        nameHints = listOf("heart", "puls", "tichealth", "ticcare", "health")
+    )
+
+    /** Öffnet die Kalorien-/Fitness-App auf der Uhr. */
+    private fun openCaloriesApp() = launchAppByHints(
+        knownPackages = listOf(
+            "com.google.android.apps.fitness", "com.google.android.wearable.fitness",
+            "com.mobvoi.wear.health", "com.mobvoi.ticwear.health"
+        ),
+        nameHints = listOf("fitness", "workout", "exercise", "tichealth", "ticcare", "health")
+    )
+
+    /** Öffnet die Kalender-App auf der Uhr. */
+    private fun openCalendarApp() = launchAppByHints(
+        knownPackages = listOf(
+            "com.google.android.calendar", "com.google.android.wearable.calendar"
+        ),
+        nameHints = listOf("calendar", "kalender"),
+        categoryIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)
+    )
+
+    // ── Stoppuhr-Logik ───────────────────────────────────────────────────────────
+
+    /** Aktuell verstrichene Stoppuhr-Zeit in Millisekunden. */
+    // ── NTP-Zeitkorrektur ────────────────────────────────────────────────────
+    @Volatile private var ntpQueryRunning = false
+
+    /**
+     * Ermittelt den Zeit-Offset gegenüber der Systemzeit per NTP und legt ihn im
+     * [WatchFaceConfigCache] ab. Läuft auf einem IO-Thread, schlägt still fehl
+     * (z. B. ohne Netzwerk) und behält dann den letzten bekannten Offset bei.
+     */
+    private fun refreshNtpOffset() {
+        if (!WatchFaceConfigCache.ntpEnabled) {
+            WatchFaceConfigCache.ntpOffsetMs = 0L
+            return
+        }
+        if (ntpQueryRunning) return
+        ntpQueryRunning = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                val server = WatchFaceConfigCache.ntpServer.ifBlank { "pool.ntp.org" }
+                val offset = queryNtpOffset(server)
+                if (offset != null && WatchFaceConfigCache.ntpEnabled) {
+                    WatchFaceConfigCache.ntpOffsetMs = offset
+                    Log.d(TAG_PILL, "NTP-Offset ($server): $offset ms")
+                    invalidate()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG_PILL, "NTP-Abfrage fehlgeschlagen: ${e.message}")
+            } finally {
+                ntpQueryRunning = false
+            }
+        }
+    }
+
+    /**
+     * Minimaler SNTP-Client (RFC 4330). Sendet eine UDP-Anfrage an Port 123 und
+     * berechnet den Offset über die halbe Round-Trip-Zeit:
+     *   Offset = ((T2 - T1) + (T3 - T4)) / 2
+     * mit T1/T4 = lokale Sende-/Empfangszeit, T2/T3 = Server-Empfangs-/Sendezeit.
+     * Gibt den Offset in Millisekunden zurück oder null bei Fehler.
+     */
+    private fun queryNtpOffset(host: String): Long? {
+        return try {
+            val address = java.net.InetAddress.getByName(host)
+            java.net.DatagramSocket().use { socket ->
+                socket.soTimeout = NTP_TIMEOUT_MS
+                val buf = ByteArray(48)
+                buf[0] = 0x1B  // LI = 0, Version = 3, Mode = 3 (Client)
+                val t1 = System.currentTimeMillis()
+                writeNtpTimestamp(buf, 40, t1)  // Transmit Timestamp (Originate beim Server)
+                socket.send(java.net.DatagramPacket(buf, buf.size, address, 123))
+                val response = java.net.DatagramPacket(buf, buf.size)
+                socket.receive(response)
+                val t4 = System.currentTimeMillis()
+                val t2 = readNtpTimestamp(buf, 32)  // Receive Timestamp
+                val t3 = readNtpTimestamp(buf, 40)  // Transmit Timestamp
+                ((t2 - t1) + (t3 - t4)) / 2
+            }
+        } catch (e: Exception) {
+            Log.w(TAG_PILL, "NTP-Abfrage ($host) fehlgeschlagen: ${e.message}")
+            null
+        }
+    }
+
+    /** Liest einen 64-Bit-NTP-Zeitstempel (Sekunden seit 1900) als Millis seit 1970. */
+    private fun readNtpTimestamp(buf: ByteArray, offset: Int): Long {
+        var seconds = 0L
+        var fraction = 0L
+        for (i in 0 until 4) seconds  = (seconds  shl 8) or (buf[offset + i].toLong() and 0xff)
+        for (i in 0 until 4) fraction = (fraction shl 8) or (buf[offset + 4 + i].toLong() and 0xff)
+        return (seconds - NTP_EPOCH_OFFSET_SEC) * 1000L + (fraction * 1000L) / 0x100000000L
+    }
+
+    /** Schreibt Millis seit 1970 als 64-Bit-NTP-Zeitstempel (big-endian). */
+    private fun writeNtpTimestamp(buf: ByteArray, offset: Int, millis: Long) {
+        val seconds  = millis / 1000L + NTP_EPOCH_OFFSET_SEC
+        val fraction = ((millis % 1000L) * 0x100000000L) / 1000L
+        for (i in 0 until 4) buf[offset + i]     = ((seconds  shr (24 - i * 8)) and 0xff).toByte()
+        for (i in 0 until 4) buf[offset + 4 + i] = ((fraction shr (24 - i * 8)) and 0xff).toByte()
+    }
+
+    private fun stopwatchElapsedMs(): Long = when (stopwatchMode) {
+        StopwatchMode.RUNNING -> stopwatchAccumMs + (android.os.SystemClock.elapsedRealtime() - stopwatchStartRt)
+        StopwatchMode.STOPPED -> stopwatchAccumMs
+        else -> 0L
+    }
+
+    /** Doppeltipp auf Stunden/Minuten: Stoppuhr-Modus betreten (Reset auf 0) bzw. verlassen. */
+    private fun onStopwatchDoubleTap() {
+        if (stopwatchMode == StopwatchMode.OFF) {
+            stopwatchAccumMs = 0L
+            stopwatchStartRt = 0L
+            stopwatchMode = StopwatchMode.READY
+        } else {
+            stopwatchMode = StopwatchMode.OFF
+        }
+        invalidate()
+    }
+
+    /** Einzeltipp auf Stunden/Minuten im Stoppuhr-Modus: starten / stoppen / fortsetzen. */
+    private fun onStopwatchSingleTap() {
+        when (stopwatchMode) {
+            StopwatchMode.READY -> {
+                stopwatchAccumMs = 0L
+                stopwatchStartRt = android.os.SystemClock.elapsedRealtime()
+                stopwatchMode = StopwatchMode.RUNNING
+            }
+            StopwatchMode.RUNNING -> {
+                stopwatchAccumMs += android.os.SystemClock.elapsedRealtime() - stopwatchStartRt
+                stopwatchMode = StopwatchMode.STOPPED
+            }
+            StopwatchMode.STOPPED -> {
+                stopwatchStartRt = android.os.SystemClock.elapsedRealtime()
+                stopwatchMode = StopwatchMode.RUNNING
+            }
+            StopwatchMode.OFF -> {}
+        }
+        invalidate()
+    }
+
+    /**
+     * Verarbeitet einen Tipp im Stunden/Minuten-Bereich und unterscheidet Einzel- von
+     * Doppeltipp. Ein Einzeltipp-Effekt wird um DOUBLE_TAP_MS verzögert, damit ein
+     * folgender Tipp ihn noch zum Doppeltipp zusammenfassen kann.
+     */
+    private fun handleTimeZoneTap() {
+        val now = System.currentTimeMillis()
+        if (now - lastTimeTapTime <= DOUBLE_TAP_MS) {
+            lastTimeTapTime = 0L
+            pendingTimeTapJob?.cancel()
+            pendingTimeTapJob = null
+            onStopwatchDoubleTap()
+        } else {
+            lastTimeTapTime = now
+            pendingTimeTapJob?.cancel()
+            pendingTimeTapJob = scope.launch {
+                delay(DOUBLE_TAP_MS)
+                onStopwatchSingleTap()
+                lastTimeTapTime = 0L
+            }
+        }
+    }
+
+    /** Hauptanzeige der Stoppuhr: "MM:SS" (Stunden-Slot = Minuten, Minuten-Slot = Sekunden). */
+    private fun formatStopwatchMain(elapsedMs: Long): String {
+        val totalSec = elapsedMs / 1000
+        val minutes  = (totalSec / 60) % 100
+        val seconds  = totalSec % 60
+        return "%02d:%02d".format(minutes, seconds)
+    }
+
+    /** Sekunden-Slot der Stoppuhr: Hundertstelsekunden (Millisekunden-Darstellung). */
+    private fun formatStopwatchCenti(elapsedMs: Long): String =
+        "%02d".format((elapsedMs % 1000) / 10)
+
+    /** Zeichnet den Sekundenring im Stoppuhr-Modus (Cyan, 360° = 1 Sekunde). */
+    private fun drawStopwatchRing(canvas: Canvas, bounds: Rect, elapsedMs: Long) {
+        val config = WatchFaceConfigCache
+        val ringWidthPx = config.secondsRingWidth * density
+        val inset = ringWidthPx / 2f
+        val oval = RectF(
+            bounds.left  + inset,
+            bounds.top   + inset,
+            bounds.right - inset,
+            bounds.bottom - inset
+        )
+        stopwatchRingBgPaint.strokeWidth = ringWidthPx
+        canvas.drawArc(oval, -90f, 360f, false, stopwatchRingBgPaint)
+
+        // 360° pro Sekunde → Bruchteil der laufenden Sekunde
+        val sweepAngle = (elapsedMs % 1000) / 1000f * 360f
+        if (sweepAngle > 0f) {
+            stopwatchRingFgPaint.strokeWidth = ringWidthPx
+            canvas.drawArc(oval, -90f, sweepAngle, false, stopwatchRingFgPaint)
         }
     }
 
