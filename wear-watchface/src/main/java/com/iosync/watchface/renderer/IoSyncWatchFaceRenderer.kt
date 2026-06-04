@@ -54,7 +54,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-private const val FRAME_PERIOD_MS_DEFAULT = 16L
+private const val FRAME_PERIOD_MS_DEFAULT = 2L
 private const val FRAME_PERIOD_AMBIENT_MS = 60_000L
 
 /**
@@ -90,6 +90,10 @@ class IoSyncWatchFaceRenderer(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val density = context.resources.displayMetrics.density
     private val dataClient: DataClient = Wearable.getDataClient(context)
+    // Persistenter Speicher für den NTP-Offset: überlebt Watchface-Neustarts, sodass
+    // beim Aufwachen sofort der zuletzt bekannte Offset gilt (ohne Netz abzuwarten).
+    private val ntpPrefs: android.content.SharedPreferences =
+        context.getSharedPreferences(NTP_PREFS_NAME, Context.MODE_PRIVATE)
 
     private var accentColor: Int = Color.parseColor("#EAFF00")
 
@@ -397,9 +401,15 @@ class IoSyncWatchFaceRenderer(
     companion object {
         private const val DOUBLE_TAP_MS   = 400L
         // NTP-Zeitkorrektur
-        private const val NTP_REFRESH_INTERVAL_MS = 30 * 60 * 1000L  // alle 30 min
+        // Die Quarz-Drift einer Smartwatch verschiebt sich in wenigen Stunden nur um
+        // wenige Millisekunden – eine seltene Hintergrund-Abfrage (6 h) genügt also
+        // und schont Akku/Netz. Der zuletzt ermittelte Offset wird persistiert und
+        // beim Aufwachen sofort wieder verwendet.
+        private const val NTP_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000L  // alle 6 h
         private const val NTP_TIMEOUT_MS          = 5000
         private const val NTP_EPOCH_OFFSET_SEC    = 2208988800L      // Sekunden zwischen 1900 und 1970
+        private const val NTP_PREFS_NAME          = "iosync_ntp"
+        private const val NTP_PREFS_KEY_OFFSET    = "ntp_offset_ms"
         private const val PATH_ACTION_TRIGGER = "/iosync/watchface/action_trigger"
         private const val TAG_PILL        = "WatchFacePill"
         private const val CONFIRM_DURATION_MS = 2000L
@@ -490,8 +500,14 @@ class IoSyncWatchFaceRenderer(
             }
         }
 
-        // NTP-Zeitkorrektur: bei aktivierter Korrektur alle 30 min den Offset
-        // gegenüber der Systemzeit neu vom NTP-Server ermitteln.
+        // Zuletzt persistierten NTP-Offset sofort wiederherstellen, damit das
+        // Watchface direkt nach einem (Neu-)Start mit korrigierter Zeit zeichnet,
+        // ohne auf die erste Netz-Abfrage zu warten.
+        restoreNtpOffsetFromPrefs()
+
+        // NTP-Zeitkorrektur: bei aktivierter Korrektur den Offset gegenüber der
+        // Systemzeit selten (alle 6 h) im Hintergrund (IO-Thread, nie in der
+        // Zeichenschleife) neu vom NTP-Server ermitteln.
         scope.launch(Dispatchers.IO) {
             while (true) {
                 refreshNtpOffset()
@@ -589,6 +605,9 @@ class IoSyncWatchFaceRenderer(
                     }
                 }
                 dataItems.release()
+                // Beim Aufwachen den persistierten NTP-Offset wieder anwenden, falls
+                // der flüchtige Cache nach einem Neustart noch 0 ist.
+                restoreNtpOffsetFromPrefs()
                 // Nach dem (Neu-)Einlesen sofort neu zeichnen, damit aufgefrischte
                 // Werte beim Aufwachen direkt sichtbar werden.
                 invalidate()
@@ -2194,14 +2213,36 @@ class IoSyncWatchFaceRenderer(
                 val server = WatchFaceConfigCache.ntpServer.ifBlank { "pool.ntp.org" }
                 val offset = queryNtpOffset(server)
                 if (offset != null && WatchFaceConfigCache.ntpEnabled) {
-                    WatchFaceConfigCache.ntpOffsetMs = offset
+                    // Mit dem alten Offset vergleichen: ist er identisch, wird nichts
+                    // weiter getan – die Zeit läuft einfach mit dem bestehenden Offset
+                    // weiter (kein Persistieren, kein Neuzeichnen nötig).
+                    if (offset != WatchFaceConfigCache.ntpOffsetMs) {
+                        WatchFaceConfigCache.ntpOffsetMs = offset
+                        // Offset dauerhaft sichern, damit er einen Neustart übersteht.
+                        ntpPrefs.edit().putLong(NTP_PREFS_KEY_OFFSET, offset).apply()
+                        invalidate()
+                    }
                     Log.d(TAG_PILL, "NTP-Offset ($server): $offset ms")
-                    invalidate()
                 }
             } catch (e: Exception) {
                 Log.w(TAG_PILL, "NTP-Abfrage fehlgeschlagen: ${e.message}")
             } finally {
                 ntpQueryRunning = false
+            }
+        }
+    }
+
+    /**
+     * Stellt den zuletzt persistierten NTP-Offset wieder her, sofern die Korrektur
+     * aktiv ist und im flüchtigen Cache noch kein Offset steht (z. B. direkt nach
+     * einem Watchface-Neustart). So gilt beim Aufwachen sofort die korrigierte Zeit.
+     */
+    private fun restoreNtpOffsetFromPrefs() {
+        if (WatchFaceConfigCache.ntpEnabled && WatchFaceConfigCache.ntpOffsetMs == 0L) {
+            val stored = ntpPrefs.getLong(NTP_PREFS_KEY_OFFSET, 0L)
+            if (stored != 0L) {
+                WatchFaceConfigCache.ntpOffsetMs = stored
+                Log.d(TAG_PILL, "NTP-Offset aus Speicher wiederhergestellt: $stored ms")
             }
         }
     }
