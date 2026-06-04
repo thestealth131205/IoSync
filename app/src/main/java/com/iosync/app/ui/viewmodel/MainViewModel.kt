@@ -209,8 +209,9 @@ data class MainUiState(
     val p2BarWarn2Value: Float = Float.NaN,
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
-    val slotPollIntervalSec: Int = 300,
+    val slotPollIntervalSec: Int = 120,
     val healthPollIntervalSec: Int = 60,
+    val page2SyncIntervalSec: Int = 120,
     // Sync-Status-Log für die Konsolenanzeige
     val wearSyncLog: String = "",
     // Health Connect Status
@@ -357,6 +358,7 @@ class MainViewModel @Inject constructor(
         val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_sec")
         val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_sec")
         val KEY_HEALTH_POLL_INTERVAL   = intPreferencesKey("health_poll_interval_sec")
+        val KEY_PAGE2_SYNC_INTERVAL    = intPreferencesKey("page2_sync_interval_sec")
         // Wetter-Standort
         val KEY_WEATHER_USE_FIXED   = booleanPreferencesKey("weather_use_fixed")
         val KEY_WEATHER_FIXED_LAT   = stringPreferencesKey("weather_fixed_lat")
@@ -478,8 +480,9 @@ class MainViewModel @Inject constructor(
             val wfWeatherTempSource = prefs[KEY_WF_WEATHER_TEMP_SOURCE] ?: "openweather"
             val wfWeatherIoBrokerId = prefs[KEY_WF_WEATHER_IOBROKER_ID] ?: ""
             val batteryPollInterval = prefs[KEY_BATTERY_POLL_INTERVAL] ?: 60
-            val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 300
+            val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 120
             val healthPollInterval = prefs[KEY_HEALTH_POLL_INTERVAL] ?: 60
+            val page2SyncInterval  = prefs[KEY_PAGE2_SYNC_INTERVAL]  ?: 120
             // Seite 2 Slots
             val p2Slot1Id     = prefs[KEY_P2_SLOT1_ID]     ?: ""
             val p2Slot1Label  = prefs[KEY_P2_SLOT1_LABEL]  ?: ""
@@ -622,6 +625,7 @@ class MainViewModel @Inject constructor(
                     batteryPollIntervalSec = batteryPollInterval,
                     slotPollIntervalSec    = slotPollInterval,
                     healthPollIntervalSec  = healthPollInterval,
+                    page2SyncIntervalSec   = page2SyncInterval,
                     p2Slot1Id     = p2Slot1Id,
                     p2Slot1Label  = p2Slot1Label,
                     p2Slot2Id     = p2Slot2Id,
@@ -675,6 +679,7 @@ class MainViewModel @Inject constructor(
             // damit Wetter/Akku/Slots/Health auch bei geschlossener App aktualisiert werden.
             IoSyncSyncService.start(context)
             sendPhoneBattery() // Akkustand einmalig für die App-Anzeige
+            refresh()
         }
 
         viewModelScope.launch {
@@ -693,8 +698,6 @@ class MainViewModel @Inject constructor(
                 }
             }
         }
-
-        refresh()
     }
 
     // ── Health Connect ────────────────────────────────────────────────────
@@ -1308,17 +1311,37 @@ class MainViewModel @Inject constructor(
 
     fun updateP2Pill1State(newState: Boolean) {
         viewModelScope.launch {
+            val ioBrokerId = _uiState.value.p2PillIoBrokerId
             dataStore.edit { prefs -> prefs[KEY_P2_PILL1_STATE] = newState }
-            _uiState.update { it.copy(p2Pill1State = newState) }
+            val newValue = if (newState) "true" else "false"
+            _uiState.update { st ->
+                st.copy(
+                    p2Pill1State = newState,
+                    ioSyncStates = if (ioBrokerId.isNotBlank())
+                        st.ioSyncStates.map { if (it.id == ioBrokerId) it.copy(value = newValue) else it }
+                    else st.ioSyncStates
+                )
+            }
             wearDataLayerService.syncP2PillStatesToWear(newState, _uiState.value.p2Pill2State)
+            syncPage2SlotValues()
         }
     }
 
     fun updateP2Pill2State(newState: Boolean) {
         viewModelScope.launch {
+            val ioBrokerId = _uiState.value.p2Pill2IoBrokerId
             dataStore.edit { prefs -> prefs[KEY_P2_PILL2_STATE] = newState }
-            _uiState.update { it.copy(p2Pill2State = newState) }
+            val newValue = if (newState) "true" else "false"
+            _uiState.update { st ->
+                st.copy(
+                    p2Pill2State = newState,
+                    ioSyncStates = if (ioBrokerId.isNotBlank())
+                        st.ioSyncStates.map { if (it.id == ioBrokerId) it.copy(value = newValue) else it }
+                    else st.ioSyncStates
+                )
+            }
             wearDataLayerService.syncP2PillStatesToWear(_uiState.value.p2Pill1State, newState)
+            syncPage2SlotValues()
         }
     }
 
@@ -1359,8 +1382,15 @@ class MainViewModel @Inject constructor(
                         "toggle" -> !currentState; "true" -> true; "false" -> false; else -> currentState
                     }
                     dataStore.edit { p -> p[KEY_P2_PILL1_STATE] = newState }
-                    _uiState.update { it.copy(p2Pill1State = newState) }
+                    val newValue = if (newState) "true" else "false"
+                    _uiState.update { st ->
+                        st.copy(
+                            p2Pill1State = newState,
+                            ioSyncStates = st.ioSyncStates.map { if (it.id == ioBrokerId) it.copy(value = newValue) else it }
+                        )
+                    }
                     wearDataLayerService.syncP2PillStatesToWear(newState, _uiState.value.p2Pill2State)
+                    syncPage2SlotValues()
                 }
                 .onFailure { err -> _uiState.update { st -> st.copy(error = "Pille 1: ${err.message}") } }
         }
@@ -1393,8 +1423,15 @@ class MainViewModel @Inject constructor(
                         "toggle" -> !currentState; "true" -> true; "false" -> false; else -> currentState
                     }
                     dataStore.edit { p -> p[KEY_P2_PILL2_STATE] = newState }
-                    _uiState.update { it.copy(p2Pill2State = newState) }
+                    val newValue = if (newState) "true" else "false"
+                    _uiState.update { st ->
+                        st.copy(
+                            p2Pill2State = newState,
+                            ioSyncStates = st.ioSyncStates.map { if (it.id == ioBrokerId) it.copy(value = newValue) else it }
+                        )
+                    }
                     wearDataLayerService.syncP2PillStatesToWear(_uiState.value.p2Pill1State, newState)
+                    syncPage2SlotValues()
                 }
                 .onFailure { err -> _uiState.update { st -> st.copy(error = "Pille 2: ${err.message}") } }
         }
@@ -1403,14 +1440,15 @@ class MainViewModel @Inject constructor(
     // ── Aktualisierungsintervalle ─────────────────────────────────────────────
 
     /** Speichert die Polling-Intervalle und startet die Jobs mit neuem Intervall neu. */
-    fun updatePollIntervals(batterySec: Int, slotSec: Int, healthSec: Int = _uiState.value.healthPollIntervalSec) {
+    fun updatePollIntervals(batterySec: Int, slotSec: Int, healthSec: Int = _uiState.value.healthPollIntervalSec, page2Sec: Int = _uiState.value.page2SyncIntervalSec) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
                 prefs[KEY_BATTERY_POLL_INTERVAL] = batterySec
                 prefs[KEY_SLOT_POLL_INTERVAL]    = slotSec
                 prefs[KEY_HEALTH_POLL_INTERVAL]  = healthSec
+                prefs[KEY_PAGE2_SYNC_INTERVAL]   = page2Sec
             }
-            _uiState.update { it.copy(batteryPollIntervalSec = batterySec, slotPollIntervalSec = slotSec, healthPollIntervalSec = healthSec) }
+            _uiState.update { it.copy(batteryPollIntervalSec = batterySec, slotPollIntervalSec = slotSec, healthPollIntervalSec = healthSec, page2SyncIntervalSec = page2Sec) }
             // Hintergrund-Sync-Service mit neuen Intervallen neu starten
             IoSyncSyncService.start(context)
             // UI-Liste mit neuem Intervall neu pollen

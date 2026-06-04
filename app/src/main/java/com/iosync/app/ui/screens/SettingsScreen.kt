@@ -165,6 +165,7 @@ fun SettingsScreen(
     var batteryPollInterval by remember(uiState.batteryPollIntervalSec) { mutableStateOf(uiState.batteryPollIntervalSec) }
     var slotPollInterval   by remember(uiState.slotPollIntervalSec)    { mutableStateOf(uiState.slotPollIntervalSec) }
     var healthPollInterval by remember(uiState.healthPollIntervalSec)  { mutableStateOf(uiState.healthPollIntervalSec) }
+    var page2SyncInterval  by remember(uiState.page2SyncIntervalSec)   { mutableStateOf(uiState.page2SyncIntervalSec) }
 
     // Hintergrundbild
     var wfShowBackground by remember(uiState.wfShowBackground) { mutableStateOf(uiState.wfShowBackground) }
@@ -307,10 +308,10 @@ fun SettingsScreen(
 
     // ── Intervall-Änderungen speichern ───────────────────────────────────────
     var intervalInitialized by remember { mutableStateOf(false) }
-    LaunchedEffect(batteryPollInterval, slotPollInterval, healthPollInterval) {
+    LaunchedEffect(batteryPollInterval, slotPollInterval, healthPollInterval, page2SyncInterval) {
         if (!intervalInitialized) { intervalInitialized = true; return@LaunchedEffect }
         delay(400)
-        viewModel.updatePollIntervals(batteryPollInterval, slotPollInterval, healthPollInterval)
+        viewModel.updatePollIntervals(batteryPollInterval, slotPollInterval, healthPollInterval, page2SyncInterval)
     }
 
     // ── Live-Vorschau: Custom-Slots (ohne Persistenz) ────────────────────────
@@ -815,7 +816,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    "ioBroker-Slots",
+                    "Seite 1 Sync-Intervall",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White,
                     modifier = Modifier.weight(1f)
@@ -823,7 +824,8 @@ fun SettingsScreen(
                 IntervalDropdown(
                     selected = slotPollInterval,
                     onSelect = { slotPollInterval = it },
-                    modifier = Modifier.width(120.dp)
+                    modifier = Modifier.width(120.dp),
+                    options = PAGE_SYNC_INTERVAL_OPTIONS_SEC
                 )
             }
 
@@ -1777,6 +1779,30 @@ fun SettingsScreen(
                     PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p2BarWarn2Color == "purple",      onClick = { p2BarWarn2Color = "purple" })
                 }
 
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text(
+                    text = "Aktualisierungsintervall",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Seite 2 Sync-Intervall",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IntervalDropdown(
+                        selected = page2SyncInterval,
+                        onSelect = { page2SyncInterval = it },
+                        modifier = Modifier.width(120.dp),
+                        options = PAGE_SYNC_INTERVAL_OPTIONS_SEC
+                    )
+                }
+
                 Button(
                     onClick = {
                         viewModel.updatePage2Config(
@@ -2376,8 +2402,10 @@ fun FontSizeDropdown(
     }
 }
 
-// Intervall-Optionen in Sekunden
+// Intervall-Optionen in Sekunden (allgemein)
 private val INTERVAL_OPTIONS_SEC = listOf(30, 60, 180, 300, 600, 900, 1800, 3600)
+// Intervall-Optionen für Watchface-Seiten (Seite 1 & 2)
+private val PAGE_SYNC_INTERVAL_OPTIONS_SEC = listOf(30, 60, 120, 240, 360, 600)
 // Intervall-Optionen für Health-Connect-Werte (Puls/Kcal/SpO2)
 private val HEALTH_INTERVAL_OPTIONS_SEC = listOf(15, 30, 120, 240, 600, 900, 1800)
 

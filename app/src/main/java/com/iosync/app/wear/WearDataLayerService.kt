@@ -13,6 +13,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -656,8 +657,12 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putBoolean("show_phone_battery", showInWatchface)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
-                dataClient.putDataItem(request).await()
-                Log.d(TAG, "Handy-Akku ($level %, lädt=$isCharging, zeigen=$showInWatchface) an Wear OS übertragen")
+                val result = withTimeoutOrNull(10_000L) { dataClient.putDataItem(request).await() }
+                if (result != null) {
+                    Log.d(TAG, "Handy-Akku ($level %, lädt=$isCharging, zeigen=$showInWatchface) an Wear OS übertragen")
+                } else {
+                    Log.w(TAG, "syncPhoneBatteryToWear Timeout – Uhr vermutlich getrennt")
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "syncPhoneBatteryToWear fehlgeschlagen", e)
             }

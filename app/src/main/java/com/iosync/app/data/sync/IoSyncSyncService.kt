@@ -55,6 +55,7 @@ class IoSyncSyncService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var dataJob: Job? = null
+    private var page2DataJob: Job? = null
     private var batteryJob: Job? = null
     private var weatherJob: Job? = null
     private var healthJob: Job? = null
@@ -96,15 +97,16 @@ class IoSyncSyncService : Service() {
     }
 
     private fun cancelLoops() {
-        dataJob?.cancel(); batteryJob?.cancel(); weatherJob?.cancel(); healthJob?.cancel()
+        dataJob?.cancel(); page2DataJob?.cancel(); batteryJob?.cancel(); weatherJob?.cancel(); healthJob?.cancel()
     }
 
     private fun startLoops() {
         cancelLoops()
-        dataJob = scope.launch { dataLoop() }
-        batteryJob = scope.launch { batteryLoop() }
-        weatherJob = scope.launch { weatherLoop() }
-        healthJob = scope.launch { healthLoop() }
+        dataJob      = scope.launch { dataLoop() }
+        page2DataJob = scope.launch { page2DataLoop() }
+        batteryJob   = scope.launch { batteryLoop() }
+        weatherJob   = scope.launch { weatherLoop() }
+        healthJob    = scope.launch { healthLoop() }
     }
 
     // ── ioBroker-Slots / States ───────────────────────────────────────────────
@@ -115,7 +117,7 @@ class IoSyncSyncService : Service() {
                 val prefs = dataStore.data.first()
                 val useAdapter = prefs[MainViewModel.KEY_USE_IOSYNC_ADAPTER] ?: true
                 val host       = prefs[MainViewModel.KEY_IOSYNC_HOST] ?: ""
-                val intervalSec = prefs[MainViewModel.KEY_SLOT_POLL_INTERVAL] ?: 300
+                val intervalSec = prefs[MainViewModel.KEY_SLOT_POLL_INTERVAL] ?: 120
 
                 if (useAdapter && host.isNotBlank()) {
                     val port     = prefs[MainViewModel.KEY_IOSYNC_PORT] ?: 7443
@@ -131,10 +133,6 @@ class IoSyncSyncService : Service() {
                             if (prefs[MainViewModel.KEY_SHOW_CUSTOM_SLOTS] == true) {
                                 syncCustomSlots(prefs, states)
                             }
-                            if (hasPage2Slots(prefs)) {
-                                syncPage2Slots(prefs, states)
-                            }
-                            syncPage2PillStates(prefs, states)
                             // ioBroker als Wetter-Temperatur-Quelle
                             if (prefs[MainViewModel.KEY_WF_SHOW_WEATHER] != false &&
                                 prefs[MainViewModel.KEY_WF_WEATHER_TEMP_SOURCE] == "iobroker"
@@ -163,6 +161,40 @@ class IoSyncSyncService : Service() {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "dataLoop Ausnahme, Neuversuch in 30s: ${e.message}", e)
+                delay(30_000L)
+            }
+        }
+    }
+
+    // ── Seite 2 – Slots / Pillen / Balken ────────────────────────────────────
+
+    private suspend fun page2DataLoop() {
+        while (true) {
+            try {
+                val prefs = dataStore.data.first()
+                val useAdapter  = prefs[MainViewModel.KEY_USE_IOSYNC_ADAPTER] ?: true
+                val host        = prefs[MainViewModel.KEY_IOSYNC_HOST] ?: ""
+                val intervalSec = prefs[MainViewModel.KEY_PAGE2_SYNC_INTERVAL] ?: 120
+
+                if (useAdapter && host.isNotBlank()) {
+                    val port     = prefs[MainViewModel.KEY_IOSYNC_PORT] ?: 7443
+                    val useHttps = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS] ?: false
+                    val username = prefs[MainViewModel.KEY_IOSYNC_USERNAME] ?: ""
+                    val password = prefs[MainViewModel.KEY_IOSYNC_PASSWORD] ?: ""
+
+                    ioSyncClient.fetchDataPoints(host, port, useHttps, username, password)
+                        .onSuccess { states ->
+                            if (hasPage2Slots(prefs)) {
+                                syncPage2Slots(prefs, states)
+                            }
+                            syncPage2PillStates(prefs, states)
+                        }
+                }
+                delay(intervalSec * 1_000L)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "page2DataLoop Ausnahme, Neuversuch in 30s: ${e.message}", e)
                 delay(30_000L)
             }
         }
