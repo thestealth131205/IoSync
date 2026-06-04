@@ -65,6 +65,12 @@ class IoSyncSyncService : Service() {
     private var weatherJob: Job? = null
     private var healthJob: Job? = null
 
+    // Event-basierter Akku-Empfänger: pusht den Handy-Akku sofort bei jeder Änderung
+    // (Ladezustand / Prozent), unabhängig vom Polling-Intervall.
+    private var batteryReceiver: android.content.BroadcastReceiver? = null
+    private var lastBatteryPercent: Int = -1
+    private var lastBatteryCharging: Boolean? = null
+
     // Serialisiert Push-getriggerte und intervallbasierte Syncs, damit sie sich nicht überlappen.
     private val syncMutex = kotlinx.coroutines.sync.Mutex()
 
@@ -106,11 +112,13 @@ class IoSyncSyncService : Service() {
 
     private fun cancelLoops() {
         ioSyncPushClient.stop()
+        unregisterBatteryReceiver()
         pushJob?.cancel(); pushSyncJob?.cancel(); dataJob?.cancel(); page2DataJob?.cancel(); batteryJob?.cancel(); weatherJob?.cancel(); healthJob?.cancel()
     }
 
     private fun startLoops() {
         cancelLoops()
+        registerBatteryReceiver()
         pushJob      = scope.launch { pushLoop() }
         dataJob      = scope.launch { dataLoop() }
         page2DataJob = scope.launch { page2DataLoop() }
@@ -363,24 +371,58 @@ class IoSyncSyncService : Service() {
 
     // ── Handy-Akku ────────────────────────────────────────────────────────────
 
+    /**
+     * Registriert einen [BroadcastReceiver] für [Intent.ACTION_BATTERY_CHANGED].
+     * Damit wird der Handy-Akku bei JEDER Änderung (Prozent / Ladezustand) sofort
+     * ans Watchface gepusht, statt nur im Polling-Intervall.
+     */
+    private fun registerBatteryReceiver() {
+        if (batteryReceiver != null) return
+        batteryReceiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                intent ?: return
+                scope.launch { pushBattery(intent, force = false) }
+            }
+        }
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+    }
+
+    private fun unregisterBatteryReceiver() {
+        batteryReceiver?.let { runCatching { unregisterReceiver(it) } }
+        batteryReceiver = null
+    }
+
+    /**
+     * Sendet den Akkustand aus dem übergebenen Battery-Intent ans Watchface.
+     * Bei [force] = false wird nur gesendet, wenn sich Prozent oder Ladezustand
+     * gegenüber dem letzten Push geändert haben (entdoppelt häufige Broadcasts).
+     */
+    private suspend fun pushBattery(batteryIntent: Intent, force: Boolean) {
+        val prefs = dataStore.data.first()
+        // Immer senden (auch wenn showBattery=false), damit die Uhr das Flag kennt
+        // und den Ring direkt zeigen/verstecken kann — ohne separaten Config-Push.
+        val showBattery = prefs[MainViewModel.KEY_WF_SHOW_PHONE_BATTERY] ?: false
+        val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+        val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL
+        val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
+        if (percent < 0) return
+        if (!force && percent == lastBatteryPercent && isCharging == lastBatteryCharging) return
+        lastBatteryPercent = percent
+        lastBatteryCharging = isCharging
+        wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging, showBattery)
+    }
+
+    /** Fallback-Loop: erzwingt periodisch einen Akku-Push (hält das Watchface-Flag aktuell). */
     private suspend fun batteryLoop() {
         while (true) {
             try {
                 val prefs = dataStore.data.first()
                 val intervalSec = prefs[MainViewModel.KEY_BATTERY_POLL_INTERVAL] ?: 60
-                val showBattery = prefs[MainViewModel.KEY_WF_SHOW_PHONE_BATTERY] ?: false
-                // Immer senden (auch wenn showBattery=false), damit die Uhr das Flag kennt
-                // und den Ring direkt zeigen/verstecken kann — ohne separaten Config-Push.
                 val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-                if (batteryIntent != null) {
-                    val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                    val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
-                    val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                    val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                            status == BatteryManager.BATTERY_STATUS_FULL
-                    val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
-                    if (percent >= 0) wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging, showBattery)
-                }
+                if (batteryIntent != null) pushBattery(batteryIntent, force = true)
                 delay(intervalSec * 1_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -454,14 +496,20 @@ class IoSyncSyncService : Service() {
                         healthConnectManager.readLatestHeartRate(hrSourcePkg)?.let { if (it > 0) lastKnownHr = it }
                     }
                     if (kcalSource == "healthconnect") {
-                        // Gewaehlte Metrik fuer den Kcal-Slot lesen (Fallback: Kalorien)
+                        // Gewaehlte Metrik fuer den Kcal-Slot lesen. Wenn die gewaehlte
+                        // Datenquelle (Package) keinen Wert liefert, auf "alle Quellen"
+                        // zurueckfallen – so stimmt der Wert mit der Vorschau ueberein.
                         val kcal = healthConnectManager.readLatestValueByKey(kcalMetric, kcalSourcePkg)
+                            ?: healthConnectManager.readLatestValueByKey(kcalMetric, "")
                             ?: healthConnectManager.readTodayActiveCalories(kcalSourcePkg)
                         kcal?.let { if (it > 0) lastKnownKcal = it }
                     }
                     if (oxygenSource == "healthconnect") {
-                        // Gewaehlte Metrik fuer den Oxygen-Slot lesen (Fallback: SpO2)
+                        // Gewaehlte Metrik fuer den Oxygen-Slot lesen. Wenn die gewaehlte
+                        // Datenquelle (Package) keinen Wert liefert, auf "alle Quellen"
+                        // zurueckfallen – so stimmt der Wert mit der Vorschau ueberein.
                         val o2 = healthConnectManager.readLatestValueByKey(oxygenMetric, oxygenSourcePkg)
+                            ?: healthConnectManager.readLatestValueByKey(oxygenMetric, "")
                             ?: healthConnectManager.readLatestOxygenSaturation(oxygenSourcePkg)
                         o2?.let { if (it > 0) lastKnownO2 = it }
                     }
@@ -518,7 +566,7 @@ class IoSyncSyncService : Service() {
         const val ACTION_START = "com.iosync.app.START_SYNC"
         const val ACTION_STOP = "com.iosync.app.STOP_SYNC"
         private const val NOTIFICATION_ID = 1003
-        private const val WEATHER_INTERVAL_MS = 900_000L // 15 Minuten
+        private const val WEATHER_INTERVAL_MS = 600_000L // 10 Minuten
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, IoSyncSyncService::class.java).apply {

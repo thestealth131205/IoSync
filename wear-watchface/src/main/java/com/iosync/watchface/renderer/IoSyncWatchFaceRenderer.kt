@@ -45,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.ZonedDateTime
@@ -440,6 +441,21 @@ class IoSyncWatchFaceRenderer(
                 else healthSensorManager.stopHeartRate()
             }
         }
+
+        // Bei jedem Aktiv-Werden (Handgelenk heben / Aufwachen aus Ambient) die
+        // neuesten Data-Layer-Werte erneut einlesen. Der Renderer-Prozess kann im
+        // Schlaf/Ambient-Zustand Live-Updates (onDataChanged) verpassen – dann blieben
+        // z.B. die 4 Seite-2-Werte auf dem zuletzt empfangenen Stand „eingefroren".
+        // Wichtig: auf den Aktiv-Zustand (visible && !ambient) reagieren, NICHT nur auf
+        // isVisible – beim Ambient→Aktiv-Wechsel bleibt isVisible oft durchgehend true,
+        // sodass ein reiner isVisible-Collector nicht erneut auslöst.
+        scope.launch {
+            combine(watchState.isVisible, watchState.isAmbient) { visible, ambient ->
+                visible == true && ambient != true
+            }.distinctUntilChanged().collect { active ->
+                if (active) loadInitialConfig()
+            }
+        }
     }
 
     /**
@@ -524,6 +540,9 @@ class IoSyncWatchFaceRenderer(
                     }
                 }
                 dataItems.release()
+                // Nach dem (Neu-)Einlesen sofort neu zeichnen, damit aufgefrischte
+                // Werte beim Aufwachen direkt sichtbar werden.
+                invalidate()
             } catch (e: Exception) {
                 Log.e(TAG_PILL, "Initiale Config konnte nicht geladen werden", e)
             }
@@ -1826,6 +1845,10 @@ class IoSyncWatchFaceRenderer(
                 if (now - page2LastTapTime <= DOUBLE_TAP_MS) {
                     currentPage = 1 - currentPage
                     page2LastTapTime = 0L
+                    // Beim Wechsel auf Seite 2 die aktuellsten Data-Layer-Werte
+                    // nachladen, damit die 4 Werte sofort frisch sind – auch wenn
+                    // zwischenzeitliche onDataChanged-Updates verpasst wurden.
+                    if (currentPage == 1) loadInitialConfig()
                     invalidate()
                 } else {
                     page2LastTapTime = now

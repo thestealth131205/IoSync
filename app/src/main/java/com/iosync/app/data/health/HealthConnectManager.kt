@@ -302,10 +302,22 @@ class HealthConnectManager @Inject constructor(
         try {
             val client = HealthConnectClient.getOrCreate(context)
             val now = Instant.now()
-            val timeRange = TimeRangeFilter.between(now.minus(24, ChronoUnit.HOURS), now)
+            // Breiteres Fenster (48h): die letzte Schlafsession wird auch dann gefunden,
+            // wenn sie etwas aelter als 24h ist oder verzoegert synchronisiert wurde.
+            // Das strikte 24h-Fenster lieferte sonst null und der Watchface-Wert
+            // blieb auf dem alten Stand eingefroren ("immer gleich wie gestern").
+            val timeRange = TimeRangeFilter.between(now.minus(48, ChronoUnit.HOURS), now)
             val resp = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange))
             val records = if (sourceFilter.isNotEmpty()) resp.records.filter { it.metadata.dataOrigin.packageName == sourceFilter } else resp.records
-            records.sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
+            if (records.isEmpty()) return@withContext null
+            // Auf die zuletzt aufgezeichnete Nacht beschraenken: alle Segmente, die
+            // innerhalb von 18h vor dem juengsten Sessionende liegen (unterbrochener
+            // Schlaf wird oft als mehrere Sessions gespeichert). So werden nicht zwei
+            // verschiedene Naechte zusammengezaehlt und der Wert aktualisiert taeglich.
+            val latestEnd = records.maxOf { it.endTime }
+            val nightStart = latestEnd.minus(18, ChronoUnit.HOURS)
+            records.filter { it.endTime.isAfter(nightStart) }
+                .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
                 .toInt()
                 .takeIf { it > 0 }
         } catch (_: Exception) { null }
