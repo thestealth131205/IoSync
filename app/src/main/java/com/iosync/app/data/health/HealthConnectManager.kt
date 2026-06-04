@@ -36,7 +36,8 @@ data class HealthDataTypeInfo(
     val recordClass: KClass<*>,
     val available: Boolean = false,
     val sources: List<String> = emptyList(),        // App-Labels (für Anzeige)
-    val sourcePackages: List<String> = emptyList()  // Package-Namen (für Filterung)
+    val sourcePackages: List<String> = emptyList(), // Package-Namen (für Filterung)
+    val latestValue: Int? = null                    // aktueller Messwert (für Vorschau im Dropdown)
 )
 
 /**
@@ -128,6 +129,7 @@ class HealthConnectManager @Inject constructor(
             val dataTypes = supportedTypes.map { def ->
                 val granted = grantedPermissions.contains(def.permission)
                 val (labels, packages) = if (granted) querySourcesForType(client, def.recordClass) else Pair(emptyList(), emptyList())
+                val latest = if (granted) readLatestValueByKey(def.key) else null
                 HealthDataTypeInfo(
                     key = def.key,
                     displayName = def.displayName,
@@ -135,7 +137,8 @@ class HealthConnectManager @Inject constructor(
                     recordClass = def.recordClass,
                     available = granted,
                     sources = labels,
-                    sourcePackages = packages
+                    sourcePackages = packages,
+                    latestValue = latest
                 )
             }
 
@@ -389,6 +392,30 @@ class HealthConnectManager @Inject constructor(
             records.sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
                 .toInt().takeIf { it > 0 }
         } catch (_: Exception) { null }
+    }
+
+    companion object {
+        /** Metrik-Metadaten: Watchface-Überschrift + Format-Einheit je HC-Datentyp-Key.
+         *  Die Einheit dient dem Watchface als Format-Hinweis ("%", "kcal", "°C", ...). */
+        private data class MetricMeta(val label: String, val unit: String)
+        private val METRIC_META = mapOf(
+            "heart_rate"        to MetricMeta("BPM",    "bpm"),
+            "steps"             to MetricMeta("STEPS",  ""),
+            "distance"          to MetricMeta("DIST",   "m"),
+            "active_calories"   to MetricMeta("KCAL",   "kcal"),
+            "total_calories"    to MetricMeta("KCAL",   "kcal"),
+            "oxygen_saturation" to MetricMeta("OXYGEN", "%"),
+            "body_temperature"  to MetricMeta("TEMP",   "°C"),
+            "blood_pressure"    to MetricMeta("BP",     "mmHg"),
+            "sleep"             to MetricMeta("SLEEP",  "min"),
+            "exercise"          to MetricMeta("TRAIN",  "min")
+        )
+
+        /** Watchface-Überschrift für eine Metrik (Fallback: Key in Großbuchstaben). */
+        fun metricLabel(key: String): String = METRIC_META[key]?.label ?: key.uppercase()
+
+        /** Format-Einheit für eine Metrik (Fallback: leer = reine Zahl). */
+        fun metricUnit(key: String): String = METRIC_META[key]?.unit ?: ""
     }
 
     /** Package-Name in lesbaren App-Namen umwandeln */

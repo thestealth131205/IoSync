@@ -1263,6 +1263,29 @@ class IoSyncWatchFaceRenderer(
         return num.toInt()
     }
 
+    /**
+     * Formatiert einen Health-Wert passend zur Einheit der gewählten Metrik.
+     * - "%"    → Prozentanzeige (SpO2)
+     * - "kcal" → kompaktes K-Format ab 1000 (z. B. 2360 → 2K4)
+     * - "°C"   → Wert kommt in Zehntel-Grad (366 → 36,6°)
+     * - sonst  → reine Zahl
+     * value <= 0 bedeutet "kein Messwert" → Platzhalter.
+     */
+    private fun formatHealthValue(value: Int, unit: String): String {
+        if (value <= 0) return if (unit == "%") "--%" else "--"
+        return when (unit) {
+            "%"  -> "$value%"
+            "°C" -> "${value / 10},${value % 10}°"
+            "kcal" -> if (value < 1000) "$value" else {
+                val rounded   = Math.ceil(value / 100.0).toInt() * 100
+                val thousands = rounded / 1000
+                val hundreds  = (rounded % 1000) / 100
+                if (hundreds == 0) "${thousands}K" else "${thousands}K${hundreds}"
+            }
+            else -> "$value"
+        }
+    }
+
     private fun drawHealthData(canvas: Canvas, cx: Float, cy: Float, radius: Float, bx: Float = 0f, by: Float = 0f) {
         val config = WatchFaceConfigCache
         // Daten gelten als "frisch" wenn in den letzten 30 Minuten empfangen
@@ -1289,18 +1312,9 @@ class IoSyncWatchFaceRenderer(
                 } else {
                     healthSensorManager.calories
                 }
-            val kcalText = when {
-                kcal <= 0   -> "--"
-                kcal < 1000 -> "$kcal"
-                else -> {
-                    // Auf nächste 100 aufrunden, dann K-Format: 2360 → 2K4
-                    val rounded  = Math.ceil(kcal / 100.0).toInt() * 100
-                    val thousands = rounded / 1000
-                    val hundreds  = (rounded % 1000) / 100
-                    if (hundreds == 0) "${thousands}K" else "${thousands}K${hundreds}"
-                }
-            }
-            items.add(HealthItem("KCAL", kcalText, colorFromId(config.kcalColor), "flame"))
+            // Label + Format ergeben sich aus der vom Handy gewählten Metrik.
+            val kcalText = formatHealthValue(kcal, config.kcalUnit)
+            items.add(HealthItem(config.kcalLabel, kcalText, colorFromId(config.kcalColor), "flame"))
         }
 
         // SpO2: Komplikation (falls gewählt) > Health Connect > lokaler Sensor
@@ -1311,8 +1325,8 @@ class IoSyncWatchFaceRenderer(
                 } else {
                     healthSensorManager.spO2
                 }
-            val o2Text = if (o2 > 0) "$o2%" else "--%"
-            items.add(HealthItem("OXYGEN", o2Text, colorFromId(config.oxygenColor), "oxygen"))
+            val o2Text = formatHealthValue(o2, config.oxygenUnit)
+            items.add(HealthItem(config.oxygenLabel, o2Text, colorFromId(config.oxygenColor), "oxygen"))
         }
 
         if (items.isEmpty()) return
@@ -1378,7 +1392,8 @@ class IoSyncWatchFaceRenderer(
                 val totalLabelWidth = iconSize + iconGap + labelWidth
                 val labelStartX     = x - totalLabelWidth / 2f
 
-                drawHealthIcon(canvas, labelStartX + iconSize / 2f, baseY - labelSize * 0.30f, iconSize, item.icon)
+                drawHealthIcon(canvas, labelStartX + iconSize / 2f, baseY - labelSize * 0.30f, iconSize, item.icon,
+                    colorOverride = if (item.icon == "heart") item.color else null)
 
                 healthLabelPaint.color     = Color.parseColor("#AAAAAA")
                 healthLabelPaint.textAlign = Paint.Align.LEFT
@@ -1428,12 +1443,13 @@ class IoSyncWatchFaceRenderer(
     }
     private val healthIconPath = android.graphics.Path()
 
-    /** Zeichnet ein kleines Icon (Herz, Flamme, O2-Tropfen) für die Gesundheitsanzeige. */
-    private fun drawHealthIcon(canvas: Canvas, cx: Float, cy: Float, size: Float, type: String) {
+    /** Zeichnet ein kleines Icon (Herz, Flamme, O2-Tropfen) für die Gesundheitsanzeige.
+     *  colorOverride: optionale Farbe (z. B. für das Herz, das die Puls-Schriftfarbe trägt). */
+    private fun drawHealthIcon(canvas: Canvas, cx: Float, cy: Float, size: Float, type: String, colorOverride: Int? = null) {
         healthIconPath.reset()
         when (type) {
             "heart" -> {
-                healthIconPaint.color = Color.parseColor("#AAAAAA")
+                healthIconPaint.color = colorOverride ?: Color.parseColor("#AAAAAA")
                 val s = size * 0.55f
                 healthIconPath.moveTo(cx, cy + s * 0.6f)
                 healthIconPath.cubicTo(cx - s * 1.3f, cy - s * 0.2f, cx - s * 0.6f, cy - s * 1.2f, cx, cy - s * 0.5f)

@@ -88,6 +88,11 @@ private const val KEY_WF_OXYGEN_SOURCE             = "wf_oxygen_source"
 private const val KEY_WF_HR_COMPLICATION           = "wf_hr_complication"
 private const val KEY_WF_KCAL_COMPLICATION         = "wf_kcal_complication"
 private const val KEY_WF_OXYGEN_COMPLICATION       = "wf_oxygen_complication"
+// Dynamische Überschrift + Format-Einheit der frei wählbaren Health-Slots (Kcal/Oxygen)
+private const val KEY_WF_KCAL_LABEL                = "wf_kcal_label"
+private const val KEY_WF_KCAL_UNIT                 = "wf_kcal_unit"
+private const val KEY_WF_OXYGEN_LABEL              = "wf_oxygen_label"
+private const val KEY_WF_OXYGEN_UNIT               = "wf_oxygen_unit"
 
 // ── Phone-Health-Daten (vom Smartphone gesendet) ────────────────────────────
 private const val PATH_PHONE_HEALTH          = "/iosync/watchface/phone_health"
@@ -406,6 +411,12 @@ object WatchFaceConfigCache {
     @Volatile var hrComplication: String = ""
     @Volatile var kcalComplication: String = ""
     @Volatile var oxygenComplication: String = ""
+    // Dynamische Überschrift + Format-Einheit der frei wählbaren Health-Slots.
+    // Werden vom Handy passend zur gewählten Metrik gesetzt (z. B. "TEMP"/"°C").
+    @Volatile var kcalLabel: String = "KCAL"
+    @Volatile var kcalUnit: String = "kcal"
+    @Volatile var oxygenLabel: String = "OXYGEN"
+    @Volatile var oxygenUnit: String = "%"
     // Phone-Health-Daten (wenn Quelle = "healthconnect")
     @Volatile var phoneHeartRate: Int = 0
     @Volatile var phoneSpO2: Int = 0
@@ -521,6 +532,10 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_HR_COMPLICATION)?.let { hrComplication = it }
         dataMap.getString(KEY_WF_KCAL_COMPLICATION)?.let { kcalComplication = it }
         dataMap.getString(KEY_WF_OXYGEN_COMPLICATION)?.let { oxygenComplication = it }
+        dataMap.getString(KEY_WF_KCAL_LABEL)?.let { kcalLabel = it }
+        dataMap.getString(KEY_WF_KCAL_UNIT)?.let { kcalUnit = it }
+        dataMap.getString(KEY_WF_OXYGEN_LABEL)?.let { oxygenLabel = it }
+        dataMap.getString(KEY_WF_OXYGEN_UNIT)?.let { oxygenUnit = it }
         dataMap.getString(KEY_WF_HR_COLOR)?.let      { hrColor      = it }
         dataMap.getString(KEY_WF_KCAL_COLOR)?.let    { kcalColor    = it }
         dataMap.getString(KEY_WF_OXYGEN_COLOR)?.let  { oxygenColor  = it }

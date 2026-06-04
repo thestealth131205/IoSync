@@ -91,6 +91,10 @@ private const val KEY_WF_OXYGEN_SOURCE           = "wf_oxygen_source"
 private const val KEY_WF_HR_COMPLICATION         = "wf_hr_complication"
 private const val KEY_WF_KCAL_COMPLICATION       = "wf_kcal_complication"
 private const val KEY_WF_OXYGEN_COMPLICATION     = "wf_oxygen_complication"
+private const val KEY_WF_KCAL_LABEL              = "wf_kcal_label"
+private const val KEY_WF_KCAL_UNIT               = "wf_kcal_unit"
+private const val KEY_WF_OXYGEN_LABEL            = "wf_oxygen_label"
+private const val KEY_WF_OXYGEN_UNIT             = "wf_oxygen_unit"
 private const val PATH_CUSTOM_SLOTS           = "/iosync/watchface/custom_slots"
 private const val PATH_CUSTOM_SLOTS_P2        = "/iosync/watchface/custom_slots_p2"
 private const val PATH_CONFIG_P2              = "/iosync/watchface/config_p2"
@@ -329,7 +333,11 @@ class WearDataLayerService @Inject constructor(
         sunriseColor: String = "neon_yellow",
         slotColor: String = "neon_yellow",
         weatherTempSource: String = "openweather",
-        weatherIoBrokerId: String = ""
+        weatherIoBrokerId: String = "",
+        kcalLabel: String = "KCAL",
+        kcalUnit: String = "kcal",
+        oxygenLabel: String = "OXYGEN",
+        oxygenUnit: String = "%"
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -401,6 +409,10 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_HR_COMPLICATION, hrComplication)
                     dataMap.putString(KEY_WF_KCAL_COMPLICATION, kcalComplication)
                     dataMap.putString(KEY_WF_OXYGEN_COMPLICATION, oxygenComplication)
+                    dataMap.putString(KEY_WF_KCAL_LABEL, kcalLabel)
+                    dataMap.putString(KEY_WF_KCAL_UNIT, kcalUnit)
+                    dataMap.putString(KEY_WF_OXYGEN_LABEL, oxygenLabel)
+                    dataMap.putString(KEY_WF_OXYGEN_UNIT, oxygenUnit)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

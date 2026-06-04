@@ -19,6 +19,7 @@ import com.iosync.app.R
 import com.iosync.app.data.health.HealthConnectManager
 import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.network.IoSyncClient
+import com.iosync.app.data.network.IoSyncPushClient
 import com.iosync.app.data.network.WeatherService
 import com.iosync.app.ui.viewmodel.MainViewModel
 import com.iosync.app.wear.WearDataLayerService
@@ -30,6 +31,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 /**
@@ -48,17 +50,23 @@ import javax.inject.Inject
 class IoSyncSyncService : Service() {
 
     @Inject lateinit var ioSyncClient: IoSyncClient
+    @Inject lateinit var ioSyncPushClient: IoSyncPushClient
     @Inject lateinit var weatherService: WeatherService
     @Inject lateinit var wearDataLayerService: WearDataLayerService
     @Inject lateinit var healthConnectManager: HealthConnectManager
     @Inject lateinit var dataStore: DataStore<Preferences>
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var pushJob: Job? = null
+    private var pushSyncJob: Job? = null
     private var dataJob: Job? = null
     private var page2DataJob: Job? = null
     private var batteryJob: Job? = null
     private var weatherJob: Job? = null
     private var healthJob: Job? = null
+
+    // Serialisiert Push-getriggerte und intervallbasierte Syncs, damit sie sich nicht überlappen.
+    private val syncMutex = kotlinx.coroutines.sync.Mutex()
 
     // Letzte bekannte Health-Werte (Health Connect liefert nicht immer einen neuen Wert)
     private var lastKnownHr: Int = 0
@@ -97,16 +105,90 @@ class IoSyncSyncService : Service() {
     }
 
     private fun cancelLoops() {
-        dataJob?.cancel(); page2DataJob?.cancel(); batteryJob?.cancel(); weatherJob?.cancel(); healthJob?.cancel()
+        ioSyncPushClient.stop()
+        pushJob?.cancel(); pushSyncJob?.cancel(); dataJob?.cancel(); page2DataJob?.cancel(); batteryJob?.cancel(); weatherJob?.cancel(); healthJob?.cancel()
     }
 
     private fun startLoops() {
         cancelLoops()
+        pushJob      = scope.launch { pushLoop() }
         dataJob      = scope.launch { dataLoop() }
         page2DataJob = scope.launch { page2DataLoop() }
         batteryJob   = scope.launch { batteryLoop() }
         weatherJob   = scope.launch { weatherLoop() }
         healthJob    = scope.launch { healthLoop() }
+    }
+
+    // ── Echtzeit-Push (Server-Sent Events vom IoSync-Adapter) ─────────────────
+
+    /**
+     * Hält die Push-Verbindung zum Adapter offen. Bei jeder gemeldeten Wertänderung
+     * werden die ioBroker-Slots sofort neu abgerufen und ans Watchface übertragen –
+     * ohne auf das Polling-Intervall zu warten. Das Polling läuft als Fallback weiter.
+     *
+     * Die Verbindungsdaten werden bei Änderung erneut angewandt; der Push-Client
+     * stoppt selbst, falls der Adapter Push deaktiviert hat (HTTP 404/403).
+     */
+    private suspend fun pushLoop() {
+        var lastSignature = ""
+        while (true) {
+            try {
+                val prefs = dataStore.data.first()
+                val useAdapter = prefs[MainViewModel.KEY_USE_IOSYNC_ADAPTER] ?: true
+                val host       = prefs[MainViewModel.KEY_IOSYNC_HOST] ?: ""
+
+                if (useAdapter && host.isNotBlank()) {
+                    val port     = prefs[MainViewModel.KEY_IOSYNC_PORT] ?: 7443
+                    val useHttps = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS] ?: false
+                    val username = prefs[MainViewModel.KEY_IOSYNC_USERNAME] ?: ""
+                    val password = prefs[MainViewModel.KEY_IOSYNC_PASSWORD] ?: ""
+
+                    // Verbindung nur (neu) aufbauen, wenn sich die Zugangsdaten geändert haben.
+                    val signature = "$host|$port|$useHttps|$username|$password"
+                    if (signature != lastSignature) {
+                        lastSignature = signature
+                        ioSyncPushClient.start(host, port, useHttps, username, password,
+                            onEvent = { onPushEventDebounced() }
+                        )
+                    }
+                } else {
+                    ioSyncPushClient.stop()
+                    lastSignature = ""
+                }
+                delay(60_000L) // periodisch Konfig prüfen; Stream selbst bleibt offen
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "pushLoop Ausnahme, Neuversuch in 30s: ${e.message}", e)
+                delay(30_000L)
+            }
+        }
+    }
+
+    /**
+     * Coalesct mehrere Push-Events (z.B. wenn sich gleichzeitig mehrere Datenpunkte
+     * ändern) zu einem einzigen Abruf. Das kurze Fenster bleibt praktisch Echtzeit.
+     */
+    @Synchronized
+    private fun onPushEventDebounced() {
+        pushSyncJob?.cancel()
+        pushSyncJob = scope.launch {
+            delay(150L)
+            onPushEvent()
+        }
+    }
+
+    /** Push-Event empfangen → sofort alle Slots neu abrufen und ans Watchface pushen. */
+    private suspend fun onPushEvent() {
+        try {
+            val prefs = dataStore.data.first()
+            runDataSync(prefs)
+            runPage2Sync(prefs)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "onPushEvent fehlgeschlagen: ${e.message}", e)
+        }
     }
 
     // ── ioBroker-Slots / States ───────────────────────────────────────────────
@@ -115,47 +197,8 @@ class IoSyncSyncService : Service() {
         while (true) {
             try {
                 val prefs = dataStore.data.first()
-                val useAdapter = prefs[MainViewModel.KEY_USE_IOSYNC_ADAPTER] ?: true
-                val host       = prefs[MainViewModel.KEY_IOSYNC_HOST] ?: ""
                 val intervalSec = prefs[MainViewModel.KEY_SLOT_POLL_INTERVAL] ?: 120
-
-                if (useAdapter && host.isNotBlank()) {
-                    val port     = prefs[MainViewModel.KEY_IOSYNC_PORT] ?: 7443
-                    val useHttps = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS] ?: false
-                    val username = prefs[MainViewModel.KEY_IOSYNC_USERNAME] ?: ""
-                    val password = prefs[MainViewModel.KEY_IOSYNC_PASSWORD] ?: ""
-
-                    ioSyncClient.fetchDataPoints(host, port, useHttps, username, password)
-                        .onSuccess { states ->
-                            if (prefs[MainViewModel.KEY_WF_SHOW_IOBROKER_DATA] == true) {
-                                wearDataLayerService.syncStatesToWear(states)
-                            }
-                            if (prefs[MainViewModel.KEY_SHOW_CUSTOM_SLOTS] == true) {
-                                syncCustomSlots(prefs, states)
-                            }
-                            // ioBroker als Wetter-Temperatur-Quelle
-                            if (prefs[MainViewModel.KEY_WF_SHOW_WEATHER] != false &&
-                                prefs[MainViewModel.KEY_WF_WEATHER_TEMP_SOURCE] == "iobroker"
-                            ) {
-                                val id = prefs[MainViewModel.KEY_WF_WEATHER_IOBROKER_ID] ?: ""
-                                states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.let { temp ->
-                                    wearDataLayerService.syncWeatherToWear(temp.toInt(), "clear")
-                                }
-                            }
-                            // ioBroker als Schlaf-Quelle
-                            if (prefs[MainViewModel.KEY_WF_SLEEP_SOURCE] == "iobroker") {
-                                val id = prefs[MainViewModel.KEY_WF_SLEEP_IOBROKER_ID] ?: ""
-                                if (id.isNotBlank()) {
-                                    states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.toInt()?.let { mins ->
-                                        if (mins > 0) {
-                                            lastKnownSleep = mins
-                                            wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, mins)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                }
+                runDataSync(prefs)
                 delay(intervalSec * 1_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -166,30 +209,62 @@ class IoSyncSyncService : Service() {
         }
     }
 
+    /**
+     * Ruft die ioBroker-Slots vom Adapter ab und überträgt sie ans Watchface.
+     * Wird sowohl vom Intervall-Loop als auch bei einem Echtzeit-Push aufgerufen.
+     */
+    private suspend fun runDataSync(prefs: Preferences) {
+        val useAdapter = prefs[MainViewModel.KEY_USE_IOSYNC_ADAPTER] ?: true
+        val host       = prefs[MainViewModel.KEY_IOSYNC_HOST] ?: ""
+        if (!useAdapter || host.isBlank()) return
+
+        val port     = prefs[MainViewModel.KEY_IOSYNC_PORT] ?: 7443
+        val useHttps = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS] ?: false
+        val username = prefs[MainViewModel.KEY_IOSYNC_USERNAME] ?: ""
+        val password = prefs[MainViewModel.KEY_IOSYNC_PASSWORD] ?: ""
+
+        syncMutex.withLock {
+            ioSyncClient.fetchDataPoints(host, port, useHttps, username, password)
+                .onSuccess { states ->
+                    if (prefs[MainViewModel.KEY_WF_SHOW_IOBROKER_DATA] == true) {
+                        wearDataLayerService.syncStatesToWear(states)
+                    }
+                    if (prefs[MainViewModel.KEY_SHOW_CUSTOM_SLOTS] == true) {
+                        syncCustomSlots(prefs, states)
+                    }
+                    // ioBroker als Wetter-Temperatur-Quelle
+                    if (prefs[MainViewModel.KEY_WF_SHOW_WEATHER] != false &&
+                        prefs[MainViewModel.KEY_WF_WEATHER_TEMP_SOURCE] == "iobroker"
+                    ) {
+                        val id = prefs[MainViewModel.KEY_WF_WEATHER_IOBROKER_ID] ?: ""
+                        states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.let { temp ->
+                            wearDataLayerService.syncWeatherToWear(temp.toInt(), "clear")
+                        }
+                    }
+                    // ioBroker als Schlaf-Quelle
+                    if (prefs[MainViewModel.KEY_WF_SLEEP_SOURCE] == "iobroker") {
+                        val id = prefs[MainViewModel.KEY_WF_SLEEP_IOBROKER_ID] ?: ""
+                        if (id.isNotBlank()) {
+                            states.firstOrNull { it.id == id }?.value?.toDoubleOrNull()?.toInt()?.let { mins ->
+                                if (mins > 0) {
+                                    lastKnownSleep = mins
+                                    wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, mins)
+                                }
+                            }
+                        }
+                    }
+                }
+        }
+    }
+
     // ── Seite 2 – Slots / Pillen / Balken ────────────────────────────────────
 
     private suspend fun page2DataLoop() {
         while (true) {
             try {
                 val prefs = dataStore.data.first()
-                val useAdapter  = prefs[MainViewModel.KEY_USE_IOSYNC_ADAPTER] ?: true
-                val host        = prefs[MainViewModel.KEY_IOSYNC_HOST] ?: ""
                 val intervalSec = prefs[MainViewModel.KEY_PAGE2_SYNC_INTERVAL] ?: 120
-
-                if (useAdapter && host.isNotBlank()) {
-                    val port     = prefs[MainViewModel.KEY_IOSYNC_PORT] ?: 7443
-                    val useHttps = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS] ?: false
-                    val username = prefs[MainViewModel.KEY_IOSYNC_USERNAME] ?: ""
-                    val password = prefs[MainViewModel.KEY_IOSYNC_PASSWORD] ?: ""
-
-                    ioSyncClient.fetchDataPoints(host, port, useHttps, username, password)
-                        .onSuccess { states ->
-                            if (hasPage2Slots(prefs)) {
-                                syncPage2Slots(prefs, states)
-                            }
-                            syncPage2PillStates(prefs, states)
-                        }
-                }
+                runPage2Sync(prefs)
                 delay(intervalSec * 1_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -197,6 +272,31 @@ class IoSyncSyncService : Service() {
                 Log.e(TAG, "page2DataLoop Ausnahme, Neuversuch in 30s: ${e.message}", e)
                 delay(30_000L)
             }
+        }
+    }
+
+    /**
+     * Ruft die Seite-2-Slots/Pillen vom Adapter ab und überträgt sie ans Watchface.
+     * Wird sowohl vom Intervall-Loop als auch bei einem Echtzeit-Push aufgerufen.
+     */
+    private suspend fun runPage2Sync(prefs: Preferences) {
+        val useAdapter = prefs[MainViewModel.KEY_USE_IOSYNC_ADAPTER] ?: true
+        val host       = prefs[MainViewModel.KEY_IOSYNC_HOST] ?: ""
+        if (!useAdapter || host.isBlank()) return
+
+        val port     = prefs[MainViewModel.KEY_IOSYNC_PORT] ?: 7443
+        val useHttps = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS] ?: false
+        val username = prefs[MainViewModel.KEY_IOSYNC_USERNAME] ?: ""
+        val password = prefs[MainViewModel.KEY_IOSYNC_PASSWORD] ?: ""
+
+        syncMutex.withLock {
+            ioSyncClient.fetchDataPoints(host, port, useHttps, username, password)
+                .onSuccess { states ->
+                    if (hasPage2Slots(prefs)) {
+                        syncPage2Slots(prefs, states)
+                    }
+                    syncPage2PillStates(prefs, states)
+                }
         }
     }
 
@@ -343,6 +443,10 @@ class IoSyncSyncService : Service() {
                 val oxygenSourcePkg = prefs[MainViewModel.KEY_WF_OXYGEN_COMPLICATION] ?: ""
                 val sleepSourcePkg  = prefs[MainViewModel.KEY_WF_SLEEP_COMPLICATION]  ?: ""
 
+                // Gewaehlte Metrik je Slot (welcher Health-Connect-Wert angezeigt wird)
+                val kcalMetric   = prefs[MainViewModel.KEY_WF_KCAL_METRIC]   ?: "total_calories"
+                val oxygenMetric = prefs[MainViewModel.KEY_WF_OXYGEN_METRIC] ?: "oxygen_saturation"
+
                 val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" ||
                     oxygenSource == "healthconnect" || sleepSource == "healthconnect"
                 if (anyHealthConnect) {
@@ -350,13 +454,16 @@ class IoSyncSyncService : Service() {
                         healthConnectManager.readLatestHeartRate(hrSourcePkg)?.let { if (it > 0) lastKnownHr = it }
                     }
                     if (kcalSource == "healthconnect") {
-                        // Erst TotalCalories versuchen, dann ActiveCalories als Fallback (z.B. Google Fit)
-                        val kcal = healthConnectManager.readTodayCalories(kcalSourcePkg)
+                        // Gewaehlte Metrik fuer den Kcal-Slot lesen (Fallback: Kalorien)
+                        val kcal = healthConnectManager.readLatestValueByKey(kcalMetric, kcalSourcePkg)
                             ?: healthConnectManager.readTodayActiveCalories(kcalSourcePkg)
                         kcal?.let { if (it > 0) lastKnownKcal = it }
                     }
                     if (oxygenSource == "healthconnect") {
-                        healthConnectManager.readLatestOxygenSaturation(oxygenSourcePkg)?.let { if (it > 0) lastKnownO2 = it }
+                        // Gewaehlte Metrik fuer den Oxygen-Slot lesen (Fallback: SpO2)
+                        val o2 = healthConnectManager.readLatestValueByKey(oxygenMetric, oxygenSourcePkg)
+                            ?: healthConnectManager.readLatestOxygenSaturation(oxygenSourcePkg)
+                        o2?.let { if (it > 0) lastKnownO2 = it }
                     }
                     if (sleepSource == "healthconnect") healthConnectManager.readTodaySleepMinutes(sleepSourcePkg)?.let { if (it > 0) lastKnownSleep = it }
 

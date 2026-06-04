@@ -120,6 +120,9 @@ fun SettingsScreen(
     var wfHrComplication     by remember(uiState.wfHrComplication)     { mutableStateOf(uiState.wfHrComplication) }
     var wfKcalComplication   by remember(uiState.wfKcalComplication)   { mutableStateOf(uiState.wfKcalComplication) }
     var wfOxygenComplication by remember(uiState.wfOxygenComplication) { mutableStateOf(uiState.wfOxygenComplication) }
+    // Pro-Slot gewählte Metrik (welcher Health-Connect-Wert angezeigt wird)
+    var wfKcalMetric   by remember(uiState.wfKcalMetric)   { mutableStateOf(uiState.wfKcalMetric) }
+    var wfOxygenMetric by remember(uiState.wfOxygenMetric) { mutableStateOf(uiState.wfOxygenMetric) }
 
     // Custom ioBroker-Slots
     var showCustomSlots by remember(uiState.showCustomSlots) { mutableStateOf(uiState.showCustomSlots) }
@@ -902,6 +905,17 @@ fun SettingsScreen(
                     onHcSourcePkgChange = { wfKcalComplication = it },
                     availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
                 )
+                if (wfKcalSource == "healthconnect") {
+                    Text("Angezeigter Wert (mit Vorschau)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    GenericValueDropdown(
+                        options = uiState.healthConnectStatus.dataTypes
+                            .filter { it.available }
+                            .map { it.key to "${it.displayName}: ${it.latestValue ?: "--"}" },
+                        selected = wfKcalMetric,
+                        onSelect = { wfKcalMetric = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 Text("Kcal-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceColorRow(selected = wfKcalColor, onSelect = { wfKcalColor = it })
             }
@@ -922,6 +936,17 @@ fun SettingsScreen(
                     onHcSourcePkgChange = { wfOxygenComplication = it },
                     availableHcTypes = uiState.healthConnectStatus.dataTypes.filter { it.available }
                 )
+                if (wfOxygenSource == "healthconnect") {
+                    Text("Angezeigter Wert (mit Vorschau)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    GenericValueDropdown(
+                        options = uiState.healthConnectStatus.dataTypes
+                            .filter { it.available }
+                            .map { it.key to "${it.displayName}: ${it.latestValue ?: "--"}" },
+                        selected = wfOxygenMetric,
+                        onSelect = { wfOxygenMetric = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 Text("SpO2-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceColorRow(selected = wfOxygenColor, onSelect = { wfOxygenColor = it })
             }
@@ -954,7 +979,9 @@ fun SettingsScreen(
                         oxygenSource = wfOxygenSource,
                         hrComplication = wfHrComplication,
                         kcalComplication = wfKcalComplication,
-                        oxygenComplication = wfOxygenComplication
+                        oxygenComplication = wfOxygenComplication,
+                        kcalMetric = wfKcalMetric,
+                        oxygenMetric = wfOxygenMetric
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -2467,9 +2494,14 @@ private fun HealthConnectSection(
     val status = uiState.healthConnectStatus
     val loading = uiState.healthConnectLoading
 
-    // Beim ersten Anzeigen automatisch Status laden
+    // Status wird bereits beim App-Start (ViewModel-Init) geladen und im
+    // ViewModel gehalten. Hier nur nachladen, falls noch nichts vorhanden ist
+    // (z. B. erster Start) – so blinkt der Status beim Auf-/Zuklappen der
+    // Sektion nicht jedes Mal erneut auf "Wird geladen...".
     LaunchedEffect(Unit) {
-        viewModel.refreshHealthConnectStatus()
+        if (status.dataTypes.isEmpty() && !loading) {
+            viewModel.refreshHealthConnectStatus()
+        }
     }
 
     // Health-Connect-Berechtigungen anfragen (spezieller Contract)

@@ -33,8 +33,8 @@ android {
         applicationId = "com.iosync.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 416
-        versionName = "4.1.6"
+        versionCode = 417
+        versionName = "4.1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -117,6 +117,7 @@ dependencies {
     implementation(libs.retrofit.moshi)
     implementation(libs.okhttp.core)
     implementation(libs.okhttp.logging)
+    implementation(libs.okhttp.sse)
     implementation(libs.moshi.kotlin)
     ksp(libs.moshi.codegen)
 

@@ -147,6 +147,9 @@ data class MainUiState(
     val wfHrComplication: String = "",
     val wfKcalComplication: String = "",
     val wfOxygenComplication: String = "",
+    // Frei wählbare Metrik der beiden Health-Slots (HC-Datentyp-Key)
+    val wfKcalMetric: String = "total_calories",
+    val wfOxygenMetric: String = "oxygen_saturation",
     // Watchface: Hintergrundbild
     val wfShowBackground: Boolean = false,
     val p2ShowBackground: Boolean = false,
@@ -321,6 +324,9 @@ class MainViewModel @Inject constructor(
         val KEY_WF_HR_COMPLICATION     = stringPreferencesKey("wf_hr_complication")
         val KEY_WF_KCAL_COMPLICATION   = stringPreferencesKey("wf_kcal_complication")
         val KEY_WF_OXYGEN_COMPLICATION = stringPreferencesKey("wf_oxygen_complication")
+        // Frei wählbare Metrik der beiden Health-Slots (HC-Datentyp-Key)
+        val KEY_WF_KCAL_METRIC         = stringPreferencesKey("wf_kcal_metric")
+        val KEY_WF_OXYGEN_METRIC       = stringPreferencesKey("wf_oxygen_metric")
         // Seite 2 ioBroker-Slots
         val KEY_P2_SLOT1_ID          = stringPreferencesKey("p2_slot1_id")
         val KEY_P2_SLOT1_LABEL       = stringPreferencesKey("p2_slot1_label")
@@ -466,6 +472,8 @@ class MainViewModel @Inject constructor(
             val wfHrComplication     = prefs[KEY_WF_HR_COMPLICATION]     ?: ""
             val wfKcalComplication   = prefs[KEY_WF_KCAL_COMPLICATION]   ?: ""
             val wfOxygenComplication = prefs[KEY_WF_OXYGEN_COMPLICATION] ?: ""
+            val wfKcalMetric         = prefs[KEY_WF_KCAL_METRIC]         ?: "total_calories"
+            val wfOxygenMetric       = prefs[KEY_WF_OXYGEN_METRIC]       ?: "oxygen_saturation"
             val wfHrColor      = prefs[KEY_WF_HR_COLOR]      ?: "red"
             val wfKcalColor    = prefs[KEY_WF_KCAL_COLOR]    ?: "orange"
             val wfOxygenColor  = prefs[KEY_WF_OXYGEN_COLOR]  ?: "cyan"
@@ -611,6 +619,8 @@ class MainViewModel @Inject constructor(
                     wfHrComplication     = wfHrComplication,
                     wfKcalComplication   = wfKcalComplication,
                     wfOxygenComplication = wfOxygenComplication,
+                    wfKcalMetric       = wfKcalMetric,
+                    wfOxygenMetric     = wfOxygenMetric,
                     wfHrColor      = wfHrColor,
                     wfKcalColor    = wfKcalColor,
                     wfOxygenColor  = wfOxygenColor,
@@ -680,6 +690,10 @@ class MainViewModel @Inject constructor(
             IoSyncSyncService.start(context)
             sendPhoneBattery() // Akkustand einmalig für die App-Anzeige
             refresh()
+            // Health-Connect-Status direkt beim App-Start einmal laden, damit die
+            // Konfiguration sofort die verfügbaren Datentypen/Quellen kennt – ohne
+            // dass der Nutzer erst die Health-Connect-Sektion aufklappen muss.
+            refreshHealthConnectStatus()
         }
 
         viewModelScope.launch {
@@ -926,7 +940,12 @@ class MainViewModel @Inject constructor(
             hrColor = s.wfHrColor, kcalColor = s.wfKcalColor, oxygenColor = s.wfOxygenColor,
             stepsColor = s.wfStepsColor, sleepColor = s.wfSleepColor,
             sunriseColor = s.wfSunriseColor, slotColor = s.wfSlotColor,
-            weatherTempSource = s.wfWeatherTempSource, weatherIoBrokerId = s.wfWeatherIoBrokerId
+            weatherTempSource = s.wfWeatherTempSource, weatherIoBrokerId = s.wfWeatherIoBrokerId,
+            // Dynamische Überschrift + Format-Einheit der frei wählbaren Health-Slots
+            kcalLabel   = HealthConnectManager.metricLabel(s.wfKcalMetric),
+            kcalUnit    = HealthConnectManager.metricUnit(s.wfKcalMetric),
+            oxygenLabel = HealthConnectManager.metricLabel(s.wfOxygenMetric),
+            oxygenUnit  = HealthConnectManager.metricUnit(s.wfOxygenMetric)
         )
     }
 
@@ -1908,8 +1927,8 @@ class MainViewModel @Inject constructor(
     // ── Handy-Akku ────────────────────────────────────────────────────────────
 
     /**
-     * Liest den aktuellen Akkustand für die App-Anzeige aus. Das periodische Senden
-     * ans Watchface übernimmt der [IoSyncSyncService] im Hintergrund.
+     * Liest den aktuellen Akkustand, aktualisiert die App-Anzeige und sendet
+     * den Wert sofort ans Watchface (ohne auf den nächsten Sync-Zyklus zu warten).
      */
     fun sendPhoneBattery() {
         viewModelScope.launch {
@@ -1917,8 +1936,15 @@ class MainViewModel @Inject constructor(
             if (batteryIntent != null) {
                 val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
                 val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+                val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL
                 val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
-                if (percent >= 0) _uiState.update { it.copy(phoneBatteryLevel = percent) }
+                if (percent >= 0) {
+                    _uiState.update { it.copy(phoneBatteryLevel = percent) }
+                    val showBattery = _uiState.value.wfShowPhoneBattery
+                    wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging, showBattery)
+                }
             }
         }
     }
@@ -2010,7 +2036,9 @@ class MainViewModel @Inject constructor(
         oxygenSource: String,
         hrComplication: String = "",
         kcalComplication: String = "",
-        oxygenComplication: String = ""
+        oxygenComplication: String = "",
+        kcalMetric: String = "total_calories",
+        oxygenMetric: String = "oxygen_saturation"
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -2020,6 +2048,8 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_HR_COMPLICATION]    = hrComplication
                 prefs[KEY_WF_KCAL_COMPLICATION]  = kcalComplication
                 prefs[KEY_WF_OXYGEN_COMPLICATION] = oxygenComplication
+                prefs[KEY_WF_KCAL_METRIC]        = kcalMetric
+                prefs[KEY_WF_OXYGEN_METRIC]      = oxygenMetric
             }
             // Globale Quelle ableiten: "phone" wenn mindestens ein Typ Health Connect nutzt
             val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" || oxygenSource == "healthconnect"
@@ -2034,6 +2064,8 @@ class MainViewModel @Inject constructor(
                     wfHrComplication = hrComplication,
                     wfKcalComplication = kcalComplication,
                     wfOxygenComplication = oxygenComplication,
+                    wfKcalMetric = kcalMetric,
+                    wfOxygenMetric = oxygenMetric,
                     wfHealthDataSource = globalSource
                 )
             }
@@ -2062,7 +2094,9 @@ class MainViewModel @Inject constructor(
         oxygenSource: String,
         hrComplication: String = "",
         kcalComplication: String = "",
-        oxygenComplication: String = ""
+        oxygenComplication: String = "",
+        kcalMetric: String = "total_calories",
+        oxygenMetric: String = "oxygen_saturation"
     ) {
         viewModelScope.launch {
             val anyHealthConnect = hrSource == "healthconnect" || kcalSource == "healthconnect" || oxygenSource == "healthconnect"
@@ -2075,6 +2109,8 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_HR_COMPLICATION]    = hrComplication
                 prefs[KEY_WF_KCAL_COMPLICATION]  = kcalComplication
                 prefs[KEY_WF_OXYGEN_COMPLICATION] = oxygenComplication
+                prefs[KEY_WF_KCAL_METRIC]        = kcalMetric
+                prefs[KEY_WF_OXYGEN_METRIC]      = oxygenMetric
                 prefs[KEY_WF_HEALTH_DATA_SOURCE] = globalSource
             }
             _uiState.update {
@@ -2085,6 +2121,8 @@ class MainViewModel @Inject constructor(
                     wfHrComplication = hrComplication,
                     wfKcalComplication = kcalComplication,
                     wfOxygenComplication = oxygenComplication,
+                    wfKcalMetric = kcalMetric,
+                    wfOxygenMetric = oxygenMetric,
                     wfHealthDataSource = globalSource
                 )
             }
