@@ -1930,16 +1930,19 @@ fun SettingsScreen(
                     )
                     Text("Automatisch (pool.ntp.org)", style = MaterialTheme.typography.bodyMedium)
                 }
-                // Aktueller Offset (von der Uhr gemeldet)
-                if (uiState.ntpOffsetFromWatch != 0L) {
-                    HorizontalDivider(color = Color(0xFF2A2A2A))
+                // Aktueller Offset (von der Uhr gemeldet) — immer anzeigen
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Aktueller Offset (Uhr):", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val offsetMs = uiState.ntpOffsetFromWatch
-                    val sign = if (offsetMs >= 0) "+" else "-"
-                    val absMs = kotlin.math.abs(offsetMs)
-                    val secs = absMs / 1000.0
-                    Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Aktueller Offset (Uhr):", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (offsetMs == 0L) {
+                        Text("— noch kein Wert —", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                    } else {
+                        val sign = if (offsetMs >= 0) "+" else "-"
+                        val absMs = kotlin.math.abs(offsetMs)
+                        val secs = absMs / 1000.0
                         Text(
                             "$sign${String.format("%.3f", secs)}s  ($sign${absMs}ms)",
                             style = MaterialTheme.typography.bodySmall,

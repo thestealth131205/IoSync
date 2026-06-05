@@ -711,6 +711,14 @@ class MainViewModel @Inject constructor(
             refreshHealthConnectStatus()
         }
 
+        // NTP-Offset von der Uhr live beobachten (WatchFaceTriggerListenerService schreibt in DataStore)
+        viewModelScope.launch {
+            dataStore.data.collect { prefs ->
+                val offset = prefs[KEY_NTP_OFFSET_FROM_WATCH] ?: 0L
+                _uiState.update { it.copy(ntpOffsetFromWatch = offset) }
+            }
+        }
+
         viewModelScope.launch {
             combine(repository.states, repository.connectionStatus) { stateMap, status ->
                 val stateList = stateMap.values.sortedBy { it.name }
