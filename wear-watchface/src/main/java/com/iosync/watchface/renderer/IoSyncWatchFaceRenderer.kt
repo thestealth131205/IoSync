@@ -1445,13 +1445,16 @@ class IoSyncWatchFaceRenderer(
             items.add(HealthItem("BPM", hrText, colorFromId(config.hrColor), "heart"))
         }
 
-        // Kalorien: Komplikation (falls gewählt) > Health Connect > lokaler Sensor
+        // Kalorien: Komplikation (falls gewählt) > Phone Health Connect > Watch Health Connect > lokaler Sensor
         if (config.showCalories) {
             val kcal: Int? = readComplicationNumber(config.kcalComplication)
                 ?: if (config.kcalSource == "healthconnect") {
                     if (phoneDataFresh) config.phoneCalories.takeIf { it > 0 } else null
                 } else {
-                    healthSensorManager.calories.takeIf { it > 0 }
+                    // "local": Watch-eigene HC-Daten (zuverlässiger als Passive Listener auf Mobvoi Atlas)
+                    // Passive Listener als Fallback, falls HC keine Daten hat
+                    HealthDataCache.calories.takeIf { it > 0 }
+                        ?: healthSensorManager.calories.takeIf { it > 0 }
                 }
             // Label + Format ergeben sich aus der vom Handy gewählten Metrik.
             val kcalText = if (kcal != null) formatHealthValue(kcal, config.kcalUnit) else "--"

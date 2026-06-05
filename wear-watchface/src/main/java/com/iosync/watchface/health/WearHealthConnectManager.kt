@@ -129,17 +129,22 @@ class WearHealthConnectManager(private val context: Context) {
                 }
             }
 
-            // Schlafdauer (Summe aller Schlaf-Sessions der letzten 24h in Minuten)
+            // Schlafdauer: 48h-Fenster, damit Nachtschlaf (Start vor Mitternacht) gefunden wird.
+            // Cache IMMER aktualisieren (auch auf 0), damit veraltete Werte nicht eingefroren bleiben.
             if (granted.contains(HealthPermission.getReadPermission(SleepSessionRecord::class))) {
                 try {
-                    val resp = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange))
-                    val sleepMin = resp.records.sumOf {
-                        ChronoUnit.MINUTES.between(it.startTime, it.endTime)
-                    }.toInt()
-                    if (sleepMin > 0) {
-                        HealthDataCache.sleepMinutes = sleepMin
-                        Log.d(TAG, "Schlaf: $sleepMin min")
-                    }
+                    val sleepTimeRange = TimeRangeFilter.between(now.minus(48, ChronoUnit.HOURS), now)
+                    val sleepResp = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, sleepTimeRange))
+                    val todayMidnight = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
+                    val latestEnd = sleepResp.records.maxOfOrNull { it.endTime }
+                    val sleepMin = if (latestEnd != null && latestEnd.isAfter(todayMidnight)) {
+                        val nightStart = latestEnd.minus(18, ChronoUnit.HOURS)
+                        sleepResp.records.filter { it.endTime.isAfter(nightStart) }
+                            .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
+                            .toInt()
+                    } else 0
+                    HealthDataCache.sleepMinutes = sleepMin
+                    Log.d(TAG, "Schlaf: $sleepMin min (latestEnd=$latestEnd, todayMidnight=$todayMidnight)")
                 } catch (e: Exception) {
                     Log.w(TAG, "Schlaf lesen fehlgeschlagen: ${e.message}")
                 }
