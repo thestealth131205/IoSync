@@ -1248,9 +1248,6 @@ class IoSyncWatchFaceRenderer(
             circleCy + circleRadius + weatherTapPadBottom
         )
 
-        // Hintergrund: nur Vertiefungs-Effekt (kein dunkler Kreis)
-        drawEmbossedCircleRecess(canvas, circleCx, circleCy, circleRadius * 1.08f)
-
         // Wettersymbol zeichnen
         val iconSize = circleRadius * 0.80f
         val iconCy = circleCy - circleRadius * 0.22f
