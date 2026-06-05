@@ -59,6 +59,13 @@
                     android:pathPrefix="/iosync/watchface/"
                     android:scheme="wear" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:host="*"
+                    android:path="/iosync/watchface/ntp_offset"
+                    android:scheme="wear" />
+            </intent-filter>
         </service>
 
         <!-- WebSocket Background Service -->

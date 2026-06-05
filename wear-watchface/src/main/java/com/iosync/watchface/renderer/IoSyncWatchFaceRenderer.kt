@@ -53,8 +53,13 @@ import kotlinx.coroutines.tasks.await
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import com.google.android.gms.wearable.PutDataMapRequest
 
 private const val FRAME_PERIOD_MS_DEFAULT = 2L
+
+// ── NTP-Offset Rücksendung (Uhr → App) ───────────────────────────────────────
+private const val PATH_NTP_OFFSET_FROM_WATCH = "/iosync/watchface/ntp_offset"
+private const val KEY_NTP_OFFSET_MS          = "ntp_offset_ms"
 private const val FRAME_PERIOD_AMBIENT_MS = 60_000L
 
 /**
@@ -1202,6 +1207,23 @@ class IoSyncWatchFaceRenderer(
         }
     }
 
+    /** Sendet den aktuellen NTP-Offset via DataItem an die verbundene Android App. */
+    private fun sendNtpOffsetToPhone(offsetMs: Long, server: String) {
+        scope.launch {
+            try {
+                val request = PutDataMapRequest.create(PATH_NTP_OFFSET_FROM_WATCH).apply {
+                    dataMap.putLong(KEY_NTP_OFFSET_MS, offsetMs)
+                    dataMap.putString("ntp_server", server)
+                    dataMap.putLong("timestamp", System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                Wearable.getDataClient(context).putDataItem(request).await()
+                Log.d(TAG_PILL, "NTP-Offset an App gesendet: $offsetMs ms ($server)")
+            } catch (e: Exception) {
+                Log.w(TAG_PILL, "NTP-Offset senden fehlgeschlagen: ${e.message}")
+            }
+        }
+    }
+
     // ── Wetter-Kreis (oben mittig, unter 12-Uhr-Markierung) ──────────────────
 
     /**
@@ -1226,9 +1248,8 @@ class IoSyncWatchFaceRenderer(
             circleCy + circleRadius + weatherTapPadBottom
         )
 
-        // Hintergrund: Vertiefungs-Effekt + dunkler Kreis
+        // Hintergrund: nur Vertiefungs-Effekt (kein dunkler Kreis)
         drawEmbossedCircleRecess(canvas, circleCx, circleCy, circleRadius * 1.08f)
-        canvas.drawCircle(circleCx, circleCy, circleRadius, weatherCircleBgPaint)
 
         // Wettersymbol zeichnen
         val iconSize = circleRadius * 0.80f
@@ -1429,14 +1450,14 @@ class IoSyncWatchFaceRenderer(
 
         // Kalorien: Komplikation (falls gewählt) > Health Connect > lokaler Sensor
         if (config.showCalories) {
-            val kcal = readComplicationNumber(config.kcalComplication)
+            val kcal: Int? = readComplicationNumber(config.kcalComplication)
                 ?: if (config.kcalSource == "healthconnect") {
-                    if (phoneDataFresh) config.phoneCalories else 0
+                    if (phoneDataFresh) config.phoneCalories.takeIf { it > 0 } else null
                 } else {
-                    healthSensorManager.calories
+                    healthSensorManager.calories.takeIf { it > 0 }
                 }
             // Label + Format ergeben sich aus der vom Handy gewählten Metrik.
-            val kcalText = formatHealthValue(kcal, config.kcalUnit)
+            val kcalText = if (kcal != null) formatHealthValue(kcal, config.kcalUnit) else "--"
             items.add(HealthItem(config.kcalLabel, kcalText, colorFromId(config.kcalColor), "flame"))
         }
 
@@ -2220,6 +2241,8 @@ class IoSyncWatchFaceRenderer(
                         WatchFaceConfigCache.ntpOffsetMs = offset
                         // Offset dauerhaft sichern, damit er einen Neustart übersteht.
                         ntpPrefs.edit().putLong(NTP_PREFS_KEY_OFFSET, offset).apply()
+                        // Offset an die App zurücksenden (zur Anzeige in den Einstellungen)
+                        sendNtpOffsetToPhone(offset, server)
                         invalidate()
                     }
                     Log.d(TAG_PILL, "NTP-Offset ($server): $offset ms")

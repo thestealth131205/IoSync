@@ -168,6 +168,7 @@ data class MainUiState(
     // NTP-Zeitkorrektur (Offset wird auf der Uhr per NTP ermittelt)
     val wfNtpEnabled: Boolean = false,
     val wfNtpServer: String = "pool.ntp.org",
+    val ntpOffsetFromWatch: Long = 0L,  // letzter von der Uhr gemeldeter Offset in ms
     // ── Seite 2 ioBroker-Slots ─────────────────────────────────────────────────
     val p2Slot1Id: String = "",
     val p2Slot1Label: String = "",
@@ -377,8 +378,9 @@ class MainViewModel @Inject constructor(
         val KEY_WF_WEATHER_TEMP_SOURCE  = stringPreferencesKey("wf_weather_temp_source")
         val KEY_WF_WEATHER_IOBROKER_ID  = stringPreferencesKey("wf_weather_iobroker_id")
         // NTP-Zeitkorrektur
-        val KEY_WF_NTP_ENABLED = booleanPreferencesKey("wf_ntp_enabled")
-        val KEY_WF_NTP_SERVER  = stringPreferencesKey("wf_ntp_server")
+        val KEY_WF_NTP_ENABLED       = booleanPreferencesKey("wf_ntp_enabled")
+        val KEY_WF_NTP_SERVER        = stringPreferencesKey("wf_ntp_server")
+        val KEY_NTP_OFFSET_FROM_WATCH = longPreferencesKey("ntp_offset_from_watch")
         // Seite 2 – vertikaler Balken
         val KEY_P2_BAR_ID           = stringPreferencesKey("p2_bar_id")
         val KEY_P2_BAR_LABEL        = stringPreferencesKey("p2_bar_label")
@@ -495,6 +497,7 @@ class MainViewModel @Inject constructor(
             val wfWeatherIoBrokerId = prefs[KEY_WF_WEATHER_IOBROKER_ID] ?: ""
             val wfNtpEnabled = prefs[KEY_WF_NTP_ENABLED] ?: false
             val wfNtpServer  = prefs[KEY_WF_NTP_SERVER]  ?: "pool.ntp.org"
+            val ntpOffsetFromWatch = prefs[KEY_NTP_OFFSET_FROM_WATCH] ?: 0L
             val batteryPollInterval = prefs[KEY_BATTERY_POLL_INTERVAL] ?: 60
             val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 120
             val healthPollInterval = prefs[KEY_HEALTH_POLL_INTERVAL] ?: 60
@@ -678,6 +681,7 @@ class MainViewModel @Inject constructor(
                     wfWeatherIoBrokerId = wfWeatherIoBrokerId,
                     wfNtpEnabled = wfNtpEnabled,
                     wfNtpServer  = wfNtpServer,
+                    ntpOffsetFromWatch = ntpOffsetFromWatch,
                     p2BarId         = p2BarId,
                     p2BarLabel      = p2BarLabel,
                     p2BarColor      = p2BarColor,
@@ -978,6 +982,16 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
+        }
+    }
+
+    /**
+     * Speichert den von der Uhr gemeldeten NTP-Offset und aktualisiert den UI-State.
+     */
+    fun updateNtpOffsetFromWatch(offsetMs: Long) {
+        viewModelScope.launch {
+            dataStore.edit { prefs -> prefs[KEY_NTP_OFFSET_FROM_WATCH] = offsetMs }
+            _uiState.update { it.copy(ntpOffsetFromWatch = offsetMs) }
         }
     }
 

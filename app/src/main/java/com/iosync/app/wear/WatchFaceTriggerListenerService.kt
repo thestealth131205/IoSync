@@ -4,6 +4,9 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import com.google.android.gms.wearable.DataEventBuffer
+import com.google.android.gms.wearable.DataEvent
+import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import com.iosync.app.data.network.IoSyncClient
@@ -18,9 +21,11 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val TAG = "WFTriggerListener"
-private const val PATH_ACTION_TRIGGER   = "/iosync/watchface/action_trigger"
-private const val PATH_P2_PILL1_TRIGGER = "/iosync/watchface/p2_pill1_trigger"
-private const val PATH_P2_PILL2_TRIGGER = "/iosync/watchface/p2_pill2_trigger"
+private const val PATH_ACTION_TRIGGER      = "/iosync/watchface/action_trigger"
+private const val PATH_P2_PILL1_TRIGGER    = "/iosync/watchface/p2_pill1_trigger"
+private const val PATH_P2_PILL2_TRIGGER    = "/iosync/watchface/p2_pill2_trigger"
+private const val PATH_NTP_OFFSET_FROM_WATCH = "/iosync/watchface/ntp_offset"
+private const val KEY_NTP_OFFSET_MS          = "ntp_offset_ms"
 
 /**
  * Empfängt Doppelklick-Trigger vom Watchface und führt den konfigurierten ioBroker-Befehl aus.
@@ -48,6 +53,25 @@ class WatchFaceTriggerListenerService : WearableListenerService() {
             PATH_P2_PILL1_TRIGGER -> { Log.d(TAG, "P2-Pille-1-Trigger vom Watchface empfangen"); scope.launch { handleP2Pill1Trigger() } }
             PATH_P2_PILL2_TRIGGER -> { Log.d(TAG, "P2-Pille-2-Trigger vom Watchface empfangen"); scope.launch { handleP2Pill2Trigger() } }
         }
+    }
+
+    override fun onDataChanged(dataEvents: DataEventBuffer) {
+        dataEvents.forEach { event ->
+            if (event.type == DataEvent.TYPE_CHANGED &&
+                event.dataItem.uri.path == PATH_NTP_OFFSET_FROM_WATCH) {
+                val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                val offsetMs = dataMap.getLong(KEY_NTP_OFFSET_MS, Long.MIN_VALUE)
+                if (offsetMs != Long.MIN_VALUE) {
+                    Log.d(TAG, "NTP-Offset von Uhr empfangen: $offsetMs ms")
+                    scope.launch {
+                        dataStore.edit { prefs ->
+                            prefs[MainViewModel.KEY_NTP_OFFSET_FROM_WATCH] = offsetMs
+                        }
+                    }
+                }
+            }
+        }
+        dataEvents.release()
     }
 
     private suspend fun handleTrigger() {

@@ -79,6 +79,8 @@ class IoSyncSyncService : Service() {
     private var lastKnownKcal: Int = 0
     private var lastKnownO2: Int = 0
     private var lastKnownSleep: Int = 0
+    // Tagesreset: wird bei Tageswechsel auf 0 gesetzt, damit veraltete Schlafdaten nicht dauerhaft angezeigt werden
+    private var lastSleepResetDate: java.time.LocalDate = java.time.LocalDate.now()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -517,7 +519,15 @@ class IoSyncSyncService : Service() {
                             ?: healthConnectManager.readLatestOxygenSaturation(oxygenSourcePkg)
                         o2?.let { if (it > 0) lastKnownO2 = it }
                     }
-                    if (sleepSource == "healthconnect") healthConnectManager.readTodaySleepMinutes(sleepSourcePkg)?.let { if (it > 0) lastKnownSleep = it }
+                    if (sleepSource == "healthconnect") {
+                        // Täglicher Reset: bei Tageswechsel Schlafwert löschen
+                        val today = java.time.LocalDate.now()
+                        if (today != lastSleepResetDate) {
+                            lastSleepResetDate = today
+                            lastKnownSleep = 0
+                        }
+                        healthConnectManager.readTodaySleepMinutes(sleepSourcePkg)?.let { if (it > 0) lastKnownSleep = it }
+                    }
 
                     // Immer senden (auch wenn alle 0), damit die Uhr den aktuellen Stand bekommt
                     wearDataLayerService.syncPhoneHealthToWear(lastKnownHr, lastKnownO2, lastKnownKcal, lastKnownSleep)

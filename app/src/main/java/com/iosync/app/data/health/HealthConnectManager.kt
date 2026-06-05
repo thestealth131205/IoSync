@@ -315,6 +315,13 @@ class HealthConnectManager @Inject constructor(
             // Schlaf wird oft als mehrere Sessions gespeichert). So werden nicht zwei
             // verschiedene Naechte zusammengezaehlt und der Wert aktualisiert taeglich.
             val latestEnd = records.maxOf { it.endTime }
+            // Nur Schlaf der aktuellen Nacht zeigen: Session muss NACH Mitternacht heute enden.
+            // Falls die jüngste Session noch vor Mitternacht endete (= gestrige Nacht), null
+            // zurückgeben → Service behält 0 (täglicher Reset) und Uhr zeigt "--".
+            val todayMidnight = java.time.LocalDate.now()
+                .atStartOfDay(java.time.ZoneId.systemDefault())
+                .toInstant()
+            if (latestEnd.isBefore(todayMidnight)) return@withContext null
             val nightStart = latestEnd.minus(18, ChronoUnit.HOURS)
             records.filter { it.endTime.isAfter(nightStart) }
                 .sumOf { ChronoUnit.MINUTES.between(it.startTime, it.endTime) }
