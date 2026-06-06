@@ -24,6 +24,7 @@ private const val TAG = "WFTriggerListener"
 private const val PATH_ACTION_TRIGGER      = "/iosync/watchface/action_trigger"
 private const val PATH_P2_PILL1_TRIGGER    = "/iosync/watchface/p2_pill1_trigger"
 private const val PATH_P2_PILL2_TRIGGER    = "/iosync/watchface/p2_pill2_trigger"
+private const val PATH_P2_SLIDER_VALUE     = "/iosync/watchface/p2_slider_value"
 private const val PATH_NTP_OFFSET_FROM_WATCH = "/iosync/watchface/ntp_offset"
 private const val KEY_NTP_OFFSET_MS          = "ntp_offset_ms"
 
@@ -52,6 +53,11 @@ class WatchFaceTriggerListenerService : WearableListenerService() {
             PATH_ACTION_TRIGGER   -> { Log.d(TAG, "Aktions-Trigger vom Watchface empfangen"); scope.launch { handleTrigger() } }
             PATH_P2_PILL1_TRIGGER -> { Log.d(TAG, "P2-Pille-1-Trigger vom Watchface empfangen"); scope.launch { handleP2Pill1Trigger() } }
             PATH_P2_PILL2_TRIGGER -> { Log.d(TAG, "P2-Pille-2-Trigger vom Watchface empfangen"); scope.launch { handleP2Pill2Trigger() } }
+            PATH_P2_SLIDER_VALUE  -> {
+                val value = String(messageEvent.data, Charsets.UTF_8)
+                Log.d(TAG, "Slider-Wert '$value' vom Watchface empfangen")
+                scope.launch { handleSliderValue(value) }
+            }
         }
     }
 
@@ -167,6 +173,24 @@ class WatchFaceTriggerListenerService : WearableListenerService() {
                 wearDataLayerService.syncP2PillStatesToWear(prefs[MainViewModel.KEY_P2_PILL1_STATE] ?: false, newState)
             }
             .onFailure { Log.e(TAG, "P2-Pille-2-Befehl fehlgeschlagen: ${it.message}") }
+    }
+
+    /** Schreibt den am Slider (Seite 2) getippten Wert in den ioBroker-Datenpunkt des Balkens. */
+    private suspend fun handleSliderValue(value: String) {
+        val prefs      = dataStore.data.first()
+        val host       = prefs[MainViewModel.KEY_IOSYNC_HOST]      ?: ""
+        val port       = prefs[MainViewModel.KEY_IOSYNC_PORT]      ?: 345
+        val useHttps   = prefs[MainViewModel.KEY_IOSYNC_USE_HTTPS] ?: false
+        val username   = prefs[MainViewModel.KEY_IOSYNC_USERNAME]  ?: ""
+        val password   = prefs[MainViewModel.KEY_IOSYNC_PASSWORD]  ?: ""
+        val ioBrokerId = prefs[MainViewModel.KEY_P2_BAR_ID]        ?: ""
+        if (host.isBlank() || ioBrokerId.isBlank()) {
+            Log.w(TAG, "Slider-Wert ignoriert: Host oder Balken-ID nicht konfiguriert")
+            return
+        }
+        Log.d(TAG, "Sende Slider-Wert '$value' an ioBroker-Datenpunkt '$ioBrokerId'")
+        ioSyncClient.setState(host, port, useHttps, username, password, ioBrokerId, value)
+            .onFailure { Log.e(TAG, "Slider-Wert fehlgeschlagen: ${it.message}") }
     }
 
     override fun onDestroy() {

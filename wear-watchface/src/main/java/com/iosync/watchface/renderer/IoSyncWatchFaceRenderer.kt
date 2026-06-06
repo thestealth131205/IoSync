@@ -364,6 +364,7 @@ class IoSyncWatchFaceRenderer(
     private var page2Pill2Bounds = RectF()
     private var page2Pill1TapBounds = RectF()
     private var page2Pill2TapBounds = RectF()
+    private var page2SliderBounds = RectF()    // exakte Balken-Geometrie (für Slider-Tap)
     private var page2Pill1Pressed = false
     private var page2Pill1PressedAt = 0L
     private var page2Pill2Pressed = false
@@ -430,6 +431,7 @@ class IoSyncWatchFaceRenderer(
         private const val PATH_P2_PILL_STATES    = "/iosync/watchface/p2_pill_states"
         private const val PATH_P2_PILL1_TRIGGER  = "/iosync/watchface/p2_pill1_trigger"
         private const val PATH_P2_PILL2_TRIGGER  = "/iosync/watchface/p2_pill2_trigger"
+        private const val PATH_P2_SLIDER_VALUE   = "/iosync/watchface/p2_slider_value"
         private const val PATH_STATES            = "/iosync/smarthome/states"
         private const val PATH_PHONE_HEALTH      = "/iosync/watchface/phone_health"
         private const val KEY_PHONE_HEART_RATE     = "phone_heart_rate"
@@ -1205,6 +1207,23 @@ class IoSyncWatchFaceRenderer(
                 }
             } catch (e: Exception) {
                 Log.w(TAG_PILL, "P2-Pille-$pill-Trigger fehlgeschlagen: ${e.message}")
+            }
+        }
+    }
+
+    /** Sendet den getippten Slider-Wert (Seite 2) an die verbundene Android App. */
+    private fun sendSliderValue(value: Int) {
+        scope.launch {
+            try {
+                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
+                if (nodes.isEmpty()) { Log.w(TAG_PILL, "Kein verbundenes Gerät für Slider"); return@launch }
+                val payload = value.toString().toByteArray(Charsets.UTF_8)
+                nodes.forEach { node ->
+                    Wearable.getMessageClient(context).sendMessage(node.id, PATH_P2_SLIDER_VALUE, payload).await()
+                    Log.d(TAG_PILL, "Slider-Wert $value an ${node.displayName} gesendet")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG_PILL, "Slider-Wert senden fehlgeschlagen: ${e.message}")
             }
         }
     }
@@ -2008,6 +2027,26 @@ class IoSyncWatchFaceRenderer(
             return
         }
 
+        // ── Seite 2: Slider – Tippen springt zur getippten Position ─────────
+        // Bewusst kein Ziehen (Drag), da das die Schnelleinstellungen der Uhr
+        // herunterziehen würde. Stattdessen: an die getippte Höhe springen.
+        if (currentPage == 1 && config.p2BarIsSlider && !page2SliderBounds.isEmpty) {
+            val padX = (page2SliderBounds.right - page2SliderBounds.left) * 0.8f
+            if (x >= page2SliderBounds.left - padX && x <= page2SliderBounds.right + padX &&
+                y >= page2SliderBounds.top && y <= page2SliderBounds.bottom) {
+                if (tapType == TapType.UP) {
+                    val frac = ((page2SliderBounds.bottom - y) /
+                        (page2SliderBounds.bottom - page2SliderBounds.top)).coerceIn(0f, 1f)
+                    val value = Math.round(config.p2BarMin + frac * (config.p2BarMax - config.p2BarMin))
+                    // Optimistisch lokal aktualisieren für sofortiges Feedback
+                    config.p2BarValue = value.toString()
+                    invalidate()
+                    sendSliderValue(value)
+                }
+                return
+            }
+        }
+
         // ── Seite 2: Pillen (Doppeltipp wie Seite-1-Pille) ──────────────────
         if (currentPage == 1) {
             // Visuelles Feedback: beim Berühren in der gewählten Farbe aufleuchten
@@ -2448,6 +2487,8 @@ class IoSyncWatchFaceRenderer(
         // Vertikaler Balken (rechts, wenn Label gesetzt)
         if (WatchFaceConfigCache.p2BarLabel.isNotBlank()) {
             drawPage2VerticalBar(canvas, cx, cy, radius)
+        } else {
+            page2SliderBounds.setEmpty()
         }
 
         // 2 halbe Pillen (7 Uhr und 5 Uhr)
@@ -2601,6 +2642,13 @@ class IoSyncWatchFaceRenderer(
         val barTop   = cy - barH / 2f
         val barBot   = cy + barH / 2f
         val barCorner = barW * 0.18f
+
+        // Im Slider-Modus die Balken-Geometrie für Tap-Auswertung merken
+        if (config.p2BarIsSlider) {
+            page2SliderBounds.set(barCx - barW / 2f, barTop, barCx + barW / 2f, barBot)
+        } else {
+            page2SliderBounds.setEmpty()
+        }
 
         val minVal = config.p2BarMin
         val maxVal = config.p2BarMax
