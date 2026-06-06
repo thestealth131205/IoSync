@@ -2015,7 +2015,9 @@ class MainViewModel @Inject constructor(
         if (percent >= 0) {
             _uiState.update { it.copy(phoneBatteryLevel = percent) }
             val showBattery = _uiState.value.wfShowPhoneBattery
-            wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging, showBattery)
+            viewModelScope.launch {
+                wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging, showBattery)
+            }
         }
     }
 
