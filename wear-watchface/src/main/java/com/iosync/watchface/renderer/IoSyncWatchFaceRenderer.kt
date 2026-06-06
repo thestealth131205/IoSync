@@ -364,7 +364,8 @@ class IoSyncWatchFaceRenderer(
     private var page2Pill2Bounds = RectF()
     private var page2Pill1TapBounds = RectF()
     private var page2Pill2TapBounds = RectF()
-    private var page2SliderBounds = RectF()    // exakte Balken-Geometrie (für Slider-Tap)
+    private var page2SliderBounds = RectF()    // exakte Balken-Geometrie (für Wert-Mapping)
+    private var page2SliderTapBounds = RectF() // großzügige Tap-Zone (Balken + Werte-Zahlen links)
     private var page2Pill1Pressed = false
     private var page2Pill1PressedAt = 0L
     private var page2Pill2Pressed = false
@@ -2028,13 +2029,14 @@ class IoSyncWatchFaceRenderer(
         }
 
         // ── Seite 2: Slider – Tippen springt zur getippten Position ─────────
-        // Bewusst kein Ziehen (Drag), da das die Schnelleinstellungen der Uhr
-        // herunterziehen würde. Stattdessen: an die getippte Höhe springen.
-        if (currentPage == 1 && config.p2BarIsSlider && !page2SliderBounds.isEmpty) {
-            val padX = (page2SliderBounds.right - page2SliderBounds.left) * 0.8f
-            if (x >= page2SliderBounds.left - padX && x <= page2SliderBounds.right + padX &&
-                y >= page2SliderBounds.top && y <= page2SliderBounds.bottom) {
-                if (tapType == TapType.UP) {
+        // Bewusst kein Ziehen (Drag), da das die Schnelleinstellungen / die
+        // Benachrichtigungsleiste der Uhr herunterziehen würde. Stattdessen:
+        // an die getippte Höhe springen. Reagiert auf DOWN (sofortiges Springen
+        // schon beim Berühren) – ein nachfolgendes UP/CANCEL wird ignoriert,
+        // damit der Wert nicht doppelt gesendet wird.
+        if (currentPage == 1 && config.p2BarIsSlider && !page2SliderTapBounds.isEmpty) {
+            if (page2SliderTapBounds.contains(x, y)) {
+                if (tapType == TapType.DOWN) {
                     val frac = ((page2SliderBounds.bottom - y) /
                         (page2SliderBounds.bottom - page2SliderBounds.top)).coerceIn(0f, 1f)
                     val value = Math.round(config.p2BarMin + frac * (config.p2BarMax - config.p2BarMin))
@@ -2489,6 +2491,7 @@ class IoSyncWatchFaceRenderer(
             drawPage2VerticalBar(canvas, cx, cy, radius)
         } else {
             page2SliderBounds.setEmpty()
+            page2SliderTapBounds.setEmpty()
         }
 
         // 2 halbe Pillen (7 Uhr und 5 Uhr)
@@ -2643,11 +2646,21 @@ class IoSyncWatchFaceRenderer(
         val barBot   = cy + barH / 2f
         val barCorner = barW * 0.18f
 
-        // Im Slider-Modus die Balken-Geometrie für Tap-Auswertung merken
+        // Im Slider-Modus die Balken-Geometrie für Wert-Mapping merken
+        // sowie eine großzügige Tap-Zone, die auch die Werte-Zahlen links vom
+        // Balken einschließt – so tippt man bequem mittiger (weg vom Bildschirm-
+        // rand, wo die System-Wischgesten liegen) auf die gewünschte Höhe.
         if (config.p2BarIsSlider) {
             page2SliderBounds.set(barCx - barW / 2f, barTop, barCx + barW / 2f, barBot)
+            page2SliderTapBounds.set(
+                barCx - barW / 2f - radius * 0.35f,
+                barTop - radius * 0.04f,
+                barCx + barW / 2f + radius * 0.10f,
+                barBot + radius * 0.04f
+            )
         } else {
             page2SliderBounds.setEmpty()
+            page2SliderTapBounds.setEmpty()
         }
 
         val minVal = config.p2BarMin
