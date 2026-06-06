@@ -329,6 +329,7 @@ class IoSyncSyncService : Service() {
             prefs[MainViewModel.KEY_CUSTOM_SLOT4_BAR_MIN]?.toFloatOrNull() ?: 0f,
             prefs[MainViewModel.KEY_CUSTOM_SLOT4_BAR_MAX]?.toFloatOrNull() ?: 100f,
             prefs[MainViewModel.KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] ?: true,
+            prefs[MainViewModel.KEY_CUSTOM_SLOT4_BAR_IS_SLIDER] ?: false,
             prefs[MainViewModel.KEY_CUSTOM_SLOT4_WARN1_COLOR] ?: "orange",
             prefs[MainViewModel.KEY_CUSTOM_SLOT4_WARN1_VALUE]?.toFloatOrNull() ?: Float.NaN,
             prefs[MainViewModel.KEY_CUSTOM_SLOT4_WARN2_COLOR] ?: "red",

@@ -139,6 +139,7 @@ fun SettingsScreen(
     var customSlot4BarMin        by remember(uiState.customSlot4BarMin)        { mutableStateOf(uiState.customSlot4BarMin.toString()) }
     var customSlot4BarMax        by remember(uiState.customSlot4BarMax)        { mutableStateOf(uiState.customSlot4BarMax.toString()) }
     var customSlot4BarShowLabel  by remember(uiState.customSlot4BarShowLabel)  { mutableStateOf(uiState.customSlot4BarShowLabel) }
+    var customSlot4BarIsSlider   by remember(uiState.customSlot4BarIsSlider)   { mutableStateOf(uiState.customSlot4BarIsSlider) }
     var customSlot4Warn1Color    by remember(uiState.customSlot4Warn1Color)    { mutableStateOf(uiState.customSlot4Warn1Color) }
     var customSlot4Warn1Value    by remember(uiState.customSlot4Warn1Value)    { mutableStateOf(if (uiState.customSlot4Warn1Value.isNaN()) "" else uiState.customSlot4Warn1Value.toString()) }
     var customSlot4Warn2Color    by remember(uiState.customSlot4Warn2Color)    { mutableStateOf(uiState.customSlot4Warn2Color) }
@@ -246,6 +247,7 @@ fun SettingsScreen(
     var p2BarMin        by remember(uiState.p2BarMin)        { mutableStateOf(uiState.p2BarMin.toString()) }
     var p2BarMax        by remember(uiState.p2BarMax)        { mutableStateOf(uiState.p2BarMax.toString()) }
     var p2BarShowLabel  by remember(uiState.p2BarShowLabel)  { mutableStateOf(uiState.p2BarShowLabel) }
+    var p2BarIsSlider   by remember(uiState.p2BarIsSlider)   { mutableStateOf(uiState.p2BarIsSlider) }
     var p2BarTextScale  by remember(uiState.p2BarTextScale)  { mutableStateOf(uiState.p2BarTextScale) }
     var p2BarWarn1Color by remember(uiState.p2BarWarn1Color) { mutableStateOf(uiState.p2BarWarn1Color) }
     var p2BarWarn1Value by remember(uiState.p2BarWarn1Value) { mutableStateOf(if (uiState.p2BarWarn1Value.isNaN()) "" else uiState.p2BarWarn1Value.toString()) }
@@ -328,7 +330,7 @@ fun SettingsScreen(
     LaunchedEffect(
         showCustomSlots, customSlot1Id, customSlot1Label, customSlot2Id, customSlot2Label,
         customSlot3Id, customSlot3Label, customSlot4Id, customSlot4Label,
-        customSlot4BarColor, customSlot4BarMin, customSlot4BarMax, customSlot4BarShowLabel,
+        customSlot4BarColor, customSlot4BarMin, customSlot4BarMax, customSlot4BarShowLabel, customSlot4BarIsSlider,
         wfSlot1TextScale, wfSlot2TextScale, wfSlot3TextScale, wfSlot4TextScale,
         customSlot4Warn1Color, customSlot4Warn1Value, customSlot4Warn2Color, customSlot4Warn2Value
     ) {
@@ -348,6 +350,7 @@ fun SettingsScreen(
             slot4BarMin       = customSlot4BarMin.toFloatOrNull() ?: 0f,
             slot4BarMax       = customSlot4BarMax.toFloatOrNull() ?: 100f,
             slot4BarShowLabel = customSlot4BarShowLabel,
+            slot4BarIsSlider  = customSlot4BarIsSlider,
             slot1TextScale    = wfSlot1TextScale,
             slot2TextScale    = wfSlot2TextScale,
             slot3TextScale    = wfSlot3TextScale,
@@ -401,7 +404,7 @@ fun SettingsScreen(
         wfSleepSource, wfSleepIoBrokerId, wfSleepComplication,
         p2PillEnabled, p2PillColorTrue, p2PillColorFalse, p2PillIoBrokerId, p2PillValueMode, p2PillFixedValue,
         p2Pill2Enabled, p2Pill2ColorTrue, p2Pill2ColorFalse, p2Pill2IoBrokerId, p2Pill2ValueMode, p2Pill2FixedValue,
-        p2BarId, p2BarLabel, p2BarColor, p2BarMin, p2BarMax, p2BarShowLabel, p2BarTextScale,
+        p2BarId, p2BarLabel, p2BarColor, p2BarMin, p2BarMax, p2BarShowLabel, p2BarIsSlider, p2BarTextScale,
         p2BarWarn1Color, p2BarWarn1Value, p2BarWarn2Color, p2BarWarn2Value,
         p2ShowBackground
     ) {
@@ -428,6 +431,7 @@ fun SettingsScreen(
             p2BarMin = p2BarMin.toFloatOrNull() ?: 0f,
             p2BarMax = p2BarMax.toFloatOrNull() ?: 100f,
             p2BarShowLabel = p2BarShowLabel,
+            p2BarIsSlider = p2BarIsSlider,
             p2BarTextScale = p2BarTextScale,
             p2BarWarn1Color = p2BarWarn1Color,
             p2BarWarn1Value = p2BarWarn1Value.toFloatOrNull() ?: Float.NaN,
@@ -1151,6 +1155,12 @@ fun SettingsScreen(
                 }
 
                 WatchFaceToggleRow(
+                    text = "Als Slider anzeigen",
+                    subText = "Statt Füllbalken einen Slider-Knopf an der Wertposition (gleiches Design). Min/Max legen Start- und Endwert fest.",
+                    checked = customSlot4BarIsSlider,
+                    onCheckedChange = { customSlot4BarIsSlider = it }
+                )
+                WatchFaceToggleRow(
                     text = "Beschriftung anzeigen",
                     subText = "Label und Wert über dem Balken einblenden",
                     checked = customSlot4BarShowLabel,
@@ -1223,6 +1233,7 @@ fun SettingsScreen(
                             slot4BarMin       = customSlot4BarMin.toFloatOrNull() ?: 0f,
                             slot4BarMax       = customSlot4BarMax.toFloatOrNull() ?: 100f,
                             slot4BarShowLabel = customSlot4BarShowLabel,
+                            slot4BarIsSlider  = customSlot4BarIsSlider,
                             slot1TextScale    = wfSlot1TextScale,
                             slot2TextScale    = wfSlot2TextScale,
                             slot3TextScale    = wfSlot3TextScale,
@@ -1786,6 +1797,7 @@ fun SettingsScreen(
                     OutlinedTextField(value = p2BarMin, onValueChange = { p2BarMin = it }, label = { Text("Min-Wert") }, placeholder = { Text("0") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                     OutlinedTextField(value = p2BarMax, onValueChange = { p2BarMax = it }, label = { Text("Max-Wert") }, placeholder = { Text("100") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                 }
+                WatchFaceToggleRow(text = "Als Slider anzeigen", subText = "Statt Füllbalken einen Slider-Knopf an der Wertposition (gleiches Design). Min/Max legen Start- und Endwert fest.", checked = p2BarIsSlider, onCheckedChange = { p2BarIsSlider = it })
                 WatchFaceToggleRow(text = "Beschriftung anzeigen", subText = "Name, Min, Max und Wert links vom Balken", checked = p2BarShowLabel, onCheckedChange = { p2BarShowLabel = it })
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Schriftgröße:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1859,6 +1871,7 @@ fun SettingsScreen(
                             p2BarMin = p2BarMin.toFloatOrNull() ?: 0f,
                             p2BarMax = p2BarMax.toFloatOrNull() ?: 100f,
                             p2BarShowLabel = p2BarShowLabel,
+                            p2BarIsSlider = p2BarIsSlider,
                             p2BarTextScale = p2BarTextScale,
                             p2BarWarn1Color = p2BarWarn1Color,
                             p2BarWarn1Value = p2BarWarn1Value.toFloatOrNull() ?: Float.NaN,

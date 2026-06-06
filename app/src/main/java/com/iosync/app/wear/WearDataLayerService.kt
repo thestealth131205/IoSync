@@ -73,6 +73,7 @@ private const val KEY_WF_CUSTOM_SLOT4_BAR_COLOR = "wf_custom_slot4_bar_color"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN        = "wf_custom_slot4_bar_min"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX        = "wf_custom_slot4_bar_max"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL = "wf_custom_slot4_bar_show_label"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER  = "wf_custom_slot4_bar_is_slider"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
 private const val KEY_WF_HR_TEXT_SCALE        = "wf_hr_text_scale"
 private const val KEY_WF_KCAL_TEXT_SCALE      = "wf_kcal_text_scale"
@@ -163,6 +164,7 @@ private const val KEY_WF_P2_BAR_COLOR       = "wf_p2_bar_color"
 private const val KEY_WF_P2_BAR_MIN         = "wf_p2_bar_min"
 private const val KEY_WF_P2_BAR_MAX         = "wf_p2_bar_max"
 private const val KEY_WF_P2_BAR_SHOW_LABEL  = "wf_p2_bar_show_label"
+private const val KEY_WF_P2_BAR_IS_SLIDER   = "wf_p2_bar_is_slider"
 private const val KEY_WF_P2_BAR_TEXT_SCALE  = "wf_p2_bar_text_scale"
 private const val KEY_WF_P2_BAR_WARN1_COLOR = "wf_p2_bar_warn1_color"
 private const val KEY_WF_P2_BAR_WARN1_VALUE = "wf_p2_bar_warn1_value"
@@ -304,6 +306,7 @@ class WearDataLayerService @Inject constructor(
         customSlot4BarMin: Float = 0f,
         customSlot4BarMax: Float = 100f,
         customSlot4BarShowLabel: Boolean = true,
+        customSlot4BarIsSlider: Boolean = false,
         hrTextScale: Int = 100,
         kcalTextScale: Int = 100,
         stepsTextScale: Int = 100,
@@ -381,6 +384,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN, customSlot4BarMin)
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX, customSlot4BarMax)
                     dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL, customSlot4BarShowLabel)
+                    dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER, customSlot4BarIsSlider)
                     dataMap.putInt(KEY_WF_HR_TEXT_SCALE,    hrTextScale)
                     dataMap.putInt(KEY_WF_KCAL_TEXT_SCALE,  kcalTextScale)
                     dataMap.putInt(KEY_WF_STEPS_TEXT_SCALE, stepsTextScale)
@@ -500,6 +504,7 @@ class WearDataLayerService @Inject constructor(
         slot4BarColor: String = "neon_yellow",
         slot4BarMin: Float = 0f, slot4BarMax: Float = 100f,
         slot4BarShowLabel: Boolean = true,
+        slot4BarIsSlider: Boolean = false,
         slot4Warn1Color: String = "orange", slot4Warn1Value: Float = Float.NaN,
         slot4Warn2Color: String = "red", slot4Warn2Value: Float = Float.NaN
     ) {
@@ -518,6 +523,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN, slot4BarMin)
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX, slot4BarMax)
                     dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL, slot4BarShowLabel)
+                    dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER, slot4BarIsSlider)
                     dataMap.putString(KEY_WF_SLOT4_WARN1_COLOR, slot4Warn1Color)
                     dataMap.putFloat(KEY_WF_SLOT4_WARN1_VALUE, slot4Warn1Value)
                     dataMap.putString(KEY_WF_SLOT4_WARN2_COLOR, slot4Warn2Color)
@@ -592,6 +598,7 @@ class WearDataLayerService @Inject constructor(
         p2BarMin: Float = 0f,
         p2BarMax: Float = 100f,
         p2BarShowLabel: Boolean = true,
+        p2BarIsSlider: Boolean = false,
         p2BarTextScale: Int = 100,
         p2BarWarn1Color: String = "orange",
         p2BarWarn1Value: Float = Float.NaN,
@@ -626,6 +633,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putFloat(KEY_WF_P2_BAR_MIN,           p2BarMin)
                     dataMap.putFloat(KEY_WF_P2_BAR_MAX,           p2BarMax)
                     dataMap.putBoolean(KEY_WF_P2_BAR_SHOW_LABEL,  p2BarShowLabel)
+                    dataMap.putBoolean(KEY_WF_P2_BAR_IS_SLIDER,   p2BarIsSlider)
                     dataMap.putInt(KEY_WF_P2_BAR_TEXT_SCALE,      p2BarTextScale)
                     dataMap.putString(KEY_WF_P2_BAR_WARN1_COLOR,  p2BarWarn1Color)
                     dataMap.putFloat(KEY_WF_P2_BAR_WARN1_VALUE,   p2BarWarn1Value)

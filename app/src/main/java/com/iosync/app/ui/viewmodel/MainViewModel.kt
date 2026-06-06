@@ -115,6 +115,7 @@ data class MainUiState(
     val customSlot4BarMin: Float = 0f,
     val customSlot4BarMax: Float = 100f,
     val customSlot4BarShowLabel: Boolean = true,
+    val customSlot4BarIsSlider: Boolean = false,
     // Slot 4 Warnstufen (absoluter Wert; leer/NaN = deaktiviert)
     val customSlot4Warn1Color: String = "orange",
     val customSlot4Warn1Value: Float = Float.NaN,
@@ -210,6 +211,7 @@ data class MainUiState(
     val p2BarMin: Float = 0f,
     val p2BarMax: Float = 100f,
     val p2BarShowLabel: Boolean = true,
+    val p2BarIsSlider: Boolean = false,
     val p2BarTextScale: Int = 100,
     val p2BarWarn1Color: String = "orange",
     val p2BarWarn1Value: Float = Float.NaN,
@@ -289,6 +291,7 @@ class MainViewModel @Inject constructor(
         val KEY_CUSTOM_SLOT4_BAR_MIN        = stringPreferencesKey("custom_slot4_bar_min")
         val KEY_CUSTOM_SLOT4_BAR_MAX        = stringPreferencesKey("custom_slot4_bar_max")
         val KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL = booleanPreferencesKey("custom_slot4_bar_show_label")
+        val KEY_CUSTOM_SLOT4_BAR_IS_SLIDER  = booleanPreferencesKey("custom_slot4_bar_is_slider")
         val KEY_CUSTOM_SLOT4_WARN1_COLOR = stringPreferencesKey("custom_slot4_warn1_color")
         val KEY_CUSTOM_SLOT4_WARN1_VALUE = stringPreferencesKey("custom_slot4_warn1_value")
         val KEY_CUSTOM_SLOT4_WARN2_COLOR = stringPreferencesKey("custom_slot4_warn2_color")
@@ -389,6 +392,7 @@ class MainViewModel @Inject constructor(
         val KEY_P2_BAR_MIN          = stringPreferencesKey("p2_bar_min")
         val KEY_P2_BAR_MAX          = stringPreferencesKey("p2_bar_max")
         val KEY_P2_BAR_SHOW_LABEL   = booleanPreferencesKey("p2_bar_show_label")
+        val KEY_P2_BAR_IS_SLIDER    = booleanPreferencesKey("p2_bar_is_slider")
         val KEY_P2_BAR_TEXT_SCALE   = intPreferencesKey("p2_bar_text_scale")
         val KEY_P2_BAR_WARN1_COLOR  = stringPreferencesKey("p2_bar_warn1_color")
         val KEY_P2_BAR_WARN1_VALUE  = stringPreferencesKey("p2_bar_warn1_value")
@@ -452,6 +456,7 @@ class MainViewModel @Inject constructor(
             val customSlot4BarMin        = prefs[KEY_CUSTOM_SLOT4_BAR_MIN]?.toFloatOrNull() ?: 0f
             val customSlot4BarMax        = prefs[KEY_CUSTOM_SLOT4_BAR_MAX]?.toFloatOrNull() ?: 100f
             val customSlot4BarShowLabel  = prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] ?: true
+            val customSlot4BarIsSlider   = prefs[KEY_CUSTOM_SLOT4_BAR_IS_SLIDER] ?: false
             val customSlot4Warn1Color    = prefs[KEY_CUSTOM_SLOT4_WARN1_COLOR] ?: "orange"
             val customSlot4Warn1Value    = prefs[KEY_CUSTOM_SLOT4_WARN1_VALUE]?.toFloatOrNull() ?: Float.NaN
             val customSlot4Warn2Color    = prefs[KEY_CUSTOM_SLOT4_WARN2_COLOR] ?: "red"
@@ -544,6 +549,7 @@ class MainViewModel @Inject constructor(
             val p2BarMin        = prefs[KEY_P2_BAR_MIN]?.toFloatOrNull()  ?: 0f
             val p2BarMax        = prefs[KEY_P2_BAR_MAX]?.toFloatOrNull()  ?: 100f
             val p2BarShowLabel  = prefs[KEY_P2_BAR_SHOW_LABEL] ?: true
+            val p2BarIsSlider   = prefs[KEY_P2_BAR_IS_SLIDER] ?: false
             val p2BarTextScale  = prefs[KEY_P2_BAR_TEXT_SCALE] ?: 100
             val p2BarWarn1Color = prefs[KEY_P2_BAR_WARN1_COLOR] ?: "orange"
             val p2BarWarn1Value = prefs[KEY_P2_BAR_WARN1_VALUE]?.toFloatOrNull() ?: Float.NaN
@@ -602,6 +608,7 @@ class MainViewModel @Inject constructor(
                     customSlot4BarMin        = customSlot4BarMin,
                     customSlot4BarMax        = customSlot4BarMax,
                     customSlot4BarShowLabel  = customSlot4BarShowLabel,
+                    customSlot4BarIsSlider   = customSlot4BarIsSlider,
                     customSlot4Warn1Color    = customSlot4Warn1Color,
                     customSlot4Warn1Value    = customSlot4Warn1Value,
                     customSlot4Warn2Color    = customSlot4Warn2Color,
@@ -689,6 +696,7 @@ class MainViewModel @Inject constructor(
                     p2BarMin        = p2BarMin,
                     p2BarMax        = p2BarMax,
                     p2BarShowLabel  = p2BarShowLabel,
+                    p2BarIsSlider   = p2BarIsSlider,
                     p2BarTextScale  = p2BarTextScale,
                     p2BarWarn1Color = p2BarWarn1Color,
                     p2BarWarn1Value = p2BarWarn1Value,
@@ -950,7 +958,7 @@ class MainViewModel @Inject constructor(
             s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories, s.wfShowSteps,
             s.showCustomSlots, s.customSlot1Label, s.customSlot2Label,
             s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
-            s.customSlot4BarShowLabel,
+            s.customSlot4BarShowLabel, s.customSlot4BarIsSlider,
             s.wfHrTextScale, s.wfKcalTextScale, s.wfStepsTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
             s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
             s.wfBatteryRingColor1, s.wfBatteryRingColor2, s.wfBatteryRingStrokeScale,
@@ -1552,6 +1560,7 @@ class MainViewModel @Inject constructor(
         slot4BarMin: Float = 0f,
         slot4BarMax: Float = 100f,
         slot4BarShowLabel: Boolean = true,
+        slot4BarIsSlider: Boolean = false,
         slot1TextScale: Int = _uiState.value.wfSlot1TextScale,
         slot2TextScale: Int = _uiState.value.wfSlot2TextScale,
         slot3TextScale: Int = _uiState.value.wfSlot3TextScale,
@@ -1576,6 +1585,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_CUSTOM_SLOT4_BAR_MIN]        = slot4BarMin.toString()
                 prefs[KEY_CUSTOM_SLOT4_BAR_MAX]        = slot4BarMax.toString()
                 prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] = slot4BarShowLabel
+                prefs[KEY_CUSTOM_SLOT4_BAR_IS_SLIDER]  = slot4BarIsSlider
                 prefs[KEY_CUSTOM_SLOT4_WARN1_COLOR] = slot4Warn1Color
                 prefs[KEY_CUSTOM_SLOT4_WARN1_VALUE] = if (slot4Warn1Value.isNaN()) "" else slot4Warn1Value.toString()
                 prefs[KEY_CUSTOM_SLOT4_WARN2_COLOR] = slot4Warn2Color
@@ -1600,6 +1610,7 @@ class MainViewModel @Inject constructor(
                     customSlot4BarMin        = slot4BarMin,
                     customSlot4BarMax        = slot4BarMax,
                     customSlot4BarShowLabel  = slot4BarShowLabel,
+                    customSlot4BarIsSlider   = slot4BarIsSlider,
                     customSlot4Warn1Color    = slot4Warn1Color,
                     customSlot4Warn1Value    = slot4Warn1Value,
                     customSlot4Warn2Color    = slot4Warn2Color,
@@ -1641,6 +1652,7 @@ class MainViewModel @Inject constructor(
         slot4BarMin: Float = 0f,
         slot4BarMax: Float = 100f,
         slot4BarShowLabel: Boolean = true,
+        slot4BarIsSlider: Boolean = false,
         slot1TextScale: Int = _uiState.value.wfSlot1TextScale,
         slot2TextScale: Int = _uiState.value.wfSlot2TextScale,
         slot3TextScale: Int = _uiState.value.wfSlot3TextScale,
@@ -1666,6 +1678,7 @@ class MainViewModel @Inject constructor(
                     customSlot4BarMin        = slot4BarMin,
                     customSlot4BarMax        = slot4BarMax,
                     customSlot4BarShowLabel  = slot4BarShowLabel,
+                    customSlot4BarIsSlider   = slot4BarIsSlider,
                     customSlot4Warn1Color    = slot4Warn1Color,
                     customSlot4Warn1Value    = slot4Warn1Value,
                     customSlot4Warn2Color    = slot4Warn2Color,
@@ -1705,6 +1718,7 @@ class MainViewModel @Inject constructor(
             s.customSlot3Label, formatSlotValue(val3?.value),
             s.customSlot4Label, formatSlotValue(val4?.value),
             s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax, s.customSlot4BarShowLabel,
+            s.customSlot4BarIsSlider,
             s.customSlot4Warn1Color, s.customSlot4Warn1Value,
             s.customSlot4Warn2Color, s.customSlot4Warn2Value
         )
@@ -1746,6 +1760,7 @@ class MainViewModel @Inject constructor(
         p2BarMin: Float = _uiState.value.p2BarMin,
         p2BarMax: Float = _uiState.value.p2BarMax,
         p2BarShowLabel: Boolean = _uiState.value.p2BarShowLabel,
+        p2BarIsSlider: Boolean = _uiState.value.p2BarIsSlider,
         p2BarTextScale: Int = _uiState.value.p2BarTextScale,
         p2BarWarn1Color: String = _uiState.value.p2BarWarn1Color,
         p2BarWarn1Value: Float = _uiState.value.p2BarWarn1Value,
@@ -1789,6 +1804,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_P2_BAR_MIN]         = p2BarMin.toString()
                 prefs[KEY_P2_BAR_MAX]         = p2BarMax.toString()
                 prefs[KEY_P2_BAR_SHOW_LABEL]  = p2BarShowLabel
+                prefs[KEY_P2_BAR_IS_SLIDER]   = p2BarIsSlider
                 prefs[KEY_P2_BAR_TEXT_SCALE]  = p2BarTextScale
                 prefs[KEY_P2_BAR_WARN1_COLOR] = p2BarWarn1Color
                 prefs[KEY_P2_BAR_WARN1_VALUE] = p2BarWarn1Value.toString()
@@ -1826,6 +1842,7 @@ class MainViewModel @Inject constructor(
                     p2BarMin         = p2BarMin,
                     p2BarMax         = p2BarMax,
                     p2BarShowLabel   = p2BarShowLabel,
+                    p2BarIsSlider    = p2BarIsSlider,
                     p2BarTextScale   = p2BarTextScale,
                     p2BarWarn1Color  = p2BarWarn1Color,
                     p2BarWarn1Value  = p2BarWarn1Value,
@@ -1861,7 +1878,7 @@ class MainViewModel @Inject constructor(
             s.p2Pill2IoBrokerId, s.p2Pill2ValueMode, s.p2Pill2FixedValue,
             s.p2Slot1TextScale, s.p2Slot2TextScale, s.p2Slot3TextScale, s.p2Slot4TextScale, s.wfSleepTextScale,
             s.wfSleepSource, s.wfSleepComplication,
-            s.p2BarLabel, s.p2BarColor, s.p2BarMin, s.p2BarMax, s.p2BarShowLabel, s.p2BarTextScale,
+            s.p2BarLabel, s.p2BarColor, s.p2BarMin, s.p2BarMax, s.p2BarShowLabel, s.p2BarIsSlider, s.p2BarTextScale,
             s.p2BarWarn1Color, s.p2BarWarn1Value, s.p2BarWarn2Color, s.p2BarWarn2Value,
             s.p2ShowBackground
         )
@@ -1902,6 +1919,7 @@ class MainViewModel @Inject constructor(
         p2BarMin: Float = _uiState.value.p2BarMin,
         p2BarMax: Float = _uiState.value.p2BarMax,
         p2BarShowLabel: Boolean = _uiState.value.p2BarShowLabel,
+        p2BarIsSlider: Boolean = _uiState.value.p2BarIsSlider,
         p2BarTextScale: Int = _uiState.value.p2BarTextScale,
         p2BarWarn1Color: String = _uiState.value.p2BarWarn1Color,
         p2BarWarn1Value: Float = _uiState.value.p2BarWarn1Value,
@@ -1940,6 +1958,7 @@ class MainViewModel @Inject constructor(
                     p2BarMin         = p2BarMin,
                     p2BarMax         = p2BarMax,
                     p2BarShowLabel   = p2BarShowLabel,
+                    p2BarIsSlider    = p2BarIsSlider,
                     p2BarTextScale   = p2BarTextScale,
                     p2BarWarn1Color  = p2BarWarn1Color,
                     p2BarWarn1Value  = p2BarWarn1Value,
@@ -1982,26 +2001,54 @@ class MainViewModel @Inject constructor(
     // ── Handy-Akku ────────────────────────────────────────────────────────────
 
     /**
-     * Liest den aktuellen Akkustand, aktualisiert die App-Anzeige und sendet
-     * den Wert sofort ans Watchface (ohne auf den nächsten Sync-Zyklus zu warten).
+     * Verarbeitet ein Battery-Intent: aktualisiert die App-Anzeige und sendet
+     * den Wert sofort ans Watchface.
+     */
+    private fun handleBatteryIntent(batteryIntent: Intent?) {
+        if (batteryIntent == null) return
+        val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+        val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL
+        val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
+        if (percent >= 0) {
+            _uiState.update { it.copy(phoneBatteryLevel = percent) }
+            val showBattery = _uiState.value.wfShowPhoneBattery
+            wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging, showBattery)
+        }
+    }
+
+    /**
+     * Empfängt jede Akkustand-Änderung des Systems (ACTION_BATTERY_CHANGED),
+     * damit die App-Anzeige nie einfriert und der Wert bei jeder Veränderung
+     * sofort ans Watchface gepusht wird.
+     */
+    private val batteryReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            handleBatteryIntent(intent)
+        }
+    }
+
+    private fun registerBatteryReceiver() {
+        // Der zurückgegebene Sticky-Intent liefert sofort den aktuellen Stand.
+        val sticky = context.registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        handleBatteryIntent(sticky)
+    }
+
+    /**
+     * Liest den aktuellen Akkustand einmalig, aktualisiert die App-Anzeige und
+     * sendet den Wert sofort ans Watchface (z. B. beim Speichern der Config).
      */
     fun sendPhoneBattery() {
         viewModelScope.launch {
-            val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            if (batteryIntent != null) {
-                val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
-                val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                        status == BatteryManager.BATTERY_STATUS_FULL
-                val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
-                if (percent >= 0) {
-                    _uiState.update { it.copy(phoneBatteryLevel = percent) }
-                    val showBattery = _uiState.value.wfShowPhoneBattery
-                    wearDataLayerService.syncPhoneBatteryToWear(percent, isCharging, showBattery)
-                }
-            }
+            handleBatteryIntent(context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)))
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        runCatching { context.unregisterReceiver(batteryReceiver) }
     }
 
     // ── Wetter ─────────────────────────────────────────────────────────────────

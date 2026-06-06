@@ -562,6 +562,7 @@ class IoSyncWatchFaceRenderer(
                             dataMap.getString("wf_custom_slot4_bar_color")?.let { WatchFaceConfigCache.customSlot4BarColor = it }
                             if (dataMap.containsKey("wf_custom_slot4_bar_min")) WatchFaceConfigCache.customSlot4BarMin = dataMap.getFloat("wf_custom_slot4_bar_min")
                             if (dataMap.containsKey("wf_custom_slot4_bar_max")) WatchFaceConfigCache.customSlot4BarMax = dataMap.getFloat("wf_custom_slot4_bar_max")
+                            if (dataMap.containsKey("wf_custom_slot4_bar_is_slider")) WatchFaceConfigCache.customSlot4BarIsSlider = dataMap.getBoolean("wf_custom_slot4_bar_is_slider")
                         }
                         PATH_ACTION_PILL_STATE -> {
                             val dataMap = DataMapItem.fromDataItem(item).dataMap
@@ -660,6 +661,7 @@ class IoSyncWatchFaceRenderer(
                     dataMap.getString("wf_custom_slot4_bar_color")?.let { WatchFaceConfigCache.customSlot4BarColor = it }
                     if (dataMap.containsKey("wf_custom_slot4_bar_min")) WatchFaceConfigCache.customSlot4BarMin = dataMap.getFloat("wf_custom_slot4_bar_min")
                     if (dataMap.containsKey("wf_custom_slot4_bar_max")) WatchFaceConfigCache.customSlot4BarMax = dataMap.getFloat("wf_custom_slot4_bar_max")
+                    if (dataMap.containsKey("wf_custom_slot4_bar_is_slider")) WatchFaceConfigCache.customSlot4BarIsSlider = dataMap.getBoolean("wf_custom_slot4_bar_is_slider")
                 }
                 PATH_ACTION_PILL_STATE -> {
                     WatchFaceConfigCache.actionPillState = dataMap.getBoolean("pill_state", false)
@@ -1725,13 +1727,26 @@ class IoSyncWatchFaceRenderer(
                 RectF(barLeft, nextY, barRight, nextY + barH),
                 barCorner, barCorner, progressBgPaint
             )
-            // Füllung
-            if (fraction > 0f) {
-                val fillPaint = Paint().apply {
-                    color = barColor
-                    isAntiAlias = true
-                    style = Paint.Style.FILL
+            // Füllung bzw. Slider-Knopf
+            val fillPaint = Paint().apply {
+                color = barColor
+                isAntiAlias = true
+                style = Paint.Style.FILL
+            }
+            if (config.customSlot4BarIsSlider) {
+                // Slider: gefüllte Strecke (links → Thumb) + Knopf im gleichen Design
+                val barCy = nextY + barH / 2f
+                val thumbX = (barLeft + barW * fraction).coerceIn(barLeft, barRight)
+                if (thumbX > barLeft + barCorner) {
+                    canvas.drawRoundRect(
+                        RectF(barLeft, nextY, thumbX, nextY + barH),
+                        barCorner, barCorner, fillPaint
+                    )
                 }
+                val thumbR = barH * 0.95f
+                canvas.drawCircle(thumbX, barCy, thumbR, fillPaint)
+                canvas.drawCircle(thumbX, barCy, thumbR * 0.5f, progressBgPaint)
+            } else if (fraction > 0f) {
                 val minFill = barLeft + barCorner * 2
                 canvas.drawRoundRect(
                     RectF(barLeft, nextY, (barLeft + barW * fraction).coerceAtLeast(minFill), nextY + barH),
@@ -2605,12 +2620,24 @@ class IoSyncWatchFaceRenderer(
         canvas.drawRoundRect(RectF(barCx - barW / 2f, barTop, barCx + barW / 2f, barBot),
             barCorner, barCorner, progressBgPaint)
 
-        // Füllung (von unten nach oben)
-        if (fraction > 0f) {
-            val fillTop = barBot - barH * fraction
-            val fillPaint = Paint().apply {
-                color = barColor; isAntiAlias = true; style = Paint.Style.FILL
+        // Füllung (von unten nach oben) bzw. Slider-Knopf
+        val fillPaint = Paint().apply {
+            color = barColor; isAntiAlias = true; style = Paint.Style.FILL
+        }
+        if (config.p2BarIsSlider) {
+            // Slider: gefüllte Strecke (unten → Thumb) + Knopf im gleichen Design
+            val thumbY = (barBot - barH * fraction).coerceIn(barTop, barBot)
+            if (thumbY < barBot - barCorner) {
+                canvas.drawRoundRect(
+                    RectF(barCx - barW / 2f, thumbY, barCx + barW / 2f, barBot),
+                    barCorner, barCorner, fillPaint
+                )
             }
+            val thumbR = barW * 0.62f
+            canvas.drawCircle(barCx, thumbY, thumbR, fillPaint)
+            canvas.drawCircle(barCx, thumbY, thumbR * 0.5f, progressBgPaint)
+        } else if (fraction > 0f) {
+            val fillTop = barBot - barH * fraction
             val minFill = barBot - barCorner * 2
             canvas.drawRoundRect(
                 RectF(barCx - barW / 2f, fillTop.coerceAtMost(minFill), barCx + barW / 2f, barBot),

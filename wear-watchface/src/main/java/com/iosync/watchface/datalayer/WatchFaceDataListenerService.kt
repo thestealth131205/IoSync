@@ -69,6 +69,7 @@ private const val KEY_WF_CUSTOM_SLOT4_BAR_COLOR = "wf_custom_slot4_bar_color"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN   = "wf_custom_slot4_bar_min"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX        = "wf_custom_slot4_bar_max"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL = "wf_custom_slot4_bar_show_label"
+private const val KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER  = "wf_custom_slot4_bar_is_slider"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
 private const val KEY_WF_HR_TEXT_SCALE        = "wf_hr_text_scale"
 private const val KEY_WF_KCAL_TEXT_SCALE      = "wf_kcal_text_scale"
@@ -185,6 +186,7 @@ private const val KEY_WF_P2_BAR_COLOR           = "wf_p2_bar_color"
 private const val KEY_WF_P2_BAR_MIN             = "wf_p2_bar_min"
 private const val KEY_WF_P2_BAR_MAX             = "wf_p2_bar_max"
 private const val KEY_WF_P2_BAR_SHOW_LABEL      = "wf_p2_bar_show_label"
+private const val KEY_WF_P2_BAR_IS_SLIDER       = "wf_p2_bar_is_slider"
 private const val KEY_WF_P2_BAR_TEXT_SCALE      = "wf_p2_bar_text_scale"
 private const val KEY_WF_P2_BAR_WARN1_COLOR     = "wf_p2_bar_warn1_color"
 private const val KEY_WF_P2_BAR_WARN1_VALUE     = "wf_p2_bar_warn1_value"
@@ -251,6 +253,7 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MIN))        WatchFaceConfigCache.customSlot4BarMin       = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN)
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX))        WatchFaceConfigCache.customSlot4BarMax       = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) WatchFaceConfigCache.customSlot4BarShowLabel = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
+                    if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER))  WatchFaceConfigCache.customSlot4BarIsSlider  = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER)
                     dataMap.getString(KEY_WF_SLOT4_WARN1_COLOR)?.let { WatchFaceConfigCache.slot4Warn1Color = it }
                     dataMap.getString(KEY_WF_SLOT4_WARN2_COLOR)?.let { WatchFaceConfigCache.slot4Warn2Color = it }
                     if (dataMap.containsKey(KEY_WF_SLOT4_WARN1_VALUE)) WatchFaceConfigCache.slot4Warn1Value = dataMap.getFloat(KEY_WF_SLOT4_WARN1_VALUE)
@@ -369,6 +372,7 @@ object WatchFaceConfigCache {
     @Volatile var customSlot4BarMin: Float = 0f
     @Volatile var customSlot4BarMax: Float = 100f
     @Volatile var customSlot4BarShowLabel: Boolean = true
+    @Volatile var customSlot4BarIsSlider: Boolean = false
     // Individuelle Schriftgrößen je Wert (70–160, Default 100 = 100 %)
     @Volatile var hrTextScale: Int = 100
     @Volatile var kcalTextScale: Int = 100
@@ -460,6 +464,7 @@ object WatchFaceConfigCache {
     @Volatile var p2BarMin: Float = 0f
     @Volatile var p2BarMax: Float = 100f
     @Volatile var p2BarShowLabel: Boolean = true
+    @Volatile var p2BarIsSlider: Boolean = false
     @Volatile var p2BarTextScale: Int = 100
     @Volatile var p2BarWarn1Color: String = "orange"
     @Volatile var p2BarWarn1Value: Float = Float.NaN
@@ -519,6 +524,7 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MIN)) customSlot4BarMin = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MIN)
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX))        customSlot4BarMax        = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) customSlot4BarShowLabel = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
+        if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER))  customSlot4BarIsSlider  = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER)
         if (dataMap.containsKey(KEY_WF_HR_TEXT_SCALE))      hrTextScale      = dataMap.getInt(KEY_WF_HR_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_KCAL_TEXT_SCALE))    kcalTextScale    = dataMap.getInt(KEY_WF_KCAL_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_STEPS_TEXT_SCALE))   stepsTextScale   = dataMap.getInt(KEY_WF_STEPS_TEXT_SCALE)
@@ -589,6 +595,7 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_P2_BAR_MIN))        p2BarMin        = dataMap.getFloat(KEY_WF_P2_BAR_MIN)
         if (dataMap.containsKey(KEY_WF_P2_BAR_MAX))        p2BarMax        = dataMap.getFloat(KEY_WF_P2_BAR_MAX)
         if (dataMap.containsKey(KEY_WF_P2_BAR_SHOW_LABEL)) p2BarShowLabel  = dataMap.getBoolean(KEY_WF_P2_BAR_SHOW_LABEL)
+        if (dataMap.containsKey(KEY_WF_P2_BAR_IS_SLIDER))  p2BarIsSlider   = dataMap.getBoolean(KEY_WF_P2_BAR_IS_SLIDER)
         if (dataMap.containsKey(KEY_WF_P2_BAR_TEXT_SCALE)) p2BarTextScale  = dataMap.getInt(KEY_WF_P2_BAR_TEXT_SCALE)
         dataMap.getString(KEY_WF_P2_BAR_WARN1_COLOR)?.let { p2BarWarn1Color = it }
         dataMap.getString(KEY_WF_P2_BAR_WARN2_COLOR)?.let { p2BarWarn2Color = it }
