@@ -7,10 +7,13 @@ import android.os.BatteryManager
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iosync.app.BuildConfig
@@ -408,9 +411,11 @@ class MainViewModel @Inject constructor(
 
     private var ioSyncPollingJob: Job? = null
 
-    init {
-        viewModelScope.launch {
-            val prefs = dataStore.data.first()
+    /**
+     * Liest die gesamte Konfiguration aus dem DataStore und überträgt sie in den UI-State.
+     * Wird beim App-Start (init) und nach einer Backup-Wiederherstellung aufgerufen.
+     */
+    private suspend fun applyConfigFromPrefs(prefs: Preferences) {
             val host              = prefs[KEY_HOST]                 ?: BuildConfig.IOBROKER_DEFAULT_HOST
             val port              = prefs[KEY_PORT]                 ?: BuildConfig.IOBROKER_DEFAULT_PORT
             val wfTimeColor       = prefs[KEY_WF_TIME_COLOR]        ?: "light_gray"
@@ -705,9 +710,15 @@ class MainViewModel @Inject constructor(
                     p2ShowBackground = p2ShowBackground
                 )
             }
+    }
 
-            dynamicBaseUrl.update(host, port)
-            if (useIoSyncAdapter && ioSyncHost.isNotBlank()) startIoSyncPolling(ioSyncHost, ioSyncPort, ioSyncUseHttps, ioSyncUsername, ioSyncPassword)
+    init {
+        viewModelScope.launch {
+            applyConfigFromPrefs(dataStore.data.first())
+            val st = _uiState.value
+            dynamicBaseUrl.update(st.host, st.port)
+            if (st.useIoSyncAdapter && st.ioSyncHost.isNotBlank())
+                startIoSyncPolling(st.ioSyncHost, st.ioSyncPort, st.ioSyncUseHttps, st.ioSyncUsername, st.ioSyncPassword)
             // Gesamter Hintergrund-Sync ans Watchface läuft im Foreground-Service,
             // damit Wetter/Akku/Slots/Health auch bei geschlossener App aktualisiert werden.
             IoSyncSyncService.start(context)
@@ -2236,6 +2247,132 @@ class MainViewModel @Inject constructor(
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
             IoSyncSyncService.start(context)
+        }
+    }
+
+    // ── Backup & Wiederherstellen ───────────────────────────────────────────────
+
+    /**
+     * Sichert ALLE veränderbaren Werte (Farben, Breiten, Intervalle, Slots, Pillen …)
+     * aus dem DataStore als JSON in eine .ios-Datei im Dokumente-Ordner.
+     * Der gesamte Preferences-Inhalt wird generisch (mit Typ-Information) serialisiert,
+     * sodass auch zukünftig hinzukommende Einstellungen automatisch mitgesichert werden.
+     */
+    fun backupConfigToDocuments(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val prefs = dataStore.data.first()
+                val data = org.json.JSONObject()
+                prefs.asMap().forEach { (key, value) ->
+                    val entry = org.json.JSONObject()
+                    when (value) {
+                        is Boolean -> { entry.put("t", "boolean"); entry.put("v", value) }
+                        is Int     -> { entry.put("t", "int");     entry.put("v", value) }
+                        is Long    -> { entry.put("t", "long");    entry.put("v", value) }
+                        is Float   -> { entry.put("t", "float");   entry.put("v", value.toDouble()) }
+                        is Double  -> { entry.put("t", "double");  entry.put("v", value) }
+                        is String  -> { entry.put("t", "string");  entry.put("v", value) }
+                        is Set<*>  -> {
+                            entry.put("t", "stringset")
+                            entry.put("v", org.json.JSONArray(value.map { it.toString() }))
+                        }
+                        else -> return@forEach
+                    }
+                    data.put(key.name, entry)
+                }
+                val root = org.json.JSONObject().apply {
+                    put("_iosync_backup", true)
+                    put("version", BuildConfig.VERSION_CODE)
+                    put("created", System.currentTimeMillis())
+                    put("data", data)
+                }
+                val json = root.toString(2)
+
+                val stamp = java.text.SimpleDateFormat("yyyy-MM-dd_HHmm", java.util.Locale.GERMANY)
+                    .format(java.util.Date())
+                val fileName = "iosync-$stamp.ios"
+                val savedPath = writeBackupToDocuments(fileName, json)
+                onResult(true, savedPath)
+            } catch (e: Exception) {
+                onResult(false, e.message ?: "Unbekannter Fehler")
+            }
+        }
+    }
+
+    /** Schreibt die Backup-Datei in den öffentlichen Dokumente-Ordner. */
+    private fun writeBackupToDocuments(fileName: String, content: String): String {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
+                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOCUMENTS)
+            }
+            val collection = android.provider.MediaStore.Files
+                .getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val uri = resolver.insert(collection, values)
+                ?: throw java.io.IOException("Datei konnte nicht angelegt werden")
+            resolver.openOutputStream(uri)?.use { it.write(content.toByteArray(Charsets.UTF_8)) }
+                ?: throw java.io.IOException("Kein Schreibzugriff auf die Datei")
+            "Dokumente/$fileName"
+        } else {
+            val dir = android.os.Environment
+                .getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS)
+            if (!dir.exists()) dir.mkdirs()
+            val file = java.io.File(dir, fileName)
+            file.writeText(content)
+            file.absolutePath
+        }
+    }
+
+    /**
+     * Stellt die Konfiguration aus einer zuvor erstellten .ios-Backup-Datei wieder her.
+     * Liest ausschließlich Dateien im IoSync-Backup-Format; alle Werte werden in den
+     * DataStore zurückgeschrieben, der UI-State neu geladen und an die Uhr übertragen.
+     */
+    fun restoreConfigFromUri(uri: android.net.Uri, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val text = context.contentResolver.openInputStream(uri)?.use {
+                    it.readBytes().toString(Charsets.UTF_8)
+                } ?: throw java.io.IOException("Datei konnte nicht gelesen werden")
+
+                val root = org.json.JSONObject(text)
+                if (!root.optBoolean("_iosync_backup", false)) {
+                    throw IllegalArgumentException("Keine gültige IoSync-Backup-Datei (.ios)")
+                }
+                val data = root.getJSONObject("data")
+                dataStore.edit { prefs ->
+                    data.keys().forEach { name ->
+                        val entry = data.getJSONObject(name)
+                        when (entry.getString("t")) {
+                            "boolean"   -> prefs[booleanPreferencesKey(name)]   = entry.getBoolean("v")
+                            "int"       -> prefs[intPreferencesKey(name)]       = entry.getInt("v")
+                            "long"      -> prefs[longPreferencesKey(name)]      = entry.getLong("v")
+                            "float"     -> prefs[floatPreferencesKey(name)]     = entry.getDouble("v").toFloat()
+                            "double"    -> prefs[doublePreferencesKey(name)]    = entry.getDouble("v")
+                            "string"    -> prefs[stringPreferencesKey(name)]    = entry.getString("v")
+                            "stringset" -> {
+                                val arr = entry.getJSONArray("v")
+                                prefs[stringSetPreferencesKey(name)] =
+                                    (0 until arr.length()).map { arr.getString(it) }.toSet()
+                            }
+                        }
+                    }
+                }
+
+                // Wiederhergestellte Konfiguration in den UI-State laden und an die Uhr senden
+                applyConfigFromPrefs(dataStore.data.first())
+                val st = _uiState.value
+                dynamicBaseUrl.update(st.host, st.port)
+                if (st.useIoSyncAdapter && st.ioSyncHost.isNotBlank())
+                    startIoSyncPolling(st.ioSyncHost, st.ioSyncPort, st.ioSyncUseHttps, st.ioSyncUsername, st.ioSyncPassword)
+                try { pushFullConfigToWear() } catch (_: Exception) {}
+                IoSyncSyncService.start(context)
+                onResult(true, "Konfiguration wiederhergestellt")
+            } catch (e: Exception) {
+                onResult(false, e.message ?: "Unbekannter Fehler")
+            }
         }
     }
 

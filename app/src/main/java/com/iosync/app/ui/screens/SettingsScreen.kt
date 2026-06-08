@@ -2041,7 +2041,96 @@ fun SettingsScreen(
                     Text("Crash-Logs löschen")
                 }
             }
+
+            // ── Backup & Wiederherstellen ─────────────────────────────────────
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFF333333))
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Backup & Wiederherstellen",
+                style = MaterialTheme.typography.titleSmall,
+                color = NeonYellow,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Sichert alle Einstellungen (Farben, Breiten, Intervalle, Slots …) als .ios-Datei " +
+                       "im Dokumente-Ordner. Die Wiederherstellung liest ausschließlich .ios-Dateien.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            var backupStatus by remember { mutableStateOf<String?>(null) }
+
+            val restoreLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                if (uri != null) {
+                    val name = queryDisplayName(ctx, uri)
+                    if (name != null && !name.endsWith(".ios", ignoreCase = true)) {
+                        backupStatus = "Nur .ios-Dateien können gelesen werden"
+                    } else {
+                        viewModel.restoreConfigFromUri(uri) { ok, msg ->
+                            backupStatus = if (ok) "Wiederhergestellt: $msg" else "Fehler: $msg"
+                        }
+                    }
+                }
+            }
+
+            val storagePermLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                if (granted) {
+                    viewModel.backupConfigToDocuments { ok, msg ->
+                        backupStatus = if (ok) "Gespeichert: $msg" else "Fehler: $msg"
+                    }
+                } else {
+                    backupStatus = "Speicher-Berechtigung verweigert"
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q &&
+                            ContextCompat.checkSelfPermission(ctx, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                                android.content.pm.PackageManager.PERMISSION_GRANTED
+                        ) {
+                            storagePermLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        } else {
+                            viewModel.backupConfigToDocuments { ok, msg ->
+                                backupStatus = if (ok) "Gespeichert: $msg" else "Fehler: $msg"
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonYellow, contentColor = Color.Black)
+                ) { Text("Backup") }
+
+                OutlinedButton(
+                    onClick = { restoreLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    border = BorderStroke(1.dp, NeonYellow)
+                ) { Text("Wiederherstellen") }
+            }
+            backupStatus?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall, color = NeonYellow)
+            }
+            Spacer(Modifier.height(8.dp))
         }
+    }
+}
+
+/** Liest den Anzeigenamen (Dateiname) zu einer SAF-Uri aus, z. B. zur .ios-Prüfung. */
+private fun queryDisplayName(context: android.content.Context, uri: android.net.Uri): String? {
+    return context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+        val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+        if (idx >= 0 && c.moveToFirst()) c.getString(idx) else null
     }
 }
 

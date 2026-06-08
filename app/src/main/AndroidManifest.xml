@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- Backup-Datei in den Dokumente-Ordner schreiben (nur < Android 10; ab Q via MediaStore ohne Permission) -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <!-- Health Connect Berechtigungen -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
