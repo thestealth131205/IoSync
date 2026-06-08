@@ -8,7 +8,9 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.os.BatteryManager
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -94,7 +96,7 @@ class IoSyncSyncService : Service() {
                 // Sofort-Abruf von Wetter, Akku und Button-/Slot-States. Die Dauer-
                 // Loops/Push-Verbindung werden dabei NICHT neu gestartet.
                 try {
-                    startForeground(NOTIFICATION_ID, buildNotification())
+                    startForegroundCompat()
                     if (!loopsRunning) startLoops()
                     scope.launch { runImmediateSync() }
                 } catch (e: Exception) {
@@ -105,7 +107,7 @@ class IoSyncSyncService : Service() {
             else -> {
                 // ACTION_START oder null (Android-Neustart nach Kill via START_STICKY)
                 try {
-                    startForeground(NOTIFICATION_ID, buildNotification())
+                    startForegroundCompat()
                     startLoops()
                 } catch (e: Exception) {
                     Log.w(TAG, "Foreground-Start fehlgeschlagen: ${e.message}")
@@ -602,6 +604,19 @@ class IoSyncSyncService : Service() {
     }
 
     // ── Notification ────────────────────────────────────────────────────────────
+
+    private fun startForegroundCompat() {
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID, notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
 
     private fun buildNotification(): Notification {
         val channelId = "iosync_channel"
