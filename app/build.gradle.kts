@@ -33,8 +33,8 @@ android {
         applicationId = "com.iosync.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 437
-        versionName = "4.3.7"
+        versionCode = 438
+        versionName = "4.3.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -141,6 +141,9 @@ dependencies {
 
     // Health Connect (Google Fit + Drittanbieter-Gesundheitsdaten)
     implementation(libs.health.connect.client)
+
+    // WorkManager (Watchdog-Hintergrundtask für Service-Zuverlässigkeit)
+    implementation(libs.androidx.work.runtime)
 
     // Test
     testImplementation(libs.junit)

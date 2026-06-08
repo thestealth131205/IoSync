@@ -74,6 +74,10 @@ class IoSyncSyncService : Service() {
     // Serialisiert Push-getriggerte und intervallbasierte Syncs, damit sie sich nicht überlappen.
     private val syncMutex = kotlinx.coroutines.sync.Mutex()
 
+    // Ob die Dauer-Sync-Loops aktuell laufen – verhindert, dass ein Sofort-Sync
+    // (ACTION_SYNC_NOW) die laufenden Loops/Push-Verbindung neu startet.
+    @Volatile private var loopsRunning = false
+
     // Letzte bekannte Health-Werte (Health Connect liefert nicht immer einen neuen Wert)
     private var lastKnownHr: Int = 0
     private var lastKnownKcal: Int = 0
@@ -85,6 +89,19 @@ class IoSyncSyncService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> stopEverything()
+            ACTION_SYNC_NOW -> {
+                // Vom Watchface beim Display-Einschalten angefordert: einmaliger
+                // Sofort-Abruf von Wetter, Akku und Button-/Slot-States. Die Dauer-
+                // Loops/Push-Verbindung werden dabei NICHT neu gestartet.
+                try {
+                    startForeground(NOTIFICATION_ID, buildNotification())
+                    if (!loopsRunning) startLoops()
+                    scope.launch { runImmediateSync() }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Sofort-Sync fehlgeschlagen: ${e.message}")
+                    stopSelf()
+                }
+            }
             else -> {
                 // ACTION_START oder null (Android-Neustart nach Kill via START_STICKY)
                 try {
@@ -113,6 +130,7 @@ class IoSyncSyncService : Service() {
     }
 
     private fun cancelLoops() {
+        loopsRunning = false
         ioSyncPushClient.stop()
         unregisterBatteryReceiver()
         pushJob?.cancel(); pushSyncJob?.cancel(); dataJob?.cancel(); page2DataJob?.cancel(); batteryJob?.cancel(); weatherJob?.cancel(); healthJob?.cancel()
@@ -120,6 +138,7 @@ class IoSyncSyncService : Service() {
 
     private fun startLoops() {
         cancelLoops()
+        loopsRunning = true
         registerBatteryReceiver()
         pushJob      = scope.launch { pushLoop() }
         dataJob      = scope.launch { dataLoop() }
@@ -543,6 +562,45 @@ class IoSyncSyncService : Service() {
         }
     }
 
+    // ── Sofort-Sync (vom Watchface beim Display-Einschalten angefordert) ─────────
+
+    /**
+     * Einmaliger Sofort-Abruf von Wetter, Handy-Akku und ioBroker-Slots/Button-States.
+     * Wird über [ACTION_SYNC_NOW] ausgelöst, wenn das Watchface aktiv wird (Display an),
+     * damit dort sofort frische Werte statt veralteter Cache-Daten erscheinen.
+     */
+    private suspend fun runImmediateSync() {
+        try {
+            val prefs = dataStore.data.first()
+
+            // Wetter (nur OpenWeather; ioBroker-Temperatur wird in runDataSync abgedeckt)
+            val showWeather = prefs[MainViewModel.KEY_WF_SHOW_WEATHER] ?: true
+            val tempSource  = prefs[MainViewModel.KEY_WF_WEATHER_TEMP_SOURCE] ?: "openweather"
+            if (showWeather && tempSource == "openweather") {
+                val useFixed = prefs[MainViewModel.KEY_WEATHER_USE_FIXED] ?: false
+                weatherService.useFixedLocation = useFixed
+                weatherService.fixedLat = if (useFixed) prefs[MainViewModel.KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() else null
+                weatherService.fixedLon = if (useFixed) prefs[MainViewModel.KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() else null
+                weatherService.fetchWeather()
+                    .onSuccess { wearDataLayerService.syncWeatherToWear(it.temperature, it.condition) }
+                    .onFailure { Log.w(TAG, "Sofort-Sync Wetter fehlgeschlagen: ${it.message}") }
+            }
+
+            // Handy-Akku erzwungen pushen
+            val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            if (batteryIntent != null) pushBattery(batteryIntent, force = true)
+
+            // ioBroker-Slots/States + Seite-2-Slots/Pillen (Button-States)
+            runDataSync(prefs)
+            runPage2Sync(prefs)
+            Log.d(TAG, "Sofort-Sync (Display an) abgeschlossen")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "runImmediateSync fehlgeschlagen: ${e.message}", e)
+        }
+    }
+
     // ── Notification ────────────────────────────────────────────────────────────
 
     private fun buildNotification(): Notification {
@@ -552,10 +610,12 @@ class IoSyncSyncService : Service() {
             val channel = NotificationChannel(
                 channelId,
                 "IoSync Hintergrund-Sync",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Überträgt Wetter-, Akku-, ioBroker- und Health-Daten ans Watchface"
                 setShowBadge(false)
+                setSound(null, null) // stumm – kein Ton trotz IMPORTANCE_DEFAULT
+                enableVibration(false)
             }
             manager.createNotificationChannel(channel)
         }
@@ -580,6 +640,7 @@ class IoSyncSyncService : Service() {
         private const val TAG = "IoSyncSyncService"
         const val ACTION_START = "com.iosync.app.START_SYNC"
         const val ACTION_STOP = "com.iosync.app.STOP_SYNC"
+        const val ACTION_SYNC_NOW = "com.iosync.app.SYNC_NOW"
         private const val NOTIFICATION_ID = 1003
         private const val WEATHER_INTERVAL_MS = 600_000L // 10 Minuten
 
@@ -592,6 +653,13 @@ class IoSyncSyncService : Service() {
         fun stop(context: Context) {
             context.startService(Intent(context, IoSyncSyncService::class.java).apply {
                 action = ACTION_STOP
+            })
+        }
+
+        /** Einmaliger Sofort-Sync (Wetter, Akku, Button-States) – vom Watchface bei Display-An. */
+        fun syncNow(context: Context) {
+            context.startForegroundService(Intent(context, IoSyncSyncService::class.java).apply {
+                action = ACTION_SYNC_NOW
             })
         }
     }

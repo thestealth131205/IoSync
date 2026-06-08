@@ -10,6 +10,7 @@ import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import com.iosync.app.data.network.IoSyncClient
+import com.iosync.app.data.sync.IoSyncSyncService
 import com.iosync.app.ui.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,7 @@ private const val PATH_P2_PILL2_TRIGGER    = "/iosync/watchface/p2_pill2_trigger
 private const val PATH_P2_SLIDER_VALUE     = "/iosync/watchface/p2_slider_value"
 private const val PATH_NTP_OFFSET_FROM_WATCH = "/iosync/watchface/ntp_offset"
 private const val KEY_NTP_OFFSET_MS          = "ntp_offset_ms"
+private const val PATH_REQUEST_REFRESH       = "/iosync/watchface/request_refresh"
 
 /**
  * Empfängt Doppelklick-Trigger vom Watchface und führt den konfigurierten ioBroker-Befehl aus.
@@ -57,6 +59,10 @@ class WatchFaceTriggerListenerService : WearableListenerService() {
                 val value = String(messageEvent.data, Charsets.UTF_8)
                 Log.d(TAG, "Slider-Wert '$value' vom Watchface empfangen")
                 scope.launch { handleSliderValue(value) }
+            }
+            PATH_REQUEST_REFRESH  -> {
+                Log.d(TAG, "Refresh-Anforderung vom Watchface empfangen (Display an) → Sofort-Sync")
+                IoSyncSyncService.syncNow(applicationContext)
             }
         }
     }

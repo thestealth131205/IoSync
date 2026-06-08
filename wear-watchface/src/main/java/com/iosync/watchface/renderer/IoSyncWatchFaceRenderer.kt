@@ -418,6 +418,8 @@ class IoSyncWatchFaceRenderer(
         private const val NTP_PREFS_NAME          = "iosync_ntp"
         private const val NTP_PREFS_KEY_OFFSET    = "ntp_offset_ms"
         private const val PATH_ACTION_TRIGGER = "/iosync/watchface/action_trigger"
+        // Beim Display-Einschalten gesendet → Handy ruft Wetter/Akku/Button-States sofort frisch ab
+        private const val PATH_REQUEST_REFRESH = "/iosync/watchface/request_refresh"
         private const val TAG_PILL        = "WatchFacePill"
         private const val CONFIRM_DURATION_MS = 2000L
 
@@ -504,7 +506,14 @@ class IoSyncWatchFaceRenderer(
             combine(watchState.isVisible, watchState.isAmbient) { visible, ambient ->
                 visible == true && ambient != true
             }.distinctUntilChanged().collect { active ->
-                if (active) loadInitialConfig()
+                if (active) {
+                    // 1. Zuletzt vom Handy gepushte Werte sofort aus dem Data Layer einlesen
+                    loadInitialConfig()
+                    // 2. Handy zusätzlich um einen frischen Abruf bitten (Wetter, alle
+                    //    Akku-Stände, Button-States) – damit beim Display-Einschalten
+                    //    nicht nur veraltete Cache-Werte, sondern aktuelle Daten erscheinen.
+                    requestPhoneRefresh()
+                }
             }
         }
 
@@ -1173,6 +1182,27 @@ class IoSyncWatchFaceRenderer(
         else          -> Color.parseColor("#00BCD4")
     }
 
+
+    /**
+     * Fordert beim Display-Einschalten einen sofortigen Daten-Refresh vom Handy an.
+     * Das Handy ruft daraufhin Wetter, alle Akku-Stände und Button-/Pillen-States
+     * einmalig frisch ab und pusht sie ans Watchface.
+     */
+    private fun requestPhoneRefresh() {
+        scope.launch {
+            try {
+                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
+                if (nodes.isEmpty()) return@launch
+                nodes.forEach { node ->
+                    Wearable.getMessageClient(context)
+                        .sendMessage(node.id, PATH_REQUEST_REFRESH, byteArrayOf())
+                }
+                Log.d(TAG_PILL, "Refresh-Anforderung (Display an) ans Handy gesendet")
+            } catch (e: Exception) {
+                Log.w(TAG_PILL, "Refresh-Anforderung fehlgeschlagen: ${e.message}")
+            }
+        }
+    }
 
     /** Sendet einen Trigger an die verbundene Android App via Wearable MessageClient. */
     private fun triggerPillAction() {
