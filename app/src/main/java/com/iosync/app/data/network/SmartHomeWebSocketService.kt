@@ -47,7 +47,7 @@ class SmartHomeWebSocketService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val channelId = "iosync_ws_channel"
+        val channelId = "iosync_api_channel"
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(channelId) == null) {
             val channel = NotificationChannel(

@@ -604,7 +604,7 @@ class IoSyncSyncService : Service() {
     // ── Notification ────────────────────────────────────────────────────────────
 
     private fun buildNotification(): Notification {
-        val channelId = "iosync_sync_channel"
+        val channelId = "iosync_channel"
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(channelId) == null) {
             val channel = NotificationChannel(
