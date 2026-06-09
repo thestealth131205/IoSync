@@ -8,6 +8,23 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.4.5",
+        date = "10.06.2026",
+        changes = listOf(
+            "Button-Uebertragung zu ioBroker verifiziert (Pillen, Slider)",
+            "Versionierung vor jedem Push sichergestellt"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.4.4",
+        date = "09.06.2026",
+        changes = listOf(
+            "Fix: Verbindungsconfig wird nach Speichern sofort an die Uhr uebertragen",
+            "Layout: Untere Komplikations-Ringe weiter nach unten und aussen",
+            "Layout: Uhrzeit-Anzeige leicht nach links und oben verschoben"
+        )
+    ),
+    ChangelogEntry(
         version = "4.4.3",
         date = "09.06.2026",
         changes = listOf(
