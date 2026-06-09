@@ -852,7 +852,9 @@ class IoSyncWatchFaceRenderer(
             timePaint.color    = timeColor
             timePaint.textSize = timeFontSize
 
-            val timeBaseline = cy + timeFontSize * 0.15f
+            // Uhr etwas nach links und oben verschoben
+            val timeCx       = cx - radius * 0.04f
+            val timeBaseline = cy + timeFontSize * 0.03f
 
             // weekdayBottomY wird je nach Layout (mit/ohne Sekunden) gesetzt
             val weekdayBottomY: Float
@@ -867,7 +869,7 @@ class IoSyncWatchFaceRenderer(
                 val timeWidth = timePaint.measureText(timeStr)
                 val secWidth  = secondsPaint.measureText(secStr)
                 val gap       = radius * 0.025f
-                val startX    = cx - (timeWidth + gap + secWidth) / 2f
+                val startX    = timeCx - (timeWidth + gap + secWidth) / 2f
                 val secX      = startX + timeWidth + gap
 
                 canvas.drawText(timeStr, startX, timeBaseline, timePaint)
@@ -899,13 +901,13 @@ class IoSyncWatchFaceRenderer(
                 }
             } else {
                 val timeWidth = timePaint.measureText(timeStr)
-                canvas.drawText(timeStr, cx - timeWidth / 2f, timeBaseline, timePaint)
+                canvas.drawText(timeStr, timeCx - timeWidth / 2f, timeBaseline, timePaint)
 
                 // Tipp-Zone Stunden/Minuten merken; ohne Sekunden keine Kalender-Zone
                 val timeFm  = timePaint.fontMetrics
                 val tapPadV = timeFontSize * 0.12f
-                timeTapBounds.set(cx - timeWidth / 2f, timeBaseline + timeFm.ascent - tapPadV,
-                    cx + timeWidth / 2f, timeBaseline + timeFm.descent + tapPadV)
+                timeTapBounds.set(timeCx - timeWidth / 2f, timeBaseline + timeFm.ascent - tapPadV,
+                    timeCx + timeWidth / 2f, timeBaseline + timeFm.descent + tapPadV)
                 daySecondsTapBounds.setEmpty()
 
                 // Ohne Sekunden: Datum zentriert unterhalb der Zeit
@@ -915,11 +917,11 @@ class IoSyncWatchFaceRenderer(
                     weekdayPaint.color     = dateColor
                     weekdayPaint.textSize  = dateFontSize
                     weekdayPaint.textAlign = Paint.Align.CENTER
-                    val dateY = cy + timeFontSize * 0.15f + radius * 0.33f
-                    canvas.drawText(dateStr, cx, dateY, weekdayPaint)
+                    val dateY = cy + timeFontSize * 0.03f + radius * 0.33f
+                    canvas.drawText(dateStr, timeCx, dateY, weekdayPaint)
                     dateY + weekdayPaint.fontMetrics.descent
                 } else {
-                    cy + timeFontSize * 0.15f + radius * 0.18f
+                    cy + timeFontSize * 0.03f + radius * 0.18f
                 }
             }
 
@@ -1465,16 +1467,16 @@ class IoSyncWatchFaceRenderer(
      * Beide haben einen konfigurierbaren Fortschrittsring (ein-/ausschaltbar, Farben, Min/Max).
      *
      * Positionen (relativ zum Uhrmittelpunkt) passend zu den Kreistaschen im Hintergrundbild:
-     *   leftCx  = cx - radius * 0.35, compCy = cy + radius * 0.45
-     *   rightCx = cx + radius * 0.35, compCy = cy + radius * 0.45
+     *   leftCx  = cx - radius * 0.39, compCy = cy + radius * 0.52
+     *   rightCx = cx + radius * 0.39, compCy = cy + radius * 0.52
      */
     private fun drawBottomComplications(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
         if (!config.showBottomComp) return
 
-        val compCy     = cy + radius * 0.45f
-        val leftCx     = cx - radius * 0.35f
-        val rightCx    = cx + radius * 0.35f
+        val compCy     = cy + radius * 0.52f
+        val leftCx     = cx - radius * 0.39f
+        val rightCx    = cx + radius * 0.39f
         val compRadius = radius * 0.215f
 
         // ── BC1 (links) – Puls oder ioBroker ──────────────────────────────────

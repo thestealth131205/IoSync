@@ -977,6 +977,7 @@ class MainViewModel @Inject constructor(
                 startIoSyncPolling(host, port, useHttps, username, password)
                 refresh()
             }
+            try { pushConnectionConfigToWear() } catch (_: Exception) {}
         }
     }
 
