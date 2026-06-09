@@ -76,7 +76,8 @@ import com.iosync.app.ui.viewmodel.MainViewModel
 @Composable
 fun SettingsScreen(
     viewModel: MainViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onChangelogClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -2120,6 +2121,19 @@ fun SettingsScreen(
             backupStatus?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = NeonYellow)
+            }
+
+            // ── Changelog ────────────────────────────────────────────────────
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFF333333))
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onChangelogClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonYellow),
+                border = BorderStroke(1.dp, NeonYellow)
+            ) {
+                Text("Changelog anzeigen")
             }
             Spacer(Modifier.height(8.dp))
         }

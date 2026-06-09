@@ -2,7 +2,7 @@ name: Android App Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v5-Test ]
     paths:
       - 'app/**'
       - 'gradle/**'
@@ -10,7 +10,7 @@ on:
       - 'settings.gradle.kts'
       - '.github/workflows/android-app.yml'
   pull_request:
-    branches: [ main ]
+    branches: [ main, v5-Test ]
     paths:
       - 'app/**'
   workflow_dispatch:

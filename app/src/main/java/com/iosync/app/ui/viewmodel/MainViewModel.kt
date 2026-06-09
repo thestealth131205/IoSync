@@ -229,7 +229,28 @@ data class MainUiState(
     val wearSyncLog: String = "",
     // Health Connect Status
     val healthConnectStatus: HealthConnectStatus = HealthConnectStatus(),
-    val healthConnectLoading: Boolean = false
+    val healthConnectLoading: Boolean = false,
+    // ── Boden-Komplikationen (2 Kreistaschen unten) ──────────────────────────
+    val wfShowBottomComp: Boolean = true,
+    val wfBc1UseIoBroker: Boolean = false,
+    val wfBc1Id: String = "",
+    val wfBc1Label: String = "BPM",
+    val wfBc1Color: String = "red",
+    val wfBc1RingEnabled: Boolean = true,
+    val wfBc1RingColor1: String = "red",
+    val wfBc1RingColor2: String = "orange",
+    val wfBc1RingMin: Float = 0f,
+    val wfBc1RingMax: Float = 220f,
+    val wfBc2Metric: String = "kcal",
+    val wfBc2UseIoBroker: Boolean = false,
+    val wfBc2Id: String = "",
+    val wfBc2Label: String = "KCAL",
+    val wfBc2Color: String = "orange",
+    val wfBc2RingEnabled: Boolean = true,
+    val wfBc2RingColor1: String = "orange",
+    val wfBc2RingColor2: String = "neon_yellow",
+    val wfBc2RingMin: Float = 0f,
+    val wfBc2RingMax: Float = 1000f
 )
 
 @HiltViewModel
@@ -401,6 +422,27 @@ class MainViewModel @Inject constructor(
         val KEY_P2_BAR_WARN1_VALUE  = stringPreferencesKey("p2_bar_warn1_value")
         val KEY_P2_BAR_WARN2_COLOR  = stringPreferencesKey("p2_bar_warn2_color")
         val KEY_P2_BAR_WARN2_VALUE  = stringPreferencesKey("p2_bar_warn2_value")
+        // Boden-Komplikationen
+        val KEY_WF_SHOW_BOTTOM_COMP  = booleanPreferencesKey("wf_show_bottom_comp")
+        val KEY_WF_BC1_USE_IOBROKER  = booleanPreferencesKey("wf_bc1_use_iobroker")
+        val KEY_WF_BC1_ID            = stringPreferencesKey("wf_bc1_id")
+        val KEY_WF_BC1_LABEL         = stringPreferencesKey("wf_bc1_label")
+        val KEY_WF_BC1_COLOR         = stringPreferencesKey("wf_bc1_color")
+        val KEY_WF_BC1_RING_ENABLED  = booleanPreferencesKey("wf_bc1_ring_enabled")
+        val KEY_WF_BC1_RING_COLOR1   = stringPreferencesKey("wf_bc1_ring_color1")
+        val KEY_WF_BC1_RING_COLOR2   = stringPreferencesKey("wf_bc1_ring_color2")
+        val KEY_WF_BC1_RING_MIN      = stringPreferencesKey("wf_bc1_ring_min")
+        val KEY_WF_BC1_RING_MAX      = stringPreferencesKey("wf_bc1_ring_max")
+        val KEY_WF_BC2_METRIC        = stringPreferencesKey("wf_bc2_metric")
+        val KEY_WF_BC2_USE_IOBROKER  = booleanPreferencesKey("wf_bc2_use_iobroker")
+        val KEY_WF_BC2_ID            = stringPreferencesKey("wf_bc2_id")
+        val KEY_WF_BC2_LABEL         = stringPreferencesKey("wf_bc2_label")
+        val KEY_WF_BC2_COLOR         = stringPreferencesKey("wf_bc2_color")
+        val KEY_WF_BC2_RING_ENABLED  = booleanPreferencesKey("wf_bc2_ring_enabled")
+        val KEY_WF_BC2_RING_COLOR1   = stringPreferencesKey("wf_bc2_ring_color1")
+        val KEY_WF_BC2_RING_COLOR2   = stringPreferencesKey("wf_bc2_ring_color2")
+        val KEY_WF_BC2_RING_MIN      = stringPreferencesKey("wf_bc2_ring_min")
+        val KEY_WF_BC2_RING_MAX      = stringPreferencesKey("wf_bc2_ring_max")
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -560,6 +602,27 @@ class MainViewModel @Inject constructor(
             val p2BarWarn1Value = prefs[KEY_P2_BAR_WARN1_VALUE]?.toFloatOrNull() ?: Float.NaN
             val p2BarWarn2Color = prefs[KEY_P2_BAR_WARN2_COLOR] ?: "red"
             val p2BarWarn2Value = prefs[KEY_P2_BAR_WARN2_VALUE]?.toFloatOrNull() ?: Float.NaN
+            // Boden-Komplikationen
+            val wfShowBottomComp  = prefs[KEY_WF_SHOW_BOTTOM_COMP]  ?: true
+            val wfBc1UseIoBroker  = prefs[KEY_WF_BC1_USE_IOBROKER]  ?: false
+            val wfBc1Id           = prefs[KEY_WF_BC1_ID]            ?: ""
+            val wfBc1Label        = prefs[KEY_WF_BC1_LABEL]         ?: "BPM"
+            val wfBc1Color        = prefs[KEY_WF_BC1_COLOR]         ?: "red"
+            val wfBc1RingEnabled  = prefs[KEY_WF_BC1_RING_ENABLED]  ?: true
+            val wfBc1RingColor1   = prefs[KEY_WF_BC1_RING_COLOR1]   ?: "red"
+            val wfBc1RingColor2   = prefs[KEY_WF_BC1_RING_COLOR2]   ?: "orange"
+            val wfBc1RingMin      = prefs[KEY_WF_BC1_RING_MIN]?.toFloatOrNull() ?: 0f
+            val wfBc1RingMax      = prefs[KEY_WF_BC1_RING_MAX]?.toFloatOrNull() ?: 220f
+            val wfBc2Metric       = prefs[KEY_WF_BC2_METRIC]        ?: "kcal"
+            val wfBc2UseIoBroker  = prefs[KEY_WF_BC2_USE_IOBROKER]  ?: false
+            val wfBc2Id           = prefs[KEY_WF_BC2_ID]            ?: ""
+            val wfBc2Label        = prefs[KEY_WF_BC2_LABEL]         ?: "KCAL"
+            val wfBc2Color        = prefs[KEY_WF_BC2_COLOR]         ?: "orange"
+            val wfBc2RingEnabled  = prefs[KEY_WF_BC2_RING_ENABLED]  ?: true
+            val wfBc2RingColor1   = prefs[KEY_WF_BC2_RING_COLOR1]   ?: "orange"
+            val wfBc2RingColor2   = prefs[KEY_WF_BC2_RING_COLOR2]   ?: "neon_yellow"
+            val wfBc2RingMin      = prefs[KEY_WF_BC2_RING_MIN]?.toFloatOrNull() ?: 0f
+            val wfBc2RingMax      = prefs[KEY_WF_BC2_RING_MAX]?.toFloatOrNull() ?: 1000f
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -707,7 +770,27 @@ class MainViewModel @Inject constructor(
                     p2BarWarn1Value = p2BarWarn1Value,
                     p2BarWarn2Color  = p2BarWarn2Color,
                     p2BarWarn2Value  = p2BarWarn2Value,
-                    p2ShowBackground = p2ShowBackground
+                    p2ShowBackground = p2ShowBackground,
+                    wfShowBottomComp  = wfShowBottomComp,
+                    wfBc1UseIoBroker  = wfBc1UseIoBroker,
+                    wfBc1Id           = wfBc1Id,
+                    wfBc1Label        = wfBc1Label,
+                    wfBc1Color        = wfBc1Color,
+                    wfBc1RingEnabled  = wfBc1RingEnabled,
+                    wfBc1RingColor1   = wfBc1RingColor1,
+                    wfBc1RingColor2   = wfBc1RingColor2,
+                    wfBc1RingMin      = wfBc1RingMin,
+                    wfBc1RingMax      = wfBc1RingMax,
+                    wfBc2Metric       = wfBc2Metric,
+                    wfBc2UseIoBroker  = wfBc2UseIoBroker,
+                    wfBc2Id           = wfBc2Id,
+                    wfBc2Label        = wfBc2Label,
+                    wfBc2Color        = wfBc2Color,
+                    wfBc2RingEnabled  = wfBc2RingEnabled,
+                    wfBc2RingColor1   = wfBc2RingColor1,
+                    wfBc2RingColor2   = wfBc2RingColor2,
+                    wfBc2RingMin      = wfBc2RingMin,
+                    wfBc2RingMax      = wfBc2RingMax
                 )
             }
     }
@@ -989,7 +1072,67 @@ class MainViewModel @Inject constructor(
             oxygenLabel = HealthConnectManager.metricLabel(s.wfOxygenMetric),
             oxygenUnit  = HealthConnectManager.metricUnit(s.wfOxygenMetric),
             ntpEnabled  = s.wfNtpEnabled,
-            ntpServer   = s.wfNtpServer
+            ntpServer   = s.wfNtpServer,
+            // Boden-Komplikationen
+            showBottomComp  = s.wfShowBottomComp,
+            bc1UseIoBroker  = s.wfBc1UseIoBroker,
+            bc1Label        = s.wfBc1Label,
+            bc1Color        = s.wfBc1Color,
+            bc1RingEnabled  = s.wfBc1RingEnabled,
+            bc1RingColor1   = s.wfBc1RingColor1,
+            bc1RingColor2   = s.wfBc1RingColor2,
+            bc1RingMin      = s.wfBc1RingMin,
+            bc1RingMax      = s.wfBc1RingMax,
+            bc2Metric       = s.wfBc2Metric,
+            bc2UseIoBroker  = s.wfBc2UseIoBroker,
+            bc2Label        = s.wfBc2Label,
+            bc2Color        = s.wfBc2Color,
+            bc2RingEnabled  = s.wfBc2RingEnabled,
+            bc2RingColor1   = s.wfBc2RingColor1,
+            bc2RingColor2   = s.wfBc2RingColor2,
+            bc2RingMin      = s.wfBc2RingMin,
+            bc2RingMax      = s.wfBc2RingMax
+        )
+        pushConnectionConfigToWear()
+    }
+
+    /**
+     * Überträgt die Verbindungs-/Datenpunkt-Konfiguration ans Watchface (ab v5).
+     *
+     * Ab v5 ruft die Uhr die ioBroker-Datenpunkte und das Wetter selbst ab. Das
+     * Handy sendet nur noch diese Einstellungen (Adapter-Zugang, Datenpunkt-IDs der
+     * Slots/Balken/Schlaf-Quelle, Wetter-Standort, Abruf-Intervalle) – nicht mehr
+     * die Werte. Gelesen wird direkt aus dem DataStore, damit immer der gespeicherte
+     * Stand übertragen wird.
+     */
+    private suspend fun pushConnectionConfigToWear() {
+        val prefs = dataStore.data.first()
+        wearDataLayerService.syncConnectionConfigToWear(
+            useAdapter = prefs[KEY_USE_IOSYNC_ADAPTER] ?: true,
+            host       = prefs[KEY_IOSYNC_HOST] ?: "",
+            port       = prefs[KEY_IOSYNC_PORT] ?: 7443,
+            useHttps   = prefs[KEY_IOSYNC_USE_HTTPS] ?: false,
+            username   = prefs[KEY_IOSYNC_USERNAME] ?: "",
+            password   = prefs[KEY_IOSYNC_PASSWORD] ?: "",
+            usePush    = true,
+            slot1Id = prefs[KEY_CUSTOM_SLOT1_ID] ?: "",
+            slot2Id = prefs[KEY_CUSTOM_SLOT2_ID] ?: "",
+            slot3Id = prefs[KEY_CUSTOM_SLOT3_ID] ?: "",
+            slot4Id = prefs[KEY_CUSTOM_SLOT4_ID] ?: "",
+            p2Slot1Id = prefs[KEY_P2_SLOT1_ID] ?: "",
+            p2Slot2Id = prefs[KEY_P2_SLOT2_ID] ?: "",
+            p2Slot3Id = prefs[KEY_P2_SLOT3_ID] ?: "",
+            p2Slot4Id = prefs[KEY_P2_SLOT4_ID] ?: "",
+            p2BarId   = prefs[KEY_P2_BAR_ID] ?: "",
+            sleepId   = prefs[KEY_WF_SLEEP_IOBROKER_ID] ?: "",
+            weatherUseFixed = prefs[KEY_WEATHER_USE_FIXED] ?: false,
+            weatherLat = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: Double.NaN,
+            weatherLon = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: Double.NaN,
+            slotIntervalSec  = prefs[KEY_SLOT_POLL_INTERVAL] ?: 120,
+            page2IntervalSec = prefs[KEY_PAGE2_SYNC_INTERVAL] ?: 120,
+            weatherIntervalSec = 600,
+            bc1Id = prefs[KEY_WF_BC1_ID] ?: "",
+            bc2Id = prefs[KEY_WF_BC2_ID] ?: ""
         )
     }
 
@@ -1314,6 +1457,70 @@ class MainViewModel @Inject constructor(
             // IoSync-States sofort an Watchface senden wenn gerade aktiviert
             if (showIoBrokerData && _uiState.value.ioSyncStates.isNotEmpty()) {
                 wearDataLayerService.syncStatesToWear(_uiState.value.ioSyncStates)
+            }
+        }
+    }
+
+    // ── Boden-Komplikationen ──────────────────────────────────────────────────
+
+    /**
+     * Speichert die Konfiguration der beiden Boden-Komplikationen (BC1/BC2) und
+     * überträgt sie an das Watchface.
+     */
+    fun setBottomCompConfig(
+        showBottomComp: Boolean,
+        bc1UseIoBroker: Boolean, bc1Id: String, bc1Label: String, bc1Color: String,
+        bc1RingEnabled: Boolean, bc1RingColor1: String, bc1RingColor2: String,
+        bc1RingMin: Float, bc1RingMax: Float,
+        bc2Metric: String,
+        bc2UseIoBroker: Boolean, bc2Id: String, bc2Label: String, bc2Color: String,
+        bc2RingEnabled: Boolean, bc2RingColor1: String, bc2RingColor2: String,
+        bc2RingMin: Float, bc2RingMax: Float
+    ) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_WF_SHOW_BOTTOM_COMP]  = showBottomComp
+                prefs[KEY_WF_BC1_USE_IOBROKER]  = bc1UseIoBroker
+                prefs[KEY_WF_BC1_ID]            = bc1Id
+                prefs[KEY_WF_BC1_LABEL]         = bc1Label
+                prefs[KEY_WF_BC1_COLOR]         = bc1Color
+                prefs[KEY_WF_BC1_RING_ENABLED]  = bc1RingEnabled
+                prefs[KEY_WF_BC1_RING_COLOR1]   = bc1RingColor1
+                prefs[KEY_WF_BC1_RING_COLOR2]   = bc1RingColor2
+                prefs[KEY_WF_BC1_RING_MIN]      = bc1RingMin.toString()
+                prefs[KEY_WF_BC1_RING_MAX]      = bc1RingMax.toString()
+                prefs[KEY_WF_BC2_METRIC]        = bc2Metric
+                prefs[KEY_WF_BC2_USE_IOBROKER]  = bc2UseIoBroker
+                prefs[KEY_WF_BC2_ID]            = bc2Id
+                prefs[KEY_WF_BC2_LABEL]         = bc2Label
+                prefs[KEY_WF_BC2_COLOR]         = bc2Color
+                prefs[KEY_WF_BC2_RING_ENABLED]  = bc2RingEnabled
+                prefs[KEY_WF_BC2_RING_COLOR1]   = bc2RingColor1
+                prefs[KEY_WF_BC2_RING_COLOR2]   = bc2RingColor2
+                prefs[KEY_WF_BC2_RING_MIN]      = bc2RingMin.toString()
+                prefs[KEY_WF_BC2_RING_MAX]      = bc2RingMax.toString()
+            }
+            _uiState.update {
+                it.copy(
+                    wfShowBottomComp  = showBottomComp,
+                    wfBc1UseIoBroker  = bc1UseIoBroker, wfBc1Id = bc1Id,
+                    wfBc1Label = bc1Label, wfBc1Color = bc1Color,
+                    wfBc1RingEnabled = bc1RingEnabled,
+                    wfBc1RingColor1 = bc1RingColor1, wfBc1RingColor2 = bc1RingColor2,
+                    wfBc1RingMin = bc1RingMin, wfBc1RingMax = bc1RingMax,
+                    wfBc2Metric = bc2Metric,
+                    wfBc2UseIoBroker = bc2UseIoBroker, wfBc2Id = bc2Id,
+                    wfBc2Label = bc2Label, wfBc2Color = bc2Color,
+                    wfBc2RingEnabled = bc2RingEnabled,
+                    wfBc2RingColor1 = bc2RingColor1, wfBc2RingColor2 = bc2RingColor2,
+                    wfBc2RingMin = bc2RingMin, wfBc2RingMax = bc2RingMax
+                )
+            }
+            try {
+                pushFullConfigToWear()
+                _uiState.update { it.copy(wearSyncLog = "Boden-Komplikationen übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
         }
     }
@@ -1893,6 +2100,7 @@ class MainViewModel @Inject constructor(
             s.p2BarWarn1Color, s.p2BarWarn1Value, s.p2BarWarn2Color, s.p2BarWarn2Value,
             s.p2ShowBackground
         )
+        pushConnectionConfigToWear()
         syncPage2SlotValues()
     }
 

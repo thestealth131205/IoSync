@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.iosync.app.ui.screens.ChangelogScreen
 import com.iosync.app.ui.screens.DetailScreen
 import com.iosync.app.ui.screens.HomeScreen
 import com.iosync.app.ui.screens.SettingsScreen
@@ -83,8 +84,12 @@ fun IoSyncNavGraph() {
         composable(Route.Settings.path) {
             SettingsScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onChangelogClick = { navController.navigate(Route.Changelog.path) }
             )
+        }
+        composable(Route.Changelog.path) {
+            ChangelogScreen(onBack = { navController.popBackStack() })
         }
     }
 }
@@ -95,4 +100,5 @@ sealed class Route(val path: String) {
         fun buildRoute(stateId: String) = "detail/$stateId"
     }
     data object Settings : Route("settings")
+    data object Changelog : Route("changelog")
 }

@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v5-Test ]
     paths-ignore:
       - '**.md'
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
   release:
     name: Build & Release APKs
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/v5-Test') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
@@ -42,8 +42,18 @@ jobs:
         id: version
         run: |
           VERSION=$(grep 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          BRANCH="${GITHUB_REF_NAME}"
+          if [ "$BRANCH" = "v5-Test" ]; then
+            echo "version=$VERSION-v5-test" >> $GITHUB_OUTPUT
+            echo "tag=v${VERSION}-v5-test" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+            echo "release_name=IoSync $VERSION (v5-Test Preview)" >> $GITHUB_OUTPUT
+          else
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+            echo "release_name=IoSync $VERSION" >> $GITHUB_OUTPUT
+          fi
 
       - name: Alle APKs bauen
         env:
@@ -64,9 +74,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: IoSync ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.release_name }}
           body: |
-            ## IoSync ${{ steps.version.outputs.version }}
+            ## ${{ steps.version.outputs.release_name }}
+
+            Branch: `${{ github.ref_name }}`
 
             ### Downloads
             | APK | Beschreibung |
@@ -79,5 +91,5 @@ jobs:
             iosync-v${{ steps.version.outputs.version }}.apk
             iosync_watchface-v${{ steps.version.outputs.version }}.apk
           draft: false
-          prerelease: false
-          make_latest: true
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          make_latest: ${{ github.ref_name == 'main' }}

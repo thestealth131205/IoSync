@@ -95,6 +95,28 @@ private const val KEY_WF_KCAL_UNIT                 = "wf_kcal_unit"
 private const val KEY_WF_OXYGEN_LABEL              = "wf_oxygen_label"
 private const val KEY_WF_OXYGEN_UNIT               = "wf_oxygen_unit"
 
+// ── Boden-Komplikationen (2 Stück, in den unteren Kreistaschen) ──────────────
+private const val KEY_WF_SHOW_BOTTOM_COMP   = "wf_show_bottom_comp"
+// Komplikation 1 (links) – Puls oder ioBroker-Datenpunkt
+private const val KEY_WF_BC1_USE_IOBROKER   = "wf_bc1_use_iobroker"
+private const val KEY_WF_BC1_LABEL          = "wf_bc1_label"
+private const val KEY_WF_BC1_COLOR          = "wf_bc1_color"
+private const val KEY_WF_BC1_RING_ENABLED   = "wf_bc1_ring_enabled"
+private const val KEY_WF_BC1_RING_COLOR1    = "wf_bc1_ring_color1"
+private const val KEY_WF_BC1_RING_COLOR2    = "wf_bc1_ring_color2"
+private const val KEY_WF_BC1_RING_MIN       = "wf_bc1_ring_min"
+private const val KEY_WF_BC1_RING_MAX       = "wf_bc1_ring_max"
+// Komplikation 2 (rechts) – wählbare Metrik oder ioBroker-Datenpunkt (kcal|oxygen|bloodpressure|training)
+private const val KEY_WF_BC2_METRIC         = "wf_bc2_metric"
+private const val KEY_WF_BC2_USE_IOBROKER   = "wf_bc2_use_iobroker"
+private const val KEY_WF_BC2_LABEL          = "wf_bc2_label"
+private const val KEY_WF_BC2_COLOR          = "wf_bc2_color"
+private const val KEY_WF_BC2_RING_ENABLED   = "wf_bc2_ring_enabled"
+private const val KEY_WF_BC2_RING_COLOR1    = "wf_bc2_ring_color1"
+private const val KEY_WF_BC2_RING_COLOR2    = "wf_bc2_ring_color2"
+private const val KEY_WF_BC2_RING_MIN       = "wf_bc2_ring_min"
+private const val KEY_WF_BC2_RING_MAX       = "wf_bc2_ring_max"
+
 // ── Phone-Health-Daten (vom Smartphone gesendet) ────────────────────────────
 private const val PATH_PHONE_HEALTH          = "/iosync/watchface/phone_health"
 private const val KEY_PHONE_HEART_RATE       = "phone_heart_rate"
@@ -196,6 +218,37 @@ private const val KEY_WF_P2_BAR_WARN2_VALUE     = "wf_p2_bar_warn2_value"
 // ── Aktions-Pille Status-Pfad (separater Pfad für schnelle State-Updates) ────
 private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
 private const val KEY_PILL_STATE         = "pill_state"
+
+// ── Verbindungs-Konfig (ab v5: Uhr fragt ioBroker + Wetter direkt selbst ab) ─
+// Das Handy überträgt nur noch die Verbindungs-/Datenpunkt-Einstellungen, die
+// Uhr ruft die Werte eigenständig vom Adapter / OpenWeather ab.
+private const val PATH_CONNECTION_CONFIG = "/iosync/watchface/connection"
+private const val KEY_IO_USE_ADAPTER     = "io_use_adapter"
+private const val KEY_IO_HOST            = "io_host"
+private const val KEY_IO_PORT            = "io_port"
+private const val KEY_IO_USE_HTTPS       = "io_use_https"
+private const val KEY_IO_USERNAME        = "io_username"
+private const val KEY_IO_PASSWORD        = "io_password"
+private const val KEY_IO_USE_PUSH        = "io_use_push"
+// Datenpunkt-IDs der Slots (Werte werden auf der Uhr aufgelöst)
+private const val KEY_CON_SLOT1_ID       = "con_slot1_id"
+private const val KEY_CON_SLOT2_ID       = "con_slot2_id"
+private const val KEY_CON_SLOT3_ID       = "con_slot3_id"
+private const val KEY_CON_SLOT4_ID       = "con_slot4_id"
+private const val KEY_CON_P2_SLOT1_ID    = "con_p2_slot1_id"
+private const val KEY_CON_P2_SLOT2_ID    = "con_p2_slot2_id"
+private const val KEY_CON_P2_SLOT3_ID    = "con_p2_slot3_id"
+private const val KEY_CON_P2_SLOT4_ID    = "con_p2_slot4_id"
+private const val KEY_CON_P2_BAR_ID      = "con_p2_bar_id"
+private const val KEY_CON_SLEEP_ID       = "con_sleep_id"
+// Wetter-Standort (Uhr hat kein GPS → festes lat/lon vom Handy)
+private const val KEY_CON_WEATHER_USE_FIXED = "con_weather_use_fixed"
+private const val KEY_CON_WEATHER_LAT       = "con_weather_lat"
+private const val KEY_CON_WEATHER_LON       = "con_weather_lon"
+// Abruf-Intervalle (Sekunden)
+private const val KEY_CON_SLOT_INTERVAL   = "con_slot_interval"
+private const val KEY_CON_PAGE2_INTERVAL  = "con_page2_interval"
+private const val KEY_CON_WEATHER_INTERVAL = "con_weather_interval"
 
 /**
  * Data Layer Listener für das Watchface-Modul.
@@ -305,6 +358,11 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
                     WatchFaceConfigCache.updateP2ConfigFromDataMap(dataMap)
                     Log.d(TAG, "Seite-2-Konfig empfangen")
+                }
+                PATH_CONNECTION_CONFIG -> {
+                    val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    WatchFaceConfigCache.updateConnectionFromDataMap(dataMap)
+                    Log.d(TAG, "Verbindungs-Konfig empfangen (Uhr fragt selbst ab)")
                 }
             }
         }
@@ -431,6 +489,34 @@ object WatchFaceConfigCache {
     @Volatile var phoneCalories: Int = 0
     @Volatile var phoneHealthLastReceived: Long = 0L
 
+    // ── Boden-Komplikationen (2 Kreistaschen unten) ───────────────────────────
+    @Volatile var showBottomComp: Boolean = true
+    // BC1 (links) – Puls oder ioBroker-Datenpunkt
+    @Volatile var bc1UseIoBroker: Boolean = false
+    @Volatile var bc1Label: String = "BPM"
+    @Volatile var bc1Color: String = "red"
+    @Volatile var bc1RingEnabled: Boolean = true
+    @Volatile var bc1RingColor1: String = "red"
+    @Volatile var bc1RingColor2: String = "orange"
+    @Volatile var bc1RingMin: Float = 0f
+    @Volatile var bc1RingMax: Float = 220f
+    // BC2 (rechts) – wählbare Metrik oder ioBroker-Datenpunkt
+    @Volatile var bc2Metric: String = "kcal"  // kcal | oxygen | bloodpressure | training
+    @Volatile var bc2UseIoBroker: Boolean = false
+    @Volatile var bc2Label: String = "KCAL"
+    @Volatile var bc2Color: String = "orange"
+    @Volatile var bc2RingEnabled: Boolean = true
+    @Volatile var bc2RingColor1: String = "orange"
+    @Volatile var bc2RingColor2: String = "neon_yellow"
+    @Volatile var bc2RingMin: Float = 0f
+    @Volatile var bc2RingMax: Float = 1000f
+    // ioBroker-Datenpunkt-IDs für BC1/BC2 (aus Verbindungs-Konfig)
+    @Volatile var conBc1Id: String = ""
+    @Volatile var conBc2Id: String = ""
+    // Gecachte ioBroker-Werte für BC1/BC2 (wird von WatchDataSyncManager befüllt)
+    @Volatile var bc1IoValue: String = "--"
+    @Volatile var bc2IoValue: String = "--"
+
     // ── NTP-Zeitkorrektur ─────────────────────────────────────────────────────
     // ntpEnabled/ntpServer kommen vom Handy; ntpOffsetMs wird auf der Uhr per
     // NTP-Abfrage ermittelt (alle 30 min) und auf die Systemzeit aufaddiert.
@@ -487,6 +573,65 @@ object WatchFaceConfigCache {
     @Volatile var p2Pill2ValueMode: String = "toggle"
     @Volatile var p2Pill2FixedValue: String = ""
     @Volatile var p2Pill2State: Boolean = false
+
+    // ── Verbindungs-Konfig (ab v5: Uhr fragt ioBroker + Wetter selbst ab) ─────
+    @Volatile var ioUseAdapter: Boolean = false
+    @Volatile var ioHost: String = ""
+    @Volatile var ioPort: Int = 7443
+    @Volatile var ioUseHttps: Boolean = false
+    @Volatile var ioUsername: String = ""
+    @Volatile var ioPassword: String = ""
+    @Volatile var ioUsePush: Boolean = false
+    // Datenpunkt-IDs der Slots (Werte werden auf der Uhr aufgelöst)
+    @Volatile var conSlot1Id: String = ""
+    @Volatile var conSlot2Id: String = ""
+    @Volatile var conSlot3Id: String = ""
+    @Volatile var conSlot4Id: String = ""
+    @Volatile var conP2Slot1Id: String = ""
+    @Volatile var conP2Slot2Id: String = ""
+    @Volatile var conP2Slot3Id: String = ""
+    @Volatile var conP2Slot4Id: String = ""
+    @Volatile var conP2BarId: String = ""
+    @Volatile var conSleepId: String = ""
+    // Wetter-Standort (Uhr hat kein GPS → festes lat/lon vom Handy)
+    @Volatile var weatherUseFixed: Boolean = false
+    @Volatile var weatherLat: Double = Double.NaN
+    @Volatile var weatherLon: Double = Double.NaN
+    // Abruf-Intervalle (Sekunden)
+    @Volatile var slotIntervalSec: Int = 120
+    @Volatile var page2IntervalSec: Int = 120
+    @Volatile var weatherIntervalSec: Int = 600
+    // Zeitpunkt des letzten Empfangs der Verbindungs-Konfig
+    @Volatile var connectionConfigReceivedAt: Long = 0L
+
+    fun updateConnectionFromDataMap(dataMap: DataMap) {
+        connectionConfigReceivedAt = System.currentTimeMillis()
+        if (dataMap.containsKey(KEY_IO_USE_ADAPTER)) ioUseAdapter = dataMap.getBoolean(KEY_IO_USE_ADAPTER)
+        dataMap.getString(KEY_IO_HOST)?.let { ioHost = it }
+        if (dataMap.containsKey(KEY_IO_PORT)) ioPort = dataMap.getInt(KEY_IO_PORT)
+        if (dataMap.containsKey(KEY_IO_USE_HTTPS)) ioUseHttps = dataMap.getBoolean(KEY_IO_USE_HTTPS)
+        dataMap.getString(KEY_IO_USERNAME)?.let { ioUsername = it }
+        dataMap.getString(KEY_IO_PASSWORD)?.let { ioPassword = it }
+        if (dataMap.containsKey(KEY_IO_USE_PUSH)) ioUsePush = dataMap.getBoolean(KEY_IO_USE_PUSH)
+        dataMap.getString(KEY_CON_SLOT1_ID)?.let { conSlot1Id = it }
+        dataMap.getString(KEY_CON_SLOT2_ID)?.let { conSlot2Id = it }
+        dataMap.getString(KEY_CON_SLOT3_ID)?.let { conSlot3Id = it }
+        dataMap.getString(KEY_CON_SLOT4_ID)?.let { conSlot4Id = it }
+        dataMap.getString(KEY_CON_P2_SLOT1_ID)?.let { conP2Slot1Id = it }
+        dataMap.getString(KEY_CON_P2_SLOT2_ID)?.let { conP2Slot2Id = it }
+        dataMap.getString(KEY_CON_P2_SLOT3_ID)?.let { conP2Slot3Id = it }
+        dataMap.getString(KEY_CON_P2_SLOT4_ID)?.let { conP2Slot4Id = it }
+        dataMap.getString(KEY_CON_P2_BAR_ID)?.let { conP2BarId = it }
+        dataMap.getString(KEY_CON_SLEEP_ID)?.let { conSleepId = it }
+        if (dataMap.containsKey(KEY_CON_WEATHER_USE_FIXED)) weatherUseFixed = dataMap.getBoolean(KEY_CON_WEATHER_USE_FIXED)
+        if (dataMap.containsKey(KEY_CON_WEATHER_LAT)) weatherLat = dataMap.getDouble(KEY_CON_WEATHER_LAT)
+        if (dataMap.containsKey(KEY_CON_WEATHER_LON)) weatherLon = dataMap.getDouble(KEY_CON_WEATHER_LON)
+        if (dataMap.containsKey(KEY_CON_SLOT_INTERVAL)) slotIntervalSec = dataMap.getInt(KEY_CON_SLOT_INTERVAL)
+        if (dataMap.containsKey(KEY_CON_PAGE2_INTERVAL)) page2IntervalSec = dataMap.getInt(KEY_CON_PAGE2_INTERVAL)
+        if (dataMap.containsKey(KEY_CON_WEATHER_INTERVAL)) weatherIntervalSec = dataMap.getInt(KEY_CON_WEATHER_INTERVAL)
+        dataMap.getString("con_bc1_id")?.let { conBc1Id = it }
+        dataMap.getString("con_bc2_id")?.let { conBc2Id = it }
+    }
 
     fun updateFromDataMap(dataMap: DataMap) {
         lastConfigReceivedAt = System.currentTimeMillis()
@@ -566,6 +711,25 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_NTP_SERVER)?.let { ntpServer = it }
         // Bei deaktivierter Korrektur sofort zur reinen Systemzeit zurückkehren
         if (!ntpEnabled) ntpOffsetMs = 0L
+        // ── Boden-Komplikationen ──────────────────────────────────────────────
+        if (dataMap.containsKey(KEY_WF_SHOW_BOTTOM_COMP)) showBottomComp = dataMap.getBoolean(KEY_WF_SHOW_BOTTOM_COMP)
+        if (dataMap.containsKey(KEY_WF_BC1_USE_IOBROKER)) bc1UseIoBroker = dataMap.getBoolean(KEY_WF_BC1_USE_IOBROKER)
+        dataMap.getString(KEY_WF_BC1_LABEL)?.let  { bc1Label  = it }
+        dataMap.getString(KEY_WF_BC1_COLOR)?.let  { bc1Color  = it }
+        if (dataMap.containsKey(KEY_WF_BC1_RING_ENABLED)) bc1RingEnabled = dataMap.getBoolean(KEY_WF_BC1_RING_ENABLED)
+        dataMap.getString(KEY_WF_BC1_RING_COLOR1)?.let { bc1RingColor1 = it }
+        dataMap.getString(KEY_WF_BC1_RING_COLOR2)?.let { bc1RingColor2 = it }
+        if (dataMap.containsKey(KEY_WF_BC1_RING_MIN)) bc1RingMin = dataMap.getFloat(KEY_WF_BC1_RING_MIN)
+        if (dataMap.containsKey(KEY_WF_BC1_RING_MAX)) bc1RingMax = dataMap.getFloat(KEY_WF_BC1_RING_MAX)
+        dataMap.getString(KEY_WF_BC2_METRIC)?.let { bc2Metric = it }
+        if (dataMap.containsKey(KEY_WF_BC2_USE_IOBROKER)) bc2UseIoBroker = dataMap.getBoolean(KEY_WF_BC2_USE_IOBROKER)
+        dataMap.getString(KEY_WF_BC2_LABEL)?.let  { bc2Label  = it }
+        dataMap.getString(KEY_WF_BC2_COLOR)?.let  { bc2Color  = it }
+        if (dataMap.containsKey(KEY_WF_BC2_RING_ENABLED)) bc2RingEnabled = dataMap.getBoolean(KEY_WF_BC2_RING_ENABLED)
+        dataMap.getString(KEY_WF_BC2_RING_COLOR1)?.let { bc2RingColor1 = it }
+        dataMap.getString(KEY_WF_BC2_RING_COLOR2)?.let { bc2RingColor2 = it }
+        if (dataMap.containsKey(KEY_WF_BC2_RING_MIN)) bc2RingMin = dataMap.getFloat(KEY_WF_BC2_RING_MIN)
+        if (dataMap.containsKey(KEY_WF_BC2_RING_MAX)) bc2RingMax = dataMap.getFloat(KEY_WF_BC2_RING_MAX)
     }
 
     fun updateP2ConfigFromDataMap(dataMap: DataMap) {
@@ -620,6 +784,12 @@ object SmartHomeStateCache {
     fun updateFromJson(json: String) {
         lastUpdated = System.currentTimeMillis()
         states = parseStatesSimple(json)
+    }
+
+    /** Direkt von der Uhr abgerufene Datenpunkte übernehmen (ab v5, ohne JSON-Umweg). */
+    fun updateFromCachedStates(newStates: List<CachedState>) {
+        lastUpdated = System.currentTimeMillis()
+        states = newStates
     }
 
     fun getTopValue(): String? = states.firstOrNull()?.displayValue

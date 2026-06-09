@@ -36,6 +36,7 @@ import androidx.wear.watchface.complications.rendering.CanvasComplicationDrawabl
 import androidx.wear.watchface.complications.data.LongTextComplicationData
 import androidx.wear.watchface.complications.data.RangedValueComplicationData
 import androidx.wear.watchface.complications.data.ShortTextComplicationData
+import com.iosync.watchface.data.WatchDataSyncManager
 import com.iosync.watchface.datalayer.SmartHomeStateCache
 import com.iosync.watchface.datalayer.WatchFaceConfigCache
 import com.iosync.watchface.health.HealthDataCache
@@ -306,6 +307,30 @@ class IoSyncWatchFaceRenderer(
         textAlign = Paint.Align.CENTER
     }
 
+    // ── Boden-Komplikationen (BC1 links, BC2 rechts) ──────────────────────────
+    private val bcValuePaint = Paint().apply {
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
+    }
+    private val bcLabelPaint = Paint().apply {
+        color = Color.parseColor("#888888")
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
+    }
+    private val bcRingBgPaint = Paint().apply {
+        color = Color.argb(50, 255, 255, 255)
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val bcRingFgPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+
     // ── Aktions-Pille ─────────────────────────────────────────────────────────
     private val pillFillPaint = Paint().apply {
         isAntiAlias = true
@@ -417,9 +442,6 @@ class IoSyncWatchFaceRenderer(
         private const val NTP_EPOCH_OFFSET_SEC    = 2208988800L      // Sekunden zwischen 1900 und 1970
         private const val NTP_PREFS_NAME          = "iosync_ntp"
         private const val NTP_PREFS_KEY_OFFSET    = "ntp_offset_ms"
-        private const val PATH_ACTION_TRIGGER = "/iosync/watchface/action_trigger"
-        // Beim Display-Einschalten gesendet → Handy ruft Wetter/Akku/Button-States sofort frisch ab
-        private const val PATH_REQUEST_REFRESH = "/iosync/watchface/request_refresh"
         private const val TAG_PILL        = "WatchFacePill"
         private const val CONFIRM_DURATION_MS = 2000L
 
@@ -430,11 +452,9 @@ class IoSyncWatchFaceRenderer(
         private const val PATH_CUSTOM_SLOTS      = "/iosync/watchface/custom_slots"
         private const val PATH_CUSTOM_SLOTS_P2   = "/iosync/watchface/custom_slots_p2"
         private const val PATH_CONFIG_P2         = "/iosync/watchface/config_p2"
+        private const val PATH_CONNECTION_CONFIG = "/iosync/watchface/connection"
         private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
         private const val PATH_P2_PILL_STATES    = "/iosync/watchface/p2_pill_states"
-        private const val PATH_P2_PILL1_TRIGGER  = "/iosync/watchface/p2_pill1_trigger"
-        private const val PATH_P2_PILL2_TRIGGER  = "/iosync/watchface/p2_pill2_trigger"
-        private const val PATH_P2_SLIDER_VALUE   = "/iosync/watchface/p2_slider_value"
         private const val PATH_STATES            = "/iosync/smarthome/states"
         private const val PATH_PHONE_HEALTH      = "/iosync/watchface/phone_health"
         private const val KEY_PHONE_HEART_RATE     = "phone_heart_rate"
@@ -469,6 +489,11 @@ class IoSyncWatchFaceRenderer(
 
         // Bestehende Config aus dem Data Layer laden (beim Start)
         loadInitialConfig()
+
+        // Daten-Orchestrator starten: die Uhr fragt ioBroker-Datenpunkte + Wetter
+        // ab v5 selbst ab (statt sie vom Handy zu empfangen) und zeichnet bei jedem
+        // Update neu.
+        WatchDataSyncManager.start(invalidate = { invalidate() })
 
         scope.launch {
             currentUserStyleRepository.userStyle.collect { userStyle ->
@@ -597,6 +622,11 @@ class IoSyncWatchFaceRenderer(
                             WatchFaceConfigCache.updateP2ConfigFromDataMap(dataMap)
                             Log.d(TAG_PILL, "Initiale Seite-2-Konfig geladen")
                         }
+                        PATH_CONNECTION_CONFIG -> {
+                            val dataMap = DataMapItem.fromDataItem(item).dataMap
+                            WatchFaceConfigCache.updateConnectionFromDataMap(dataMap)
+                            Log.d(TAG_PILL, "Initiale Verbindungs-Konfig geladen")
+                        }
                         PATH_STATES -> {
                             val dataMap = DataMapItem.fromDataItem(item).dataMap
                             dataMap.getString("states_json")?.let { SmartHomeStateCache.updateFromJson(it) }
@@ -709,6 +739,11 @@ class IoSyncWatchFaceRenderer(
                 }
                 PATH_CONFIG_P2 -> {
                     WatchFaceConfigCache.updateP2ConfigFromDataMap(dataMap)
+                }
+                PATH_CONNECTION_CONFIG -> {
+                    WatchFaceConfigCache.updateConnectionFromDataMap(dataMap)
+                    // Neue Verbindungs-/Datenpunkt-Konfig → sofort frisch abrufen
+                    WatchDataSyncManager.syncNow()
                 }
             }
         }
@@ -919,8 +954,8 @@ class IoSyncWatchFaceRenderer(
                 drawCustomSlots(canvas, cx, cy, radius, weekdayBottomY)
             }
 
-            // Gesundheitsdaten (Puls, SpO2, Kalorien)
-            drawHealthData(canvas, cx, cy, radius, bx, by)
+            // Boden-Komplikationen (2 Kreistaschen unten: Puls + wählbare Metrik)
+            drawBottomComplications(canvas, cx, cy, radius)
 
             // Schritte (links) und Schlafdauer (rechts, gespiegelt) oberhalb der Uhrzeit
             if (config.showSteps) {
@@ -1184,79 +1219,26 @@ class IoSyncWatchFaceRenderer(
 
 
     /**
-     * Fordert beim Display-Einschalten einen sofortigen Daten-Refresh vom Handy an.
-     * Das Handy ruft daraufhin Wetter, alle Akku-Stände und Button-/Pillen-States
-     * einmalig frisch ab und pusht sie ans Watchface.
+     * Fordert beim Display-Einschalten einen sofortigen Daten-Refresh an.
+     * Ab v5 fragt die Uhr selbst (ioBroker-Slots/States, Wetter) – kein Handy nötig.
      */
     private fun requestPhoneRefresh() {
-        scope.launch {
-            try {
-                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
-                if (nodes.isEmpty()) return@launch
-                nodes.forEach { node ->
-                    Wearable.getMessageClient(context)
-                        .sendMessage(node.id, PATH_REQUEST_REFRESH, byteArrayOf())
-                }
-                Log.d(TAG_PILL, "Refresh-Anforderung (Display an) ans Handy gesendet")
-            } catch (e: Exception) {
-                Log.w(TAG_PILL, "Refresh-Anforderung fehlgeschlagen: ${e.message}")
-            }
-        }
+        WatchDataSyncManager.syncNow()
     }
 
-    /** Sendet einen Trigger an die verbundene Android App via Wearable MessageClient. */
+    /** Schaltet die Aktions-Pille (Seite 1) direkt am ioBroker-Adapter. */
     private fun triggerPillAction() {
-        scope.launch {
-            try {
-                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
-                if (nodes.isEmpty()) {
-                    Log.w(TAG_PILL, "Kein verbundenes Gerät gefunden")
-                    return@launch
-                }
-                nodes.forEach { node ->
-                    Wearable.getMessageClient(context)
-                        .sendMessage(node.id, PATH_ACTION_TRIGGER, byteArrayOf())
-                        .await()
-                    Log.d(TAG_PILL, "Aktions-Trigger an ${node.displayName} gesendet")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG_PILL, "Aktions-Trigger fehlgeschlagen: ${e.message}")
-            }
-        }
+        WatchDataSyncManager.toggleActionPill()
     }
 
-    /** Sendet einen Seite-2-Pillen-Trigger (pill=1 → 7-Uhr, pill=2 → 5-Uhr) an die App. */
+    /** Schaltet eine Seite-2-Pille (pill=1 → 7-Uhr, pill=2 → 5-Uhr) direkt am Adapter. */
     private fun triggerP2PillAction(pill: Int) {
-        val path = if (pill == 1) PATH_P2_PILL1_TRIGGER else PATH_P2_PILL2_TRIGGER
-        scope.launch {
-            try {
-                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
-                if (nodes.isEmpty()) { Log.w(TAG_PILL, "Kein verbundenes Gerät für P2-Pille"); return@launch }
-                nodes.forEach { node ->
-                    Wearable.getMessageClient(context).sendMessage(node.id, path, byteArrayOf()).await()
-                    Log.d(TAG_PILL, "P2-Pille-$pill-Trigger an ${node.displayName} gesendet")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG_PILL, "P2-Pille-$pill-Trigger fehlgeschlagen: ${e.message}")
-            }
-        }
+        if (pill == 1) WatchDataSyncManager.toggleP2Pill1() else WatchDataSyncManager.toggleP2Pill2()
     }
 
-    /** Sendet den getippten Slider-Wert (Seite 2) an die verbundene Android App. */
+    /** Schreibt den getippten Slider-Wert (Seite 2) direkt in den ioBroker-Datenpunkt. */
     private fun sendSliderValue(value: Int) {
-        scope.launch {
-            try {
-                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
-                if (nodes.isEmpty()) { Log.w(TAG_PILL, "Kein verbundenes Gerät für Slider"); return@launch }
-                val payload = value.toString().toByteArray(Charsets.UTF_8)
-                nodes.forEach { node ->
-                    Wearable.getMessageClient(context).sendMessage(node.id, PATH_P2_SLIDER_VALUE, payload).await()
-                    Log.d(TAG_PILL, "Slider-Wert $value an ${node.displayName} gesendet")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG_PILL, "Slider-Wert senden fehlgeschlagen: ${e.message}")
-            }
-        }
+        WatchDataSyncManager.setBarValue(value)
     }
 
     /** Sendet den aktuellen NTP-Offset via DataItem an die verbundene Android App. */
@@ -1473,6 +1455,162 @@ class IoSyncWatchFaceRenderer(
                 if (hundreds == 0) "${thousands}K" else "${thousands}K${hundreds}"
             }
             else -> "$value"
+        }
+    }
+
+    /**
+     * Zeichnet die beiden Boden-Komplikationen in die unteren Kreistaschen des Hintergrundbilds.
+     * BC1 (links): Puls oder ioBroker-Datenpunkt.
+     * BC2 (rechts): wählbare Metrik (kcal/oxygen/bloodpressure/training) oder ioBroker-Datenpunkt.
+     * Beide haben einen konfigurierbaren Fortschrittsring (ein-/ausschaltbar, Farben, Min/Max).
+     *
+     * Positionen (relativ zum Uhrmittelpunkt) passend zu den Kreistaschen im Hintergrundbild:
+     *   leftCx  = cx - radius * 0.35, compCy = cy + radius * 0.45
+     *   rightCx = cx + radius * 0.35, compCy = cy + radius * 0.45
+     */
+    private fun drawBottomComplications(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+        if (!config.showBottomComp) return
+
+        val compCy     = cy + radius * 0.45f
+        val leftCx     = cx - radius * 0.35f
+        val rightCx    = cx + radius * 0.35f
+        val compRadius = radius * 0.215f
+
+        // ── BC1 (links) – Puls oder ioBroker ──────────────────────────────────
+        val bc1NumValue: Float
+        val bc1Text: String
+        if (config.bc1UseIoBroker) {
+            bc1Text     = config.bc1IoValue
+            bc1NumValue = config.bc1IoValue.replace(',', '.').toFloatOrNull() ?: 0f
+        } else {
+            val hr = HealthDataCache.heartRate.takeIf { it > 0 }
+                ?: healthSensorManager.heartRate.takeIf { it > 0 }
+                ?: config.phoneHeartRate.takeIf {
+                    it > 0 && (System.currentTimeMillis() - config.phoneHealthLastReceived) < 1_800_000L
+                }
+            bc1NumValue = hr?.toFloat() ?: 0f
+            bc1Text     = if (hr != null && hr > 0) "$hr" else "--"
+        }
+        drawBottomComp(
+            canvas, leftCx, compCy, compRadius,
+            label       = config.bc1Label,
+            valueText   = bc1Text,
+            numValue    = bc1NumValue,
+            valueColor  = colorFromId(config.bc1Color),
+            ringEnabled = config.bc1RingEnabled,
+            ringColor1  = colorFromId(config.bc1RingColor1),
+            ringColor2  = colorFromId(config.bc1RingColor2),
+            ringMin     = config.bc1RingMin,
+            ringMax     = config.bc1RingMax
+        )
+
+        // ── BC2 (rechts) – wählbare Metrik oder ioBroker ──────────────────────
+        val bc2NumValue: Float
+        val bc2Text: String
+        if (config.bc2UseIoBroker) {
+            bc2Text     = config.bc2IoValue
+            bc2NumValue = config.bc2IoValue.replace(',', '.').toFloatOrNull() ?: 0f
+        } else {
+            val phoneDataFresh = (System.currentTimeMillis() - config.phoneHealthLastReceived) < 1_800_000L
+            when (config.bc2Metric) {
+                "kcal" -> {
+                    val kcal = HealthDataCache.calories.takeIf { it > 0 }
+                        ?: config.phoneCalories.takeIf { it > 0 && phoneDataFresh }
+                    bc2NumValue = kcal?.toFloat() ?: 0f
+                    bc2Text     = kcal?.toString() ?: "--"
+                }
+                "oxygen" -> {
+                    val o2 = HealthDataCache.spO2.takeIf { it > 0 }
+                        ?: healthSensorManager.spO2.takeIf { it > 0 }
+                        ?: config.phoneSpO2.takeIf { it > 0 && phoneDataFresh }
+                    bc2NumValue = o2?.toFloat() ?: 0f
+                    bc2Text     = if (o2 != null && o2 > 0) "$o2%" else "--"
+                }
+                else -> {
+                    // "bloodpressure" und "training": kein lokaler Sensor → ioBroker-Quelle nutzen
+                    bc2NumValue = 0f
+                    bc2Text     = "--"
+                }
+            }
+        }
+        drawBottomComp(
+            canvas, rightCx, compCy, compRadius,
+            label       = config.bc2Label,
+            valueText   = bc2Text,
+            numValue    = bc2NumValue,
+            valueColor  = colorFromId(config.bc2Color),
+            ringEnabled = config.bc2RingEnabled,
+            ringColor1  = colorFromId(config.bc2RingColor1),
+            ringColor2  = colorFromId(config.bc2RingColor2),
+            ringMin     = config.bc2RingMin,
+            ringMax     = config.bc2RingMax
+        )
+    }
+
+    /**
+     * Zeichnet eine einzelne Boden-Komplikation:
+     * 1) Skeuomorphische Vertiefung (3D-Recess) als Hintergrund
+     * 2) Optionaler Fortschrittsring (Gradient, von ringMin bis ringMax)
+     * 3) Wert-Text zentriert
+     * 4) Label-Text darunter (klein, gedimmt)
+     */
+    private fun drawBottomComp(
+        canvas: Canvas,
+        compCx: Float, compCy: Float, compRadius: Float,
+        label: String,
+        valueText: String,
+        numValue: Float,
+        valueColor: Int,
+        ringEnabled: Boolean,
+        ringColor1: Int, ringColor2: Int,
+        ringMin: Float, ringMax: Float
+    ) {
+        val strokeW = compRadius * 0.14f
+
+        // 3D-Vertiefungs-Kreis hinter dem Ring
+        drawEmbossedCircleRecess(canvas, compCx, compCy, compRadius + strokeW * 1.6f)
+
+        val oval = RectF(
+            compCx - compRadius, compCy - compRadius,
+            compCx + compRadius, compCy + compRadius
+        )
+
+        if (ringEnabled) {
+            // Hintergrundring (voller Kreis, gedimmt)
+            bcRingBgPaint.strokeWidth = strokeW
+            canvas.drawArc(oval, -90f, 360f, false, bcRingBgPaint)
+
+            // Füll-Bogen proportional zum Wert zwischen Min und Max
+            val fraction = if (ringMax > ringMin) {
+                ((numValue - ringMin) / (ringMax - ringMin)).coerceIn(0f, 1f)
+            } else 0f
+
+            if (fraction > 0f) {
+                val sweepAngle = fraction * 360f
+                val shader = SweepGradient(compCx, compCy, intArrayOf(ringColor1, ringColor2), null)
+                val matrix = Matrix()
+                matrix.postRotate(-90f, compCx, compCy)
+                shader.setLocalMatrix(matrix)
+                bcRingFgPaint.strokeWidth = strokeW
+                bcRingFgPaint.shader = shader
+                canvas.drawArc(oval, -90f, sweepAngle, false, bcRingFgPaint)
+                bcRingFgPaint.shader = null
+            }
+        }
+
+        // Wert-Text (z. B. "72" oder "--")
+        bcValuePaint.color    = valueColor
+        bcValuePaint.textSize = compRadius * 0.68f
+        val fm     = bcValuePaint.fontMetrics
+        val valueY = compCy - (fm.ascent + fm.descent) / 2f
+        canvas.drawText(valueText, compCx, valueY, bcValuePaint)
+
+        // Label (z. B. "BPM" oder "KCAL")
+        if (label.isNotBlank()) {
+            bcLabelPaint.textSize = compRadius * 0.28f
+            val labelY = valueY + bcValuePaint.fontMetrics.descent + compRadius * 0.16f
+            canvas.drawText(label.take(6).uppercase(), compCx, labelY, bcLabelPaint)
         }
     }
 
@@ -2769,6 +2907,7 @@ class IoSyncWatchFaceRenderer(
     override fun onDestroy() {
         dataClient.removeListener(this)
         healthSensorManager.stop()
+        WatchDataSyncManager.stop()
         scope.cancel()
         super.onDestroy()
     }

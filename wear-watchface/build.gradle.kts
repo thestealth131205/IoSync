@@ -32,10 +32,23 @@ android {
         applicationId = "com.iosync.app"
         minSdk = 30  // Wear OS 3+ (API 30)
         targetSdk = 36
-        versionCode = 442
-        versionName = "4.4.2"
+        versionCode = 444
+        versionName = "4.4.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // OpenWeatherMap API Key aus local.properties oder Umgebungsvariable
+        // (ab v5 ruft die Uhr das Wetter direkt selbst ab)
+        val localProps = rootProject.file("local.properties")
+        val owmKey = if (localProps.exists()) {
+            val props = Properties()
+            props.load(localProps.inputStream())
+            props.getProperty("OPENWEATHER_API_KEY", "")
+        } else {
+            ""
+        }
+        val apiKey = System.getenv("OPENWEATHER_API_KEY") ?: owmKey
+        buildConfigField("String", "OPENWEATHER_API_KEY", "\"$apiKey\"")
     }
 
     buildTypes {
@@ -66,6 +79,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -106,6 +120,10 @@ dependencies {
     // Wearable Data Layer
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
+
+    // HTTP/SSE — ab v5 fragt die Uhr ioBroker-Datenpunkte direkt selbst ab
+    implementation(libs.okhttp.core)
+    implementation(libs.okhttp.sse)
 
     // Test
     testImplementation(libs.junit)

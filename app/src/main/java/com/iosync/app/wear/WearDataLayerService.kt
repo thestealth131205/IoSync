@@ -26,6 +26,32 @@ private const val PATH_SETTINGS       = "/iosync/smarthome/settings"
 private const val PATH_WATCHFACE_CONFIG = "/iosync/watchface/config"
 private const val PATH_PHONE_BATTERY  = "/iosync/phone/battery"
 
+// ── Verbindungs-Konfig (ab v5: Uhr fragt ioBroker + Wetter direkt selbst ab) ─
+private const val PATH_CONNECTION_CONFIG = "/iosync/watchface/connection"
+private const val KEY_IO_USE_ADAPTER     = "io_use_adapter"
+private const val KEY_IO_HOST            = "io_host"
+private const val KEY_IO_PORT            = "io_port"
+private const val KEY_IO_USE_HTTPS       = "io_use_https"
+private const val KEY_IO_USERNAME        = "io_username"
+private const val KEY_IO_PASSWORD        = "io_password"
+private const val KEY_IO_USE_PUSH        = "io_use_push"
+private const val KEY_CON_SLOT1_ID       = "con_slot1_id"
+private const val KEY_CON_SLOT2_ID       = "con_slot2_id"
+private const val KEY_CON_SLOT3_ID       = "con_slot3_id"
+private const val KEY_CON_SLOT4_ID       = "con_slot4_id"
+private const val KEY_CON_P2_SLOT1_ID    = "con_p2_slot1_id"
+private const val KEY_CON_P2_SLOT2_ID    = "con_p2_slot2_id"
+private const val KEY_CON_P2_SLOT3_ID    = "con_p2_slot3_id"
+private const val KEY_CON_P2_SLOT4_ID    = "con_p2_slot4_id"
+private const val KEY_CON_P2_BAR_ID      = "con_p2_bar_id"
+private const val KEY_CON_SLEEP_ID       = "con_sleep_id"
+private const val KEY_CON_WEATHER_USE_FIXED = "con_weather_use_fixed"
+private const val KEY_CON_WEATHER_LAT       = "con_weather_lat"
+private const val KEY_CON_WEATHER_LON       = "con_weather_lon"
+private const val KEY_CON_SLOT_INTERVAL     = "con_slot_interval"
+private const val KEY_CON_PAGE2_INTERVAL    = "con_page2_interval"
+private const val KEY_CON_WEATHER_INTERVAL  = "con_weather_interval"
+
 // ── Allgemeine Keys ───────────────────────────────────────────────────────────
 private const val KEY_STATES_JSON    = "states_json"
 private const val KEY_STATE_ID       = "state_id"
@@ -156,6 +182,28 @@ private const val KEY_WF_SLOT4_WARN2_VALUE = "wf_slot4_warn2_value"
 // ── Wetter-Temperatur-Quelle ───────────────────────────────────────────────────
 private const val KEY_WF_WEATHER_TEMP_SOURCE  = "wf_weather_temp_source"
 private const val KEY_WF_WEATHER_IOBROKER_ID  = "wf_weather_iobroker_id"
+
+// ── Boden-Komplikationen ──────────────────────────────────────────────────────
+private const val KEY_WF_SHOW_BOTTOM_COMP   = "wf_show_bottom_comp"
+private const val KEY_WF_BC1_USE_IOBROKER   = "wf_bc1_use_iobroker"
+private const val KEY_WF_BC1_LABEL          = "wf_bc1_label"
+private const val KEY_WF_BC1_COLOR          = "wf_bc1_color"
+private const val KEY_WF_BC1_RING_ENABLED   = "wf_bc1_ring_enabled"
+private const val KEY_WF_BC1_RING_COLOR1    = "wf_bc1_ring_color1"
+private const val KEY_WF_BC1_RING_COLOR2    = "wf_bc1_ring_color2"
+private const val KEY_WF_BC1_RING_MIN       = "wf_bc1_ring_min"
+private const val KEY_WF_BC1_RING_MAX       = "wf_bc1_ring_max"
+private const val KEY_WF_BC2_METRIC         = "wf_bc2_metric"
+private const val KEY_WF_BC2_USE_IOBROKER   = "wf_bc2_use_iobroker"
+private const val KEY_WF_BC2_LABEL          = "wf_bc2_label"
+private const val KEY_WF_BC2_COLOR          = "wf_bc2_color"
+private const val KEY_WF_BC2_RING_ENABLED   = "wf_bc2_ring_enabled"
+private const val KEY_WF_BC2_RING_COLOR1    = "wf_bc2_ring_color1"
+private const val KEY_WF_BC2_RING_COLOR2    = "wf_bc2_ring_color2"
+private const val KEY_WF_BC2_RING_MIN       = "wf_bc2_ring_min"
+private const val KEY_WF_BC2_RING_MAX       = "wf_bc2_ring_max"
+private const val KEY_CON_BC1_ID            = "con_bc1_id"
+private const val KEY_CON_BC2_ID            = "con_bc2_id"
 
 // ── Seite-2-Balken ────────────────────────────────────────────────────────────
 private const val KEY_WF_P2_BAR_LABEL       = "wf_p2_bar_label"
@@ -346,7 +394,26 @@ class WearDataLayerService @Inject constructor(
         oxygenLabel: String = "OXYGEN",
         oxygenUnit: String = "%",
         ntpEnabled: Boolean = false,
-        ntpServer: String = "pool.ntp.org"
+        ntpServer: String = "pool.ntp.org",
+        // Boden-Komplikationen
+        showBottomComp: Boolean = true,
+        bc1UseIoBroker: Boolean = false,
+        bc1Label: String = "BPM",
+        bc1Color: String = "red",
+        bc1RingEnabled: Boolean = true,
+        bc1RingColor1: String = "red",
+        bc1RingColor2: String = "orange",
+        bc1RingMin: Float = 0f,
+        bc1RingMax: Float = 220f,
+        bc2Metric: String = "kcal",
+        bc2UseIoBroker: Boolean = false,
+        bc2Label: String = "KCAL",
+        bc2Color: String = "orange",
+        bc2RingEnabled: Boolean = true,
+        bc2RingColor1: String = "orange",
+        bc2RingColor2: String = "neon_yellow",
+        bc2RingMin: Float = 0f,
+        bc2RingMax: Float = 1000f
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -425,6 +492,25 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_OXYGEN_UNIT, oxygenUnit)
                     dataMap.putBoolean(KEY_WF_NTP_ENABLED, ntpEnabled)
                     dataMap.putString(KEY_WF_NTP_SERVER, ntpServer)
+                    // Boden-Komplikationen
+                    dataMap.putBoolean(KEY_WF_SHOW_BOTTOM_COMP, showBottomComp)
+                    dataMap.putBoolean(KEY_WF_BC1_USE_IOBROKER, bc1UseIoBroker)
+                    dataMap.putString(KEY_WF_BC1_LABEL,       bc1Label)
+                    dataMap.putString(KEY_WF_BC1_COLOR,       bc1Color)
+                    dataMap.putBoolean(KEY_WF_BC1_RING_ENABLED, bc1RingEnabled)
+                    dataMap.putString(KEY_WF_BC1_RING_COLOR1,  bc1RingColor1)
+                    dataMap.putString(KEY_WF_BC1_RING_COLOR2,  bc1RingColor2)
+                    dataMap.putFloat(KEY_WF_BC1_RING_MIN,      bc1RingMin)
+                    dataMap.putFloat(KEY_WF_BC1_RING_MAX,      bc1RingMax)
+                    dataMap.putString(KEY_WF_BC2_METRIC,       bc2Metric)
+                    dataMap.putBoolean(KEY_WF_BC2_USE_IOBROKER, bc2UseIoBroker)
+                    dataMap.putString(KEY_WF_BC2_LABEL,       bc2Label)
+                    dataMap.putString(KEY_WF_BC2_COLOR,       bc2Color)
+                    dataMap.putBoolean(KEY_WF_BC2_RING_ENABLED, bc2RingEnabled)
+                    dataMap.putString(KEY_WF_BC2_RING_COLOR1,  bc2RingColor1)
+                    dataMap.putString(KEY_WF_BC2_RING_COLOR2,  bc2RingColor2)
+                    dataMap.putFloat(KEY_WF_BC2_RING_MIN,      bc2RingMin)
+                    dataMap.putFloat(KEY_WF_BC2_RING_MAX,      bc2RingMax)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()
@@ -451,6 +537,72 @@ class WearDataLayerService @Inject constructor(
                 Log.d(TAG, "Wetter (${temperature}°C, $condition) an Wear OS übertragen")
             } catch (e: Exception) {
                 Log.e(TAG, "syncWeatherToWear fehlgeschlagen", e)
+            }
+        }
+    }
+
+    /**
+     * Überträgt die Verbindungs-/Datenpunkt-Konfiguration ans Watchface (ab v5).
+     *
+     * Ab v5 fragt die Uhr die ioBroker-Datenpunkte und das Wetter selbst ab. Das
+     * Handy schickt nur noch diese Einstellungen (Adapter-Zugang, Datenpunkt-IDs,
+     * Wetter-Standort, Abruf-Intervalle), nicht mehr die Werte.
+     */
+    suspend fun syncConnectionConfigToWear(
+        useAdapter: Boolean,
+        host: String,
+        port: Int,
+        useHttps: Boolean,
+        username: String,
+        password: String,
+        usePush: Boolean,
+        slot1Id: String, slot2Id: String, slot3Id: String, slot4Id: String,
+        p2Slot1Id: String, p2Slot2Id: String, p2Slot3Id: String, p2Slot4Id: String,
+        p2BarId: String,
+        sleepId: String,
+        weatherUseFixed: Boolean,
+        weatherLat: Double,
+        weatherLon: Double,
+        slotIntervalSec: Int,
+        page2IntervalSec: Int,
+        weatherIntervalSec: Int,
+        bc1Id: String = "",
+        bc2Id: String = ""
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = PutDataMapRequest.create(PATH_CONNECTION_CONFIG).apply {
+                    dataMap.putBoolean(KEY_IO_USE_ADAPTER, useAdapter)
+                    dataMap.putString(KEY_IO_HOST, host)
+                    dataMap.putInt(KEY_IO_PORT, port)
+                    dataMap.putBoolean(KEY_IO_USE_HTTPS, useHttps)
+                    dataMap.putString(KEY_IO_USERNAME, username)
+                    dataMap.putString(KEY_IO_PASSWORD, password)
+                    dataMap.putBoolean(KEY_IO_USE_PUSH, usePush)
+                    dataMap.putString(KEY_CON_SLOT1_ID, slot1Id)
+                    dataMap.putString(KEY_CON_SLOT2_ID, slot2Id)
+                    dataMap.putString(KEY_CON_SLOT3_ID, slot3Id)
+                    dataMap.putString(KEY_CON_SLOT4_ID, slot4Id)
+                    dataMap.putString(KEY_CON_P2_SLOT1_ID, p2Slot1Id)
+                    dataMap.putString(KEY_CON_P2_SLOT2_ID, p2Slot2Id)
+                    dataMap.putString(KEY_CON_P2_SLOT3_ID, p2Slot3Id)
+                    dataMap.putString(KEY_CON_P2_SLOT4_ID, p2Slot4Id)
+                    dataMap.putString(KEY_CON_P2_BAR_ID, p2BarId)
+                    dataMap.putString(KEY_CON_SLEEP_ID, sleepId)
+                    dataMap.putBoolean(KEY_CON_WEATHER_USE_FIXED, weatherUseFixed)
+                    dataMap.putDouble(KEY_CON_WEATHER_LAT, weatherLat)
+                    dataMap.putDouble(KEY_CON_WEATHER_LON, weatherLon)
+                    dataMap.putInt(KEY_CON_SLOT_INTERVAL, slotIntervalSec)
+                    dataMap.putInt(KEY_CON_PAGE2_INTERVAL, page2IntervalSec)
+                    dataMap.putInt(KEY_CON_WEATHER_INTERVAL, weatherIntervalSec)
+                    dataMap.putString(KEY_CON_BC1_ID, bc1Id)
+                    dataMap.putString(KEY_CON_BC2_ID, bc2Id)
+                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                dataClient.putDataItem(request).await()
+                Log.d(TAG, "Verbindungs-Konfig an Wear OS übertragen (Uhr fragt selbst ab)")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncConnectionConfigToWear fehlgeschlagen", e)
             }
         }
     }
