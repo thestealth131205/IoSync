@@ -2,7 +2,7 @@ name: Wear OS Watchface Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v5-Test ]
     paths:
       - 'wear-watchface/**'
       - 'gradle/**'
@@ -10,7 +10,7 @@ on:
       - 'settings.gradle.kts'
       - '.github/workflows/wear-watchface.yml'
   pull_request:
-    branches: [ main ]
+    branches: [ main, v5-Test ]
     paths:
       - 'wear-watchface/**'
   workflow_dispatch:
