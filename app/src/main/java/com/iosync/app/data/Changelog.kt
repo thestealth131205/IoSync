@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.4.6",
+        date = "10.06.2026",
+        changes = listOf(
+            "Diagnose: Uhr zeigt 'Keine Verbindungs-Config', falls keine Adapter-Daten ankommen",
+            "Diagnose: Uhr zeigt 'Adapter nicht erreichbar' bei fehlgeschlagenem Datenpunkt-Abruf",
+            "Fix: fehlgeschlagene Datenpunkt-Abrufe werden jetzt protokolliert (vorher still verworfen)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.4.5",
         date = "10.06.2026",
         changes = listOf(

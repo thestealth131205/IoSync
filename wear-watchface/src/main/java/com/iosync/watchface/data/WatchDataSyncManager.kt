@@ -52,6 +52,11 @@ object WatchDataSyncManager {
     @Volatile private var running = false
     @Volatile private var pushSignature = ""
 
+    // Diagnose-Status (für die selbst-versteckende Diagnose-Anzeige im Renderer).
+    @Volatile var lastFetchOk = false
+    @Volatile var lastFetchError = ""
+    @Volatile var lastFetchAt = 0L
+
     fun start(invalidate: () -> Unit) {
         if (running) return
         running = true
@@ -109,6 +114,15 @@ object WatchDataSyncManager {
                 c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword
             ).onSuccess { states ->
                 resolveAll(states)
+                lastFetchOk = true
+                lastFetchError = ""
+                lastFetchAt = System.currentTimeMillis()
+                invalidate?.invoke()
+            }.onFailure { e ->
+                lastFetchOk = false
+                lastFetchError = e.message ?: "Abruf fehlgeschlagen"
+                lastFetchAt = System.currentTimeMillis()
+                Log.e(TAG, "Datenpunkt-Abruf fehlgeschlagen: ${e.message}", e)
                 invalidate?.invoke()
             }
         }

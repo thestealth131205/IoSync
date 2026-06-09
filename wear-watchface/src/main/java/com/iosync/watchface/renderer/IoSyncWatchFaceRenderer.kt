@@ -430,6 +430,13 @@ class IoSyncWatchFaceRenderer(
         isAntiAlias = true
         style = Paint.Style.FILL
     }
+    // Diagnose-Anzeige (selbst-versteckend): erscheint nur bei einem Verbindungsproblem.
+    private val diagPaint = Paint().apply {
+        color = Color.parseColor("#FF6B6B")
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        isAntiAlias = true
+        textAlign = Paint.Align.CENTER
+    }
     companion object {
         private const val DOUBLE_TAP_MS   = 400L
         // NTP-Zeitkorrektur
@@ -997,6 +1004,38 @@ class IoSyncWatchFaceRenderer(
                     radius * 0.03f, radius * 0.03f, confirmBgPaint
                 )
                 canvas.drawText(text, cx, textY, confirmPaint)
+            }
+        }
+
+        // Diagnose-Anzeige (selbst-versteckend): nur sichtbar, wenn der Adapter
+        // genutzt werden soll, aber etwas nicht stimmt. Sagt direkt, woran es liegt.
+        if (!isAmbient && config.ioUseAdapter) {
+            val diagText = when {
+                config.ioHost.isBlank() ->
+                    "Keine Verbindungs-Config"
+                WatchDataSyncManager.lastFetchAt > 0L && !WatchDataSyncManager.lastFetchOk ->
+                    "Adapter nicht erreichbar"
+                else -> null
+            }
+            if (diagText != null) {
+                diagPaint.textSize = radius * 0.09f
+                diagPaint.alpha = 255
+                confirmBgPaint.alpha = 200
+                val diagY = cy + radius * 0.86f
+                val diagBounds = Rect()
+                diagPaint.getTextBounds(diagText, 0, diagText.length, diagBounds)
+                val padH = radius * 0.06f
+                val padV = radius * 0.03f
+                canvas.drawRoundRect(
+                    RectF(
+                        cx - diagBounds.width() / 2f - padH,
+                        diagY + diagBounds.top - padV,
+                        cx + diagBounds.width() / 2f + padH,
+                        diagY + diagBounds.bottom + padV
+                    ),
+                    radius * 0.03f, radius * 0.03f, confirmBgPaint
+                )
+                canvas.drawText(diagText, cx, diagY, diagPaint)
             }
         }
 

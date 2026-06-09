@@ -606,6 +606,10 @@ object WatchFaceConfigCache {
 
     fun updateConnectionFromDataMap(dataMap: DataMap) {
         connectionConfigReceivedAt = System.currentTimeMillis()
+        // Auch den allgemeinen Empfangs-Zeitstempel setzen, damit der Renderer den
+        // "Config empfangen"-Banner zeigt, wenn nur die Verbindungs-Konfig
+        // ("Speichern & Verbinden") an die Uhr übertragen wurde.
+        lastConfigReceivedAt = System.currentTimeMillis()
         if (dataMap.containsKey(KEY_IO_USE_ADAPTER)) ioUseAdapter = dataMap.getBoolean(KEY_IO_USE_ADAPTER)
         dataMap.getString(KEY_IO_HOST)?.let { ioHost = it }
         if (dataMap.containsKey(KEY_IO_PORT)) ioPort = dataMap.getInt(KEY_IO_PORT)
