@@ -8,6 +8,20 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.6.7",
+        date = "10.06.2026",
+        changes = listOf(
+            "Watchface Page 3: Tempo (Druckgeschwindigkeit) und Lüfter (Bauteil-Lüfter) als eigene Kacheln mit Symbol"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.6.5",
+        date = "10.06.2026",
+        changes = listOf(
+            "Watchface Page 3: neues Hintergrundbild (gebürstetes Metall) eingefügt"
+        )
+    ),
+    ChangelogEntry(
         version = "4.6.4",
         date = "10.06.2026",
         changes = listOf(

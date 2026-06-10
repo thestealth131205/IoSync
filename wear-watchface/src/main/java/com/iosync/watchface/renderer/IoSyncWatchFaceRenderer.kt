@@ -112,6 +112,8 @@ class IoSyncWatchFaceRenderer(
     private var backgroundBitmapScaled: Bitmap? = null
     private var backgroundBitmapP2: Bitmap? = null
     private var backgroundBitmapP2Scaled: Bitmap? = null
+    private var backgroundBitmapP3: Bitmap? = null
+    private var backgroundBitmapP3Scaled: Bitmap? = null
     private val backgroundBitmapPaint = Paint().apply { isAntiAlias = true }
 
     // ── Hauptzeit HH:mm ───────────────────────────────────────────────────────
@@ -816,7 +818,7 @@ class IoSyncWatchFaceRenderer(
             val w = bounds.width()
             val h = bounds.height()
             if (currentPage == 1) {
-                // Seite 2: eigenes Hintergrundbild (Seite 3 bleibt schwarz, kein Bild)
+                // Seite 2: eigenes Hintergrundbild
                 if (backgroundBitmapP2Scaled?.width != w || backgroundBitmapP2Scaled?.height != h) {
                     if (backgroundBitmapP2 == null) {
                         backgroundBitmapP2 = BitmapFactory.decodeResource(context.resources, com.iosync.watchface.R.drawable.watchface_background_p2)
@@ -826,6 +828,17 @@ class IoSyncWatchFaceRenderer(
                     }
                 }
                 backgroundBitmapP2Scaled?.let { canvas.drawBitmap(it, 0f, 0f, backgroundBitmapPaint) }
+            } else if (currentPage == 2) {
+                // Seite 3: eigenes Hintergrundbild
+                if (backgroundBitmapP3Scaled?.width != w || backgroundBitmapP3Scaled?.height != h) {
+                    if (backgroundBitmapP3 == null) {
+                        backgroundBitmapP3 = BitmapFactory.decodeResource(context.resources, com.iosync.watchface.R.drawable.watchface_background_p3)
+                    }
+                    backgroundBitmapP3Scaled = backgroundBitmapP3?.let {
+                        Bitmap.createScaledBitmap(it, w, h, true)
+                    }
+                }
+                backgroundBitmapP3Scaled?.let { canvas.drawBitmap(it, 0f, 0f, backgroundBitmapPaint) }
             } else if (config.showBackground) {
                 // Seite 1: konfigurierbares Hintergrundbild
                 if (backgroundBitmapScaled?.width != w || backgroundBitmapScaled?.height != h) {
@@ -3152,7 +3165,7 @@ class IoSyncWatchFaceRenderer(
      *   - Seiten-Indikator (3 Punkte oben)
      *   - Fortschrittsring bei 12 Uhr mit %-Wert
      *   - Nozzle / Bed / Chamber Temperaturen
-     *   - Geschwindigkeit + Lüfter (links) + LED-Button + Heater-Button (rechts)
+     *   - Tempo- + Lüfter-Kachel (links) + LED-Button + Heater-Button (rechts)
      *   - P3-Pille bei 6 Uhr
      */
     private fun drawPage3(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
@@ -3227,32 +3240,22 @@ class IoSyncWatchFaceRenderer(
         // Chamber centered in second row
         drawTemp("Chamber", config.klipperChamberTemp, 0f, cx, tempRowY2)
 
-        // ── Geschwindigkeit + Lüfter (links) ──────────────────────────────────
-        val infoRowY  = cy + radius * 0.20f
-        val infoLabelPaint = Paint().apply {
-            isAntiAlias = true; color = Color.parseColor("#888888")
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            textSize = radius * 0.062f; textAlign = Paint.Align.LEFT
-        }
-        val infoValuePaint = Paint().apply {
-            isAntiAlias = true; color = Color.parseColor("#EAFF00")
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = radius * 0.085f; textAlign = Paint.Align.LEFT
-        }
-        val infoX = cx - radius * 0.88f
-        canvas.drawText("Speed", infoX, infoRowY - radius * 0.01f, infoLabelPaint)
-        canvas.drawText("${config.klipperSpeedMms.toInt()} mm/s", infoX, infoRowY + radius * 0.10f, infoValuePaint)
-        canvas.drawText("Fan", infoX, infoRowY + radius * 0.18f, infoLabelPaint)
-        canvas.drawText("${config.klipperFanPercent.toInt()}%", infoX, infoRowY + radius * 0.29f, infoValuePaint)
-
-        // ── LED-Kachel + Heater-Kachel (rechts, gestapelt) ────────────────────
-        // Optik wie die „Energiegeräte"-Kacheln der App: dunkle Kachel mit Label,
-        // Status (An/Aus) und leuchtendem Symbol rechts.
+        // ── Kachel-Geometrie (links: Tempo/Lüfter, rechts: LED/Heater) ────────
         val tileW   = radius * 0.56f
         val tileH   = radius * 0.185f
         val tileCx  = cx + radius * 0.36f
+        val leftTileCx = cx - radius * 0.36f
         val ledTileCy  = cy + radius * 0.18f
         val heatTileCy = cy + radius * 0.40f
+
+        // ── Tempo-Kachel + Lüfter-Kachel (links, gestapelt) ───────────────────
+        // Info-Kacheln im selben Stil wie LED/Heater, zeigen reine Werte an.
+        drawP3InfoTile(canvas, leftTileCx, ledTileCy, tileW, tileH, "Tempo",
+                       "${config.klipperSpeedMms.toInt()} mm/s",
+                       Color.parseColor("#EAFF00"), "speed")
+        drawP3InfoTile(canvas, leftTileCx, heatTileCy, tileW, tileH, "Lüfter",
+                       "${config.klipperFanPercent.toInt()} %",
+                       Color.parseColor("#4FC3F7"), "fan")
 
         val ledIsOn = config.klipperLedState
         val ledPressed = p3LedBtnPressed && (System.currentTimeMillis() - p3LedBtnPressedAt < PILL_PRESS_DURATION_MS)
@@ -3300,6 +3303,80 @@ class IoSyncWatchFaceRenderer(
         val iconColor = if (isOn) onColor else Color.parseColor("#666666")
         if (iconType == "lamp") drawSunIcon(canvas, iconCx, tileCy, iconR, iconColor, isOn)
         else drawFlameIcon(canvas, iconCx, tileCy, iconR, iconColor, isOn)
+    }
+
+    /** Zeichnet eine Seite-3-Info-Kachel (reine Wert-Anzeige, kein Tap). */
+    private fun drawP3InfoTile(
+        canvas: Canvas, tileCx: Float, tileCy: Float, tileW: Float, tileH: Float,
+        label: String, valueText: String, iconColor: Int, iconType: String
+    ) {
+        val rect = RectF(tileCx - tileW / 2f, tileCy - tileH / 2f, tileCx + tileW / 2f, tileCy + tileH / 2f)
+        val corner = tileH * 0.42f
+        pillFillPaint.color = Color.parseColor("#26262B")
+        canvas.drawRoundRect(rect, corner, corner, pillFillPaint)
+
+        val textX = rect.left + tileH * 0.45f
+        val labelPaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#999999")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textSize = tileH * 0.28f; textAlign = Paint.Align.LEFT
+        }
+        val valuePaint = Paint().apply {
+            isAntiAlias = true; color = Color.WHITE
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = tileH * 0.34f; textAlign = Paint.Align.LEFT
+        }
+        canvas.drawText(label, textX, tileCy - tileH * 0.06f, labelPaint)
+        canvas.drawText(valueText, textX, tileCy + tileH * 0.30f, valuePaint)
+
+        val iconCx = rect.right - tileH * 0.62f
+        val iconR  = tileH * 0.30f
+        if (iconType == "fan") drawFanIcon(canvas, iconCx, tileCy, iconR, iconColor)
+        else drawSpeedIcon(canvas, iconCx, tileCy, iconR, iconColor)
+    }
+
+    /** Lüfter-/Propeller-Symbol. */
+    private fun drawFanIcon(canvas: Canvas, cx: Float, cy: Float, r: Float, color: Int) {
+        val p = Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; this.color = color }
+        for (i in 0 until 3) {
+            val a = Math.toRadians((i * 120).toDouble())
+            val path = android.graphics.Path()
+            path.moveTo(cx, cy)
+            val bx = cx + (r * 1.05f) * Math.cos(a).toFloat()
+            val by = cy + (r * 1.05f) * Math.sin(a).toFloat()
+            val c1a = a - 0.55
+            val c2a = a + 0.55
+            path.cubicTo(
+                cx + (r * 0.85f) * Math.cos(c1a).toFloat(), cy + (r * 0.85f) * Math.sin(c1a).toFloat(),
+                bx, by,
+                cx + (r * 0.85f) * Math.cos(c2a).toFloat(), cy + (r * 0.85f) * Math.sin(c2a).toFloat()
+            )
+            path.close()
+            canvas.drawPath(path, p)
+        }
+        p.color = Color.parseColor("#26262B")
+        canvas.drawCircle(cx, cy, r * 0.22f, p)
+        p.color = color
+        p.style = Paint.Style.STROKE
+        p.strokeWidth = r * 0.14f
+        canvas.drawCircle(cx, cy, r * 0.22f, p)
+    }
+
+    /** Tacho-/Geschwindigkeitssymbol. */
+    private fun drawSpeedIcon(canvas: Canvas, cx: Float, cy: Float, r: Float, color: Int) {
+        val p = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.STROKE
+            strokeWidth = r * 0.18f; strokeCap = Paint.Cap.ROUND; this.color = color
+        }
+        val arc = RectF(cx - r, cy - r * 0.6f, cx + r, cy + r * 1.4f)
+        canvas.drawArc(arc, 180f, 180f, false, p)
+        // Zeiger
+        val na = Math.toRadians(230.0)
+        canvas.drawLine(cx, cy + r * 0.4f,
+            cx + (r * 0.9f) * Math.cos(na).toFloat(),
+            cy + r * 0.4f + (r * 0.9f) * Math.sin(na).toFloat(), p)
+        p.style = Paint.Style.FILL
+        canvas.drawCircle(cx, cy + r * 0.4f, r * 0.16f, p)
     }
 
     /** Sonnen-/Lampensymbol – leuchtet bei „An", grau bei „Aus". */
