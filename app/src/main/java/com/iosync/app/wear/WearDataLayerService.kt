@@ -623,13 +623,21 @@ class WearDataLayerService @Inject constructor(
         klipperHost: String = "",
         klipperPort: Int = 7125,
         klipperApiKey: String = "",
+        klipperChamberObject: String = "heater_generic chamber",
+        klipperIntervalSec: Int = 15,
         p3PillEnabled: Boolean = false,
         p3PillColorTrue: String = "cyan",
         p3PillColorFalse: String = "red",
         p3PillObject: String = "",
         p3PillField: String = "value",
         p3PillGcodeOn: String = "",
-        p3PillGcodeOff: String = ""
+        p3PillGcodeOff: String = "",
+        klipperLedObject: String = "",
+        klipperLedField: String = "value",
+        klipperLedGcodeOn: String = "",
+        klipperLedGcodeOff: String = "",
+        klipperHeatGcodeOn: String = "",
+        klipperHeatGcodeOff: String = ""
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -664,6 +672,8 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString("con_klipper_host", klipperHost)
                     dataMap.putInt("con_klipper_port", klipperPort)
                     dataMap.putString("con_klipper_api_key", klipperApiKey)
+                    dataMap.putString("con_klipper_chamber_obj", klipperChamberObject)
+                    dataMap.putInt("con_klipper_interval", klipperIntervalSec)
                     dataMap.putBoolean("con_p3_pill_enabled", p3PillEnabled)
                     dataMap.putString("con_p3_pill_color_true", p3PillColorTrue)
                     dataMap.putString("con_p3_pill_color_false", p3PillColorFalse)
@@ -671,6 +681,13 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString("con_p3_pill_field", p3PillField)
                     dataMap.putString("con_p3_pill_gcode_on", p3PillGcodeOn)
                     dataMap.putString("con_p3_pill_gcode_off", p3PillGcodeOff)
+                    // Seite 3 – LED-Button + Chamber-Heater-Button
+                    dataMap.putString("con_klipper_led_object", klipperLedObject)
+                    dataMap.putString("con_klipper_led_field", klipperLedField)
+                    dataMap.putString("con_klipper_led_gcode_on", klipperLedGcodeOn)
+                    dataMap.putString("con_klipper_led_gcode_off", klipperLedGcodeOff)
+                    dataMap.putString("con_klipper_heat_gcode_on", klipperHeatGcodeOn)
+                    dataMap.putString("con_klipper_heat_gcode_off", klipperHeatGcodeOff)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

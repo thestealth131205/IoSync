@@ -815,8 +815,8 @@ class IoSyncWatchFaceRenderer(
         if (!isAmbient) {
             val w = bounds.width()
             val h = bounds.height()
-            if (currentPage == 1 || currentPage == 2) {
-                // Seite 2 + 3: eigenes Hintergrundbild
+            if (currentPage == 1) {
+                // Seite 2: eigenes Hintergrundbild (Seite 3 bleibt schwarz, kein Bild)
                 if (backgroundBitmapP2Scaled?.width != w || backgroundBitmapP2Scaled?.height != h) {
                     if (backgroundBitmapP2 == null) {
                         backgroundBitmapP2 = BitmapFactory.decodeResource(context.resources, com.iosync.watchface.R.drawable.watchface_background_p2)
@@ -3245,83 +3245,104 @@ class IoSyncWatchFaceRenderer(
         canvas.drawText("Fan", infoX, infoRowY + radius * 0.18f, infoLabelPaint)
         canvas.drawText("${config.klipperFanPercent.toInt()}%", infoX, infoRowY + radius * 0.29f, infoValuePaint)
 
-        // ── LED-Button + Heater-Button (rechts) ───────────────────────────────
-        val btnW    = radius * 0.28f
-        val btnH    = radius * 0.14f
-        val btnCorner = btnH * 0.5f
-        val btnY    = infoRowY + radius * 0.05f  // Mitte des Buttons
-        val ledX    = cx + radius * 0.22f
-        val heatX   = cx + radius * 0.62f
+        // ── LED-Kachel + Heater-Kachel (rechts, gestapelt) ────────────────────
+        // Optik wie die „Energiegeräte"-Kacheln der App: dunkle Kachel mit Label,
+        // Status (An/Aus) und leuchtendem Symbol rechts.
+        val tileW   = radius * 0.56f
+        val tileH   = radius * 0.185f
+        val tileCx  = cx + radius * 0.36f
+        val ledTileCy  = cy + radius * 0.18f
+        val heatTileCy = cy + radius * 0.40f
 
-        // LED-Button
         val ledIsOn = config.klipperLedState
         val ledPressed = p3LedBtnPressed && (System.currentTimeMillis() - p3LedBtnPressedAt < PILL_PRESS_DURATION_MS)
-        val ledBtnRect = RectF(ledX - btnW / 2f, btnY - btnH / 2f, ledX + btnW / 2f, btnY + btnH / 2f)
-        p3LedBtnBounds.set(ledBtnRect.left - radius * 0.04f, ledBtnRect.top - radius * 0.04f,
-                           ledBtnRect.right + radius * 0.04f, ledBtnRect.bottom + radius * 0.04f)
-        val ledColor = if (ledIsOn || ledPressed) Color.parseColor("#EAFF00") else Color.parseColor("#333333")
-        pillFillPaint.color = Color.argb(if (ledIsOn) 200 else 120,
-            Color.red(ledColor), Color.green(ledColor), Color.blue(ledColor))
-        canvas.drawRoundRect(ledBtnRect, btnCorner, btnCorner, pillFillPaint)
-        pillStrokePaint.color = ledColor
-        canvas.drawRoundRect(ledBtnRect, btnCorner, btnCorner, pillStrokePaint)
-        val btnTextPaint = Paint().apply {
-            isAntiAlias = true; color = if (ledIsOn) Color.BLACK else Color.parseColor("#AAAAAA")
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = radius * 0.072f; textAlign = Paint.Align.CENTER
-        }
-        canvas.drawText("LED", ledX, btnY - (btnTextPaint.descent() + btnTextPaint.ascent()) / 2f, btnTextPaint)
+        drawP3Tile(canvas, tileCx, ledTileCy, tileW, tileH, "Led", ledIsOn, ledPressed,
+                   Color.parseColor("#FFC400"), "lamp")
+        p3LedBtnBounds.set(tileCx - tileW / 2f, ledTileCy - tileH / 2f, tileCx + tileW / 2f, ledTileCy + tileH / 2f)
 
-        // Heater-Button
         val heatIsOn = config.klipperChamberHeatState
         val heatPressed = p3HeatBtnPressed && (System.currentTimeMillis() - p3HeatBtnPressedAt < PILL_PRESS_DURATION_MS)
-        val heatBtnRect = RectF(heatX - btnW / 2f, btnY - btnH / 2f, heatX + btnW / 2f, btnY + btnH / 2f)
-        p3HeatBtnBounds.set(heatBtnRect.left - radius * 0.04f, heatBtnRect.top - radius * 0.04f,
-                            heatBtnRect.right + radius * 0.04f, heatBtnRect.bottom + radius * 0.04f)
-        val heatColor = if (heatIsOn || heatPressed) Color.parseColor("#FF5722") else Color.parseColor("#333333")
-        pillFillPaint.color = Color.argb(if (heatIsOn) 200 else 120,
-            Color.red(heatColor), Color.green(heatColor), Color.blue(heatColor))
-        canvas.drawRoundRect(heatBtnRect, btnCorner, btnCorner, pillFillPaint)
-        pillStrokePaint.color = heatColor
-        canvas.drawRoundRect(heatBtnRect, btnCorner, btnCorner, pillStrokePaint)
-        val heatTextPaint = Paint().apply {
-            isAntiAlias = true; color = if (heatIsOn) Color.WHITE else Color.parseColor("#AAAAAA")
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = radius * 0.060f; textAlign = Paint.Align.CENTER
-        }
-        canvas.drawText("HEAT", heatX, btnY - (heatTextPaint.descent() + heatTextPaint.ascent()) / 2f, heatTextPaint)
+        drawP3Tile(canvas, tileCx, heatTileCy, tileW, tileH, "Heater", heatIsOn, heatPressed,
+                   Color.parseColor("#FF6A00"), "flame")
+        p3HeatBtnBounds.set(tileCx - tileW / 2f, heatTileCy - tileH / 2f, tileCx + tileW / 2f, heatTileCy + tileH / 2f)
 
-        // ── P3-Pille (6 Uhr) ──────────────────────────────────────────────────
-        if (config.p3PillEnabled) {
-            drawP3Pill(canvas, cx, cy, radius)
-        } else {
-            // Tap-Bounds leeren damit kein Phantom-Input ausgelöst wird
-            p3PillTapBounds.setEmpty()
+        // Hinweis: Die 6-Uhr-Pille wird auf Seite 3 NICHT mehr gezeichnet
+        // (gehörte optisch zur Seite-1-Pille). Tap-Bounds leeren.
+        p3PillTapBounds.setEmpty()
+    }
+
+    /** Zeichnet eine Seite-3-Kachel (LED/Heater) im Stil der App-„Energiegeräte". */
+    private fun drawP3Tile(
+        canvas: Canvas, tileCx: Float, tileCy: Float, tileW: Float, tileH: Float,
+        label: String, isOn: Boolean, pressed: Boolean, onColor: Int, iconType: String
+    ) {
+        val rect = RectF(tileCx - tileW / 2f, tileCy - tileH / 2f, tileCx + tileW / 2f, tileCy + tileH / 2f)
+        val corner = tileH * 0.42f
+        pillFillPaint.color = if (pressed) Color.parseColor("#3A3A3A") else Color.parseColor("#26262B")
+        canvas.drawRoundRect(rect, corner, corner, pillFillPaint)
+
+        val textX = rect.left + tileH * 0.45f
+        val labelPaint = Paint().apply {
+            isAntiAlias = true; color = Color.WHITE
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = tileH * 0.34f; textAlign = Paint.Align.LEFT
+        }
+        val statusPaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#999999")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textSize = tileH * 0.28f; textAlign = Paint.Align.LEFT
+        }
+        canvas.drawText(label, textX, tileCy - tileH * 0.06f, labelPaint)
+        canvas.drawText(if (isOn) "An" else "Aus", textX, tileCy + tileH * 0.30f, statusPaint)
+
+        val iconCx = rect.right - tileH * 0.62f
+        val iconR  = tileH * 0.30f
+        val iconColor = if (isOn) onColor else Color.parseColor("#666666")
+        if (iconType == "lamp") drawSunIcon(canvas, iconCx, tileCy, iconR, iconColor, isOn)
+        else drawFlameIcon(canvas, iconCx, tileCy, iconR, iconColor, isOn)
+    }
+
+    /** Sonnen-/Lampensymbol – leuchtet bei „An", grau bei „Aus". */
+    private fun drawSunIcon(canvas: Canvas, cx: Float, cy: Float, r: Float, color: Int, glow: Boolean) {
+        val p = Paint().apply { isAntiAlias = true }
+        if (glow) {
+            p.style = Paint.Style.FILL
+            for (i in 3 downTo 1) {
+                p.color = Color.argb(38, Color.red(color), Color.green(color), Color.blue(color))
+                canvas.drawCircle(cx, cy, r * (0.7f + i * 0.28f), p)
+            }
+        }
+        p.color = color
+        p.style = Paint.Style.FILL
+        canvas.drawCircle(cx, cy, r * 0.46f, p)
+        p.style = Paint.Style.STROKE
+        p.strokeWidth = r * 0.16f
+        p.strokeCap = Paint.Cap.ROUND
+        for (i in 0 until 8) {
+            val a = Math.toRadians((i * 45).toDouble())
+            val sx = cx + (r * 0.72f) * Math.cos(a).toFloat()
+            val sy = cy + (r * 0.72f) * Math.sin(a).toFloat()
+            val ex = cx + (r * 1.05f) * Math.cos(a).toFloat()
+            val ey = cy + (r * 1.05f) * Math.sin(a).toFloat()
+            canvas.drawLine(sx, sy, ex, ey, p)
         }
     }
 
-    private fun drawP3Pill(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
-        val config = WatchFaceConfigCache
-        val halfW = radius * 0.266f
-        val halfH = radius * 0.060f
-        val centerY = cy + radius * 0.72f
-
-        p3PillBounds.set(cx - halfW, centerY - halfH, cx + halfW, centerY + halfH)
-        val tapPad = radius * 0.06f
-        p3PillTapBounds.set(
-            p3PillBounds.left  - tapPad, p3PillBounds.top    - tapPad,
-            p3PillBounds.right + tapPad, p3PillBounds.bottom + tapPad
-        )
-
-        val isPressedNow = p3PillPressed && (System.currentTimeMillis() - p3PillPressedAt < PILL_PRESS_DURATION_MS)
-        val stateColor   = colorFromPillId(if (config.p3PillState) config.p3PillColorTrue else config.p3PillColorFalse)
-        val activeColor  = if (isPressedNow) colorFromPillId(config.p3PillColorTrue) else stateColor
-        val fillAlpha    = if (isPressedNow) 240 else 180
-
-        pillFillPaint.color = Color.argb(fillAlpha, Color.red(activeColor), Color.green(activeColor), Color.blue(activeColor))
-        canvas.drawRoundRect(p3PillBounds, halfH, halfH, pillFillPaint)
-        pillStrokePaint.color = activeColor
-        canvas.drawRoundRect(p3PillBounds, halfH, halfH, pillStrokePaint)
+    /** Flammensymbol – leuchtet bei „An", grau bei „Aus". */
+    private fun drawFlameIcon(canvas: Canvas, cx: Float, cy: Float, r: Float, color: Int, glow: Boolean) {
+        val p = Paint().apply { isAntiAlias = true; style = Paint.Style.FILL }
+        if (glow) {
+            p.color = Color.argb(50, Color.red(color), Color.green(color), Color.blue(color))
+            canvas.drawCircle(cx, cy, r * 1.3f, p)
+        }
+        p.color = color
+        val path = android.graphics.Path().apply {
+            moveTo(cx, cy - r)
+            cubicTo(cx + r * 1.1f, cy - r * 0.1f, cx + r * 0.55f, cy + r, cx, cy + r)
+            cubicTo(cx - r * 0.55f, cy + r, cx - r * 1.1f, cy - r * 0.1f, cx, cy - r)
+            close()
+        }
+        canvas.drawPath(path, p)
     }
 
     override fun onDestroy() {

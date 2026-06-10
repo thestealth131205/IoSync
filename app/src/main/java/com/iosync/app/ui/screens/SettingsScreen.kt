@@ -251,6 +251,7 @@ fun SettingsScreen(
     var klipperObjExpanded       by remember { mutableStateOf(false) }
     var klipperEnabled           by remember(uiState.klipperEnabled)           { mutableStateOf(uiState.klipperEnabled) }
     var klipperChamberObject     by remember(uiState.klipperChamberObject)     { mutableStateOf(uiState.klipperChamberObject) }
+    var klipperIntervalSec       by remember(uiState.klipperIntervalSec)       { mutableStateOf(uiState.klipperIntervalSec.toString()) }
     var klipperLedGcodeOn        by remember(uiState.klipperLedGcodeOn)        { mutableStateOf(uiState.klipperLedGcodeOn) }
     var klipperLedGcodeOff       by remember(uiState.klipperLedGcodeOff)       { mutableStateOf(uiState.klipperLedGcodeOff) }
     var klipperLedObject         by remember(uiState.klipperLedObject)         { mutableStateOf(uiState.klipperLedObject) }
@@ -2096,6 +2097,16 @@ fun SettingsScreen(
                     Text(uiState.klipperObjectsError!!, style = MaterialTheme.typography.labelSmall, color = Color(0xFFF44336))
                 }
 
+                OutlinedTextField(
+                    value = klipperIntervalSec,
+                    onValueChange = { v -> klipperIntervalSec = v.filter { it.isDigit() }.take(4) },
+                    label = { Text("Abruf-Intervall (Sekunden)") },
+                    placeholder = { Text("15") },
+                    supportingText = { Text("Gilt für alle Klipper-Daten (Fortschritt, Temps, LED, Heater)") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Pille (6 Uhr, Seite 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceToggleRow(text = "Pille aktivieren", subText = "Doppeltipp auf die Pille sendet G-Code an den Drucker", checked = p3PillEnabled, onCheckedChange = { p3PillEnabled = it })
@@ -2225,6 +2236,7 @@ fun SettingsScreen(
                             klipperPort             = uiState.klipperPort,
                             klipperApiKey           = uiState.klipperApiKey,
                             klipperChamberObject    = klipperChamberObject.trim(),
+                            klipperIntervalSec      = klipperIntervalSec.toIntOrNull()?.coerceAtLeast(3) ?: 15,
                             p3PillEnabled           = p3PillEnabled,
                             p3PillColorTrue         = p3PillColorTrue,
                             p3PillColorFalse        = p3PillColorFalse,

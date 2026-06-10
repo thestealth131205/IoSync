@@ -418,7 +418,7 @@ object WatchDataSyncManager {
         while (running) {
             try {
                 runKlipperFetch()
-                val interval = WatchFaceConfigCache.slotIntervalSec.coerceAtLeast(10)
+                val interval = WatchFaceConfigCache.klipperIntervalSec.coerceAtLeast(3)
                 delay(interval * 1_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

@@ -8,6 +8,17 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.6.4",
+        date = "10.06.2026",
+        changes = listOf(
+            "Klipper: zentrales Abruf-Intervall (Sekunden) in den Einstellungen – gilt für alle Klipper-Daten",
+            "Watchface Page 3: Hintergrundbild entfernt (jetzt schwarz)",
+            "Fix: Page-1-Pille wird nicht mehr fälschlich auf Page 3 angezeigt",
+            "Watchface Page 3: LED- und Heater-Button als Kacheln mit Status (An/Aus) + leuchtendem Symbol (Lampe/Flamme)",
+            "Fix: LED-/Heater-Objekt + G-Codes werden jetzt korrekt an die Uhr übertragen (Status-Anzeige funktioniert)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.6.2",
         date = "10.06.2026",
         changes = listOf(

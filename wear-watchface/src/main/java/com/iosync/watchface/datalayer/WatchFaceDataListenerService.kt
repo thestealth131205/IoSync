@@ -682,6 +682,7 @@ object WatchFaceConfigCache {
     @Volatile var slotIntervalSec: Int = 120
     @Volatile var page2IntervalSec: Int = 120
     @Volatile var weatherIntervalSec: Int = 600
+    @Volatile var klipperIntervalSec: Int = 15
     // Zeitpunkt des letzten Empfangs der Verbindungs-Konfig
     @Volatile var connectionConfigReceivedAt: Long = 0L
 
@@ -722,6 +723,7 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey("con_klipper_port")) klipperPort = dataMap.getInt("con_klipper_port")
         dataMap.getString("con_klipper_api_key")?.let { klipperApiKey = it }
         dataMap.getString("con_klipper_chamber_obj")?.let { klipperChamberObject = it }
+        if (dataMap.containsKey("con_klipper_interval")) klipperIntervalSec = dataMap.getInt("con_klipper_interval")
         // Seite 3 – Pille
         if (dataMap.containsKey("con_p3_pill_enabled"))  p3PillEnabled    = dataMap.getBoolean("con_p3_pill_enabled")
         dataMap.getString("con_p3_pill_color_true")?.let  { p3PillColorTrue  = it }
