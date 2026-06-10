@@ -33,8 +33,8 @@ android {
         applicationId = "com.iosync.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 460
-        versionName = "4.6.0"
+        versionCode = 461
+        versionName = "4.6.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

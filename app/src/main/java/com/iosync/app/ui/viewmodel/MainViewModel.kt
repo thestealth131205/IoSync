@@ -1313,6 +1313,7 @@ class MainViewModel @Inject constructor(
             weatherIntervalSec = 600,
             bc1Id = prefs[KEY_WF_BC1_ID] ?: "",
             bc2Id = prefs[KEY_WF_BC2_ID] ?: "",
+            klipperEnabled   = prefs[KEY_KLIPPER_ENABLED]  ?: false,
             klipperHost      = prefs[KEY_KLIPPER_HOST]    ?: "",
             klipperPort      = prefs[KEY_KLIPPER_PORT]    ?: 7125,
             klipperApiKey    = prefs[KEY_KLIPPER_API_KEY] ?: "",

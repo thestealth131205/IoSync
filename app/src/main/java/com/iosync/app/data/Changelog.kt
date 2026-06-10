@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.6.1",
+        date = "10.06.2026",
+        changes = listOf(
+            "Fix: Klipper-Aktivierungsstatus (klipperEnabled) wird jetzt korrekt an die Uhr übertragen — Klipper-Loop auf der Uhr startet nun zuverlässig",
+            "Fix: Klipper API-Key (X-Api-Key Header) wird bei allen Moonraker-Anfragen der Uhr mitgesendet"
+        )
+    ),
+    ChangelogEntry(
         version = "4.6.0",
         date = "10.06.2026",
         changes = listOf(

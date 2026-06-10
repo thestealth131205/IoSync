@@ -619,6 +619,7 @@ class WearDataLayerService @Inject constructor(
         weatherIntervalSec: Int,
         bc1Id: String = "",
         bc2Id: String = "",
+        klipperEnabled: Boolean = false,
         klipperHost: String = "",
         klipperPort: Int = 7125,
         klipperApiKey: String = "",
@@ -659,6 +660,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_CON_BC1_ID, bc1Id)
                     dataMap.putString(KEY_CON_BC2_ID, bc2Id)
                     // Klipper + Seite 3 Pille
+                    dataMap.putBoolean("con_klipper_enabled", klipperEnabled)
                     dataMap.putString("con_klipper_host", klipperHost)
                     dataMap.putInt("con_klipper_port", klipperPort)
                     dataMap.putString("con_klipper_api_key", klipperApiKey)
