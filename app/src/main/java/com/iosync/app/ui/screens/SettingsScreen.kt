@@ -230,8 +230,21 @@ fun SettingsScreen(
     var sectionAdapter by remember { mutableStateOf(true) }
     var sectionPage1   by remember { mutableStateOf(false) }
     var sectionPage2   by remember { mutableStateOf(false) }
+    var sectionPage3   by remember { mutableStateOf(false) }
     var sectionHealth  by remember { mutableStateOf(false) }
     var sectionNtp     by remember { mutableStateOf(false) }
+
+    // Klipper & Seite 3 – Pille
+    var klipperHost        by remember(uiState.klipperHost)       { mutableStateOf(uiState.klipperHost) }
+    var klipperPort        by remember(uiState.klipperPort)       { mutableStateOf(uiState.klipperPort.toString()) }
+    var p3PillEnabled      by remember(uiState.p3PillEnabled)     { mutableStateOf(uiState.p3PillEnabled) }
+    var p3PillColorTrue    by remember(uiState.p3PillColorTrue)   { mutableStateOf(uiState.p3PillColorTrue) }
+    var p3PillColorFalse   by remember(uiState.p3PillColorFalse)  { mutableStateOf(uiState.p3PillColorFalse) }
+    var p3PillObject       by remember(uiState.p3PillObject)      { mutableStateOf(uiState.p3PillObject) }
+    var p3PillField        by remember(uiState.p3PillField)       { mutableStateOf(uiState.p3PillField) }
+    var p3PillGcodeOn      by remember(uiState.p3PillGcodeOn)     { mutableStateOf(uiState.p3PillGcodeOn) }
+    var p3PillGcodeOff     by remember(uiState.p3PillGcodeOff)    { mutableStateOf(uiState.p3PillGcodeOff) }
+    var klipperObjExpanded by remember { mutableStateOf(false) }
 
     // NTP-Zeitkorrektur
     var ntpEnabled by remember(uiState.wfNtpEnabled) { mutableStateOf(uiState.wfNtpEnabled) }
@@ -1924,6 +1937,155 @@ fun SettingsScreen(
                     Text(text = uiState.wearSyncLog, style = MaterialTheme.typography.labelSmall, color = if (uiState.wearSyncLog.startsWith("Fehler")) Color(0xFFF44336) else Color(0xFF4CAF50), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
                 }
             } // end AccordionSection "Zweite Seite Watchface"
+
+            Spacer(Modifier.height(4.dp))
+
+            // ── Sektion 3b: Dritte Seite Watchface (Klipper) ─────────────────
+            AccordionSection(
+                title = "Dritte Seite Watchface (Klipper)",
+                expanded = sectionPage3,
+                onToggle = { sectionPage3 = !sectionPage3 }
+            ) {
+                Text(
+                    "Klipper-Drucker (Moonraker-API, Standard-Port 7125). Die Pille auf Seite 3 (Doppeltipp 12 Uhr von Seite 2 öffnen) schaltet einen Moonraker-Datenpunkt.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Klipper-Verbindung", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                OutlinedTextField(
+                    value = klipperHost, onValueChange = { klipperHost = it },
+                    label = { Text("Klipper-Host / IP") },
+                    placeholder = { Text("192.168.1.200") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = klipperPort,
+                        onValueChange = { klipperPort = it.filter { c -> c.isDigit() } },
+                        label = { Text("Port") }, placeholder = { Text("7125") },
+                        modifier = Modifier.weight(1f), singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Button(
+                        onClick = { viewModel.loadKlipperObjects(klipperHost.trim(), klipperPort.toIntOrNull() ?: 7125) },
+                        modifier = Modifier.weight(2f).align(Alignment.CenterVertically),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A2A), contentColor = Color(0xFFEAFF00)),
+                        enabled = klipperHost.isNotBlank() && !uiState.klipperObjectsLoading
+                    ) {
+                        if (uiState.klipperObjectsLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFFEAFF00))
+                        } else {
+                            Text("Objekte laden", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+                if (uiState.klipperObjectsError != null) {
+                    Text(uiState.klipperObjectsError!!, style = MaterialTheme.typography.labelSmall, color = Color(0xFFF44336))
+                }
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Pille (6 Uhr, Seite 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceToggleRow(text = "Pille aktivieren", subText = "Doppeltipp auf die Pille sendet G-Code an den Drucker", checked = p3PillEnabled, onCheckedChange = { p3PillEnabled = it })
+
+                if (p3PillEnabled) {
+                    // Objekt-Auswahl (Dropdown aus geladenem Liste oder Freitext)
+                    Text("Drucker-Objekt (z.B. output_pin my_led)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (uiState.klipperObjects.isNotEmpty()) {
+                        Box {
+                            OutlinedTextField(
+                                value = p3PillObject, onValueChange = { p3PillObject = it },
+                                label = { Text("Objekt") }, modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                trailingIcon = {
+                                    IconButton(onClick = { klipperObjExpanded = true }) {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            )
+                            DropdownMenu(expanded = klipperObjExpanded, onDismissRequest = { klipperObjExpanded = false }) {
+                                uiState.klipperObjects.forEach { obj ->
+                                    DropdownMenuItem(
+                                        text = { Text(obj, style = MaterialTheme.typography.bodySmall) },
+                                        onClick = { p3PillObject = obj; klipperObjExpanded = false }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        OutlinedTextField(
+                            value = p3PillObject, onValueChange = { p3PillObject = it },
+                            label = { Text("Objekt") }, placeholder = { Text("output_pin my_led") },
+                            modifier = Modifier.fillMaxWidth(), singleLine = true
+                        )
+                    }
+                    OutlinedTextField(
+                        value = p3PillField, onValueChange = { p3PillField = it },
+                        label = { Text("Feld (zum Lesen des Status)") }, placeholder = { Text("value") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = p3PillGcodeOn, onValueChange = { p3PillGcodeOn = it },
+                        label = { Text("G-Code Einschalten") }, placeholder = { Text("SET_PIN PIN=my_led VALUE=1") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = p3PillGcodeOff, onValueChange = { p3PillGcodeOff = it },
+                        label = { Text("G-Code Ausschalten") }, placeholder = { Text("SET_PIN PIN=my_led VALUE=0") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    // Farben
+                    Text("Farbe aktiv (true)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        PillColorChip(color = Color(0xFF00BCD4), label = "Cyan",   selected = p3PillColorTrue == "cyan",        onClick = { p3PillColorTrue = "cyan" })
+                        PillColorChip(color = Color(0xFF4CAF50), label = "Grün",   selected = p3PillColorTrue == "green",       onClick = { p3PillColorTrue = "green" })
+                        PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",   selected = p3PillColorTrue == "neon_yellow", onClick = { p3PillColorTrue = "neon_yellow" })
+                        PillColorChip(color = Color.White,       label = "Weiß",   selected = p3PillColorTrue == "white",       onClick = { p3PillColorTrue = "white" })
+                        PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = p3PillColorTrue == "red",         onClick = { p3PillColorTrue = "red" })
+                        PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = p3PillColorTrue == "orange",      onClick = { p3PillColorTrue = "orange" })
+                    }
+                    Text("Farbe inaktiv (false)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = p3PillColorFalse == "red",        onClick = { p3PillColorFalse = "red" })
+                        PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = p3PillColorFalse == "orange",     onClick = { p3PillColorFalse = "orange" })
+                        PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p3PillColorFalse == "purple",     onClick = { p3PillColorFalse = "purple" })
+                        PillColorChip(color = Color(0xFF888888), label = "Grau",   selected = p3PillColorFalse == "light_gray", onClick = { p3PillColorFalse = "light_gray" })
+                    }
+                    DoubleTapPillButton(
+                        label       = "Pille schalten",
+                        hint        = "Doppeltipp = G-Code senden (Test)",
+                        pillState   = uiState.p3PillState,
+                        colorTrue   = uiState.p3PillColorTrue,
+                        colorFalse  = uiState.p3PillColorFalse,
+                        onDoubleTap = { viewModel.toggleP3PillFromApp() }
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        viewModel.setKlipperAndP3PillConfig(
+                            klipperHost      = klipperHost.trim(),
+                            klipperPort      = klipperPort.toIntOrNull() ?: 7125,
+                            p3PillEnabled    = p3PillEnabled,
+                            p3PillColorTrue  = p3PillColorTrue,
+                            p3PillColorFalse = p3PillColorFalse,
+                            p3PillObject     = p3PillObject.trim(),
+                            p3PillField      = p3PillField.trim(),
+                            p3PillGcodeOn    = p3PillGcodeOn.trim(),
+                            p3PillGcodeOff   = p3PillGcodeOff.trim()
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonYellow, contentColor = Color(0xFF1A1A00))
+                ) { Text("Seite 3 speichern & übertragen", style = MaterialTheme.typography.labelLarge) }
+                if (uiState.wearSyncLog.isNotBlank()) {
+                    Text(text = uiState.wearSyncLog, style = MaterialTheme.typography.labelSmall, color = if (uiState.wearSyncLog.startsWith("Fehler")) Color(0xFFF44336) else Color(0xFF4CAF50), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                }
+            } // end AccordionSection "Dritte Seite Watchface"
 
             Spacer(Modifier.height(4.dp))
 

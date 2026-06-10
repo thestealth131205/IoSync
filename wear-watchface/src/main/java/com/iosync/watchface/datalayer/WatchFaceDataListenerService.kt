@@ -604,6 +604,20 @@ object WatchFaceConfigCache {
     @Volatile var p2Pill2FixedValue: String = ""
     @Volatile var p2Pill2State: Boolean = false
 
+    // ── Klipper-Verbindung (Seite 3 – Moonraker-API) ─────────────────────────
+    @Volatile var klipperHost: String = ""
+    @Volatile var klipperPort: Int = 7125
+
+    // ── Seite 3 – Pille (6 Uhr) ───────────────────────────────────────────────
+    @Volatile var p3PillEnabled: Boolean = false
+    @Volatile var p3PillColorTrue: String = "cyan"
+    @Volatile var p3PillColorFalse: String = "red"
+    @Volatile var p3PillObject: String = ""      // Moonraker-Objekt, z.B. "output_pin my_led"
+    @Volatile var p3PillField: String = "value"  // Feld im Objekt
+    @Volatile var p3PillGcodeOn: String = ""     // G-Code zum Einschalten
+    @Volatile var p3PillGcodeOff: String = ""    // G-Code zum Ausschalten
+    @Volatile var p3PillState: Boolean = false
+
     // ── Verbindungs-Konfig (ab v5: Uhr fragt ioBroker + Wetter selbst ab) ─────
     @Volatile var ioUseAdapter: Boolean = false
     @Volatile var ioHost: String = ""
@@ -665,6 +679,17 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_CON_WEATHER_INTERVAL)) weatherIntervalSec = dataMap.getInt(KEY_CON_WEATHER_INTERVAL)
         dataMap.getString("con_bc1_id")?.let { conBc1Id = it }
         dataMap.getString("con_bc2_id")?.let { conBc2Id = it }
+        // Klipper-Verbindung
+        dataMap.getString("con_klipper_host")?.let { klipperHost = it }
+        if (dataMap.containsKey("con_klipper_port")) klipperPort = dataMap.getInt("con_klipper_port")
+        // Seite 3 – Pille
+        if (dataMap.containsKey("con_p3_pill_enabled"))  p3PillEnabled    = dataMap.getBoolean("con_p3_pill_enabled")
+        dataMap.getString("con_p3_pill_color_true")?.let  { p3PillColorTrue  = it }
+        dataMap.getString("con_p3_pill_color_false")?.let { p3PillColorFalse = it }
+        dataMap.getString("con_p3_pill_object")?.let      { p3PillObject     = it }
+        dataMap.getString("con_p3_pill_field")?.let       { p3PillField      = it }
+        dataMap.getString("con_p3_pill_gcode_on")?.let    { p3PillGcodeOn    = it }
+        dataMap.getString("con_p3_pill_gcode_off")?.let   { p3PillGcodeOff   = it }
     }
 
     fun updateFromDataMap(dataMap: DataMap) {

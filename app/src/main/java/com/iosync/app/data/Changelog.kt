@@ -8,6 +8,25 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.5.6",
+        date = "10.06.2026",
+        changes = listOf(
+            "Klipper/Moonraker-Integration: 3D-Drucker-API per Port 7125 anbindbar",
+            "Page 3 Watchface: Pille auf 6 Uhr zeigt Klipper-Datenpunkt an und schaltet per Doppeltipp",
+            "App-Einstellungen: Klipper-Host/Port konfigurierbar, Drucker-Objekte werden live geladen",
+            "Pill-Farben, G-Code-Befehle (Ein/Aus) und Abfragefeld frei konfigurierbar"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.5.5",
+        date = "10.06.2026",
+        changes = listOf(
+            "Dritte Watchface-Seite (Page 3) eingebaut",
+            "Navigation: Doppeltipp 12 Uhr auf Seite 2 → Seite 3, Doppeltipp 12 Uhr auf Seite 3 → Seite 1",
+            "Seiten-Indikator (3 Punkte) auf Seite 3 zeigt aktive Seite an"
+        )
+    ),
+    ChangelogEntry(
         version = "4.5.4",
         date = "10.06.2026",
         changes = listOf(

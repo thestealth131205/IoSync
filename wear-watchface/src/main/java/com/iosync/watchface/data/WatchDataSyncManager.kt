@@ -45,6 +45,7 @@ object WatchDataSyncManager {
     private var healthJob: Job? = null
     private var pushJob: Job? = null
     private var pushDebounceJob: Job? = null
+    private var klipperJob: Job? = null
 
     private var invalidate: (() -> Unit)? = null
     private val fetchMutex = Mutex()
@@ -67,6 +68,7 @@ object WatchDataSyncManager {
         weatherJob = s.launch { weatherLoop() }
         healthJob  = s.launch { healthMirrorLoop() }
         pushJob    = s.launch { pushLoop() }
+        klipperJob = s.launch { klipperLoop() }
         Log.d(TAG, "WatchDataSyncManager gestartet")
     }
 
@@ -76,7 +78,7 @@ object WatchDataSyncManager {
         pushSignature = ""
         scope?.let { sc ->
             fetchJob?.cancel(); weatherJob?.cancel(); healthJob?.cancel()
-            pushJob?.cancel(); pushDebounceJob?.cancel()
+            pushJob?.cancel(); pushDebounceJob?.cancel(); klipperJob?.cancel()
         }
         scope = null
     }
@@ -347,6 +349,60 @@ object WatchDataSyncManager {
                 c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword,
                 c.conP2BarId, value.toString()
             )
+        }
+    }
+
+    /** Seite-3-Pille (Klipper) schalten. */
+    fun toggleP3Pill() {
+        val c = WatchFaceConfigCache
+        if (c.klipperHost.isBlank()) return
+        val gcode = if (c.p3PillState) c.p3PillGcodeOff else c.p3PillGcodeOn
+        if (gcode.isBlank()) return
+        val newState = !c.p3PillState
+        // Optimistisches UI-Update
+        c.p3PillState = newState
+        invalidate?.invoke()
+        scope?.launch {
+            WatchKlipperClient.sendGcode(c.klipperHost, c.klipperPort, gcode)
+                .onFailure {
+                    Log.e(TAG, "Klipper-G-Code fehlgeschlagen: ${it.message}")
+                    // Rollback
+                    c.p3PillState = !newState
+                    invalidate?.invoke()
+                }
+        }
+    }
+
+    // ── Klipper-Abruf (Seite 3 Pille) ────────────────────────────────────────
+
+    private suspend fun klipperLoop() {
+        while (running) {
+            try {
+                runKlipperFetch()
+                val interval = WatchFaceConfigCache.slotIntervalSec.coerceAtLeast(10)
+                delay(interval * 1_000L)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "klipperLoop Ausnahme, Neuversuch in 30s: ${e.message}", e)
+                delay(30_000L)
+            }
+        }
+    }
+
+    private suspend fun runKlipperFetch() {
+        val c = WatchFaceConfigCache
+        if (!c.p3PillEnabled || c.klipperHost.isBlank() || c.p3PillObject.isBlank()) return
+        WatchKlipperClient.queryObjectField(
+            c.klipperHost, c.klipperPort, c.p3PillObject, c.p3PillField
+        ).onSuccess { raw ->
+            val state = raw == "true" || raw == "1" || raw == "1.0"
+            if (c.p3PillState != state) {
+                c.p3PillState = state
+                invalidate?.invoke()
+            }
+        }.onFailure {
+            Log.w(TAG, "Klipper-Abruf fehlgeschlagen: ${it.message}")
         }
     }
 

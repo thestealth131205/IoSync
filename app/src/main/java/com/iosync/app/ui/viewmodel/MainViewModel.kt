@@ -264,7 +264,22 @@ data class MainUiState(
     val wfBc2RingThreshDir: String = "above",
     val wfBc2RingThreshTarget: String = "color2",
     val wfBc2RingThreshColor: String = "red",
-    val wfBc2TextScale: Int = 100
+    val wfBc2TextScale: Int = 100,
+    // ── Klipper-Verbindung (Seite 3 – Moonraker, Port 7125) ──────────────────
+    val klipperHost: String = "",
+    val klipperPort: Int = 7125,
+    val klipperObjects: List<String> = emptyList(),
+    val klipperObjectsLoading: Boolean = false,
+    val klipperObjectsError: String? = null,
+    // ── Seite 3 – Pille (6 Uhr, Klipper) ─────────────────────────────────────
+    val p3PillEnabled: Boolean = false,
+    val p3PillColorTrue: String = "cyan",
+    val p3PillColorFalse: String = "red",
+    val p3PillObject: String = "",
+    val p3PillField: String = "value",
+    val p3PillGcodeOn: String = "",
+    val p3PillGcodeOff: String = "",
+    val p3PillState: Boolean = false
 )
 
 @HiltViewModel
@@ -276,7 +291,8 @@ class MainViewModel @Inject constructor(
     private val ioSyncClient: IoSyncClient,
     private val dynamicBaseUrl: DynamicBaseUrl,
     private val weatherService: WeatherService,
-    val healthConnectManager: HealthConnectManager
+    val healthConnectManager: HealthConnectManager,
+    private val klipperClient: com.iosync.app.data.network.KlipperClient
 ) : ViewModel() {
 
     companion object {
@@ -471,6 +487,18 @@ class MainViewModel @Inject constructor(
         val KEY_WF_BC2_RING_TH_TGT   = stringPreferencesKey("wf_bc2_ring_th_target")
         val KEY_WF_BC2_RING_TH_COLOR = stringPreferencesKey("wf_bc2_ring_th_color")
         val KEY_WF_BC2_TEXT_SCALE    = intPreferencesKey("wf_bc2_text_scale")
+        // Klipper
+        val KEY_KLIPPER_HOST         = stringPreferencesKey("klipper_host")
+        val KEY_KLIPPER_PORT         = intPreferencesKey("klipper_port")
+        // Seite 3 – Pille
+        val KEY_P3_PILL_ENABLED      = booleanPreferencesKey("p3_pill_enabled")
+        val KEY_P3_PILL_COLOR_TRUE   = stringPreferencesKey("p3_pill_color_true")
+        val KEY_P3_PILL_COLOR_FALSE  = stringPreferencesKey("p3_pill_color_false")
+        val KEY_P3_PILL_OBJECT       = stringPreferencesKey("p3_pill_object")
+        val KEY_P3_PILL_FIELD        = stringPreferencesKey("p3_pill_field")
+        val KEY_P3_PILL_GCODE_ON     = stringPreferencesKey("p3_pill_gcode_on")
+        val KEY_P3_PILL_GCODE_OFF    = stringPreferencesKey("p3_pill_gcode_off")
+        val KEY_P3_PILL_STATE        = booleanPreferencesKey("p3_pill_state")
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -665,6 +693,18 @@ class MainViewModel @Inject constructor(
             val wfBc2RingThreshTarget  = prefs[KEY_WF_BC2_RING_TH_TGT]    ?: "color2"
             val wfBc2RingThreshColor   = prefs[KEY_WF_BC2_RING_TH_COLOR]  ?: "red"
             val wfBc2TextScale    = prefs[KEY_WF_BC2_TEXT_SCALE]    ?: 100
+            // Klipper
+            val klipperHost      = prefs[KEY_KLIPPER_HOST]  ?: ""
+            val klipperPort      = prefs[KEY_KLIPPER_PORT]  ?: 7125
+            // Seite 3 – Pille
+            val p3PillEnabled    = prefs[KEY_P3_PILL_ENABLED]     ?: false
+            val p3PillColorTrue  = prefs[KEY_P3_PILL_COLOR_TRUE]  ?: "cyan"
+            val p3PillColorFalse = prefs[KEY_P3_PILL_COLOR_FALSE] ?: "red"
+            val p3PillObject     = prefs[KEY_P3_PILL_OBJECT]      ?: ""
+            val p3PillField      = prefs[KEY_P3_PILL_FIELD]       ?: "value"
+            val p3PillGcodeOn    = prefs[KEY_P3_PILL_GCODE_ON]    ?: ""
+            val p3PillGcodeOff   = prefs[KEY_P3_PILL_GCODE_OFF]   ?: ""
+            val p3PillState      = prefs[KEY_P3_PILL_STATE]       ?: false
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -846,7 +886,17 @@ class MainViewModel @Inject constructor(
                     wfBc2RingThreshDir     = wfBc2RingThreshDir,
                     wfBc2RingThreshTarget  = wfBc2RingThreshTarget,
                     wfBc2RingThreshColor   = wfBc2RingThreshColor,
-                    wfBc2TextScale    = wfBc2TextScale
+                    wfBc2TextScale    = wfBc2TextScale,
+                    klipperHost       = klipperHost,
+                    klipperPort       = klipperPort,
+                    p3PillEnabled     = p3PillEnabled,
+                    p3PillColorTrue   = p3PillColorTrue,
+                    p3PillColorFalse  = p3PillColorFalse,
+                    p3PillObject      = p3PillObject,
+                    p3PillField       = p3PillField,
+                    p3PillGcodeOn     = p3PillGcodeOn,
+                    p3PillGcodeOff    = p3PillGcodeOff,
+                    p3PillState       = p3PillState
                 )
             }
     }
@@ -1203,7 +1253,16 @@ class MainViewModel @Inject constructor(
             page2IntervalSec = prefs[KEY_PAGE2_SYNC_INTERVAL] ?: 120,
             weatherIntervalSec = 600,
             bc1Id = prefs[KEY_WF_BC1_ID] ?: "",
-            bc2Id = prefs[KEY_WF_BC2_ID] ?: ""
+            bc2Id = prefs[KEY_WF_BC2_ID] ?: "",
+            klipperHost      = prefs[KEY_KLIPPER_HOST]  ?: "",
+            klipperPort      = prefs[KEY_KLIPPER_PORT]  ?: 7125,
+            p3PillEnabled    = prefs[KEY_P3_PILL_ENABLED]     ?: false,
+            p3PillColorTrue  = prefs[KEY_P3_PILL_COLOR_TRUE]  ?: "cyan",
+            p3PillColorFalse = prefs[KEY_P3_PILL_COLOR_FALSE] ?: "red",
+            p3PillObject     = prefs[KEY_P3_PILL_OBJECT]      ?: "",
+            p3PillField      = prefs[KEY_P3_PILL_FIELD]       ?: "value",
+            p3PillGcodeOn    = prefs[KEY_P3_PILL_GCODE_ON]    ?: "",
+            p3PillGcodeOff   = prefs[KEY_P3_PILL_GCODE_OFF]   ?: ""
         )
     }
 
@@ -1627,6 +1686,85 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
+        }
+    }
+
+    // ── Klipper & Seite 3 ─────────────────────────────────────────────────────
+
+    /**
+     * Speichert Klipper-Verbindung + Seite-3-Pille und überträgt die Connection-Config.
+     */
+    fun setKlipperAndP3PillConfig(
+        klipperHost: String,
+        klipperPort: Int,
+        p3PillEnabled: Boolean,
+        p3PillColorTrue: String,
+        p3PillColorFalse: String,
+        p3PillObject: String,
+        p3PillField: String,
+        p3PillGcodeOn: String,
+        p3PillGcodeOff: String
+    ) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_KLIPPER_HOST]        = klipperHost
+                prefs[KEY_KLIPPER_PORT]        = klipperPort
+                prefs[KEY_P3_PILL_ENABLED]     = p3PillEnabled
+                prefs[KEY_P3_PILL_COLOR_TRUE]  = p3PillColorTrue
+                prefs[KEY_P3_PILL_COLOR_FALSE] = p3PillColorFalse
+                prefs[KEY_P3_PILL_OBJECT]      = p3PillObject
+                prefs[KEY_P3_PILL_FIELD]       = p3PillField
+                prefs[KEY_P3_PILL_GCODE_ON]    = p3PillGcodeOn
+                prefs[KEY_P3_PILL_GCODE_OFF]   = p3PillGcodeOff
+            }
+            _uiState.update {
+                it.copy(
+                    klipperHost       = klipperHost,
+                    klipperPort       = klipperPort,
+                    p3PillEnabled     = p3PillEnabled,
+                    p3PillColorTrue   = p3PillColorTrue,
+                    p3PillColorFalse  = p3PillColorFalse,
+                    p3PillObject      = p3PillObject,
+                    p3PillField       = p3PillField,
+                    p3PillGcodeOn     = p3PillGcodeOn,
+                    p3PillGcodeOff    = p3PillGcodeOff
+                )
+            }
+            try {
+                pushConnectionConfigToWear()
+                _uiState.update { it.copy(wearSyncLog = "Klipper-Konfig übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Ruft die verfügbaren Drucker-Objekte von Moonraker ab (für die UI-Auswahl).
+     */
+    fun loadKlipperObjects(host: String, port: Int) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(klipperObjectsLoading = true, klipperObjectsError = null) }
+            klipperClient.fetchObjects(host, port)
+                .onSuccess { objects ->
+                    _uiState.update { it.copy(klipperObjects = objects, klipperObjectsLoading = false) }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(klipperObjectsError = e.message ?: "Verbindung fehlgeschlagen", klipperObjectsLoading = false) }
+                }
+        }
+    }
+
+    /** Schaltet die Seite-3-Pille (Klipper) von der App aus (Vorschau/Test). */
+    fun toggleP3PillFromApp() {
+        viewModelScope.launch {
+            val s = _uiState.value
+            if (s.klipperHost.isBlank()) return@launch
+            val gcode = if (s.p3PillState) s.p3PillGcodeOff else s.p3PillGcodeOn
+            if (gcode.isBlank()) return@launch
+            val newState = !s.p3PillState
+            _uiState.update { it.copy(p3PillState = newState) }
+            dataStore.edit { prefs -> prefs[KEY_P3_PILL_STATE] = newState }
         }
     }
 

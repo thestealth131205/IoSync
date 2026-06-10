@@ -609,7 +609,16 @@ class WearDataLayerService @Inject constructor(
         page2IntervalSec: Int,
         weatherIntervalSec: Int,
         bc1Id: String = "",
-        bc2Id: String = ""
+        bc2Id: String = "",
+        klipperHost: String = "",
+        klipperPort: Int = 7125,
+        p3PillEnabled: Boolean = false,
+        p3PillColorTrue: String = "cyan",
+        p3PillColorFalse: String = "red",
+        p3PillObject: String = "",
+        p3PillField: String = "value",
+        p3PillGcodeOn: String = "",
+        p3PillGcodeOff: String = ""
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -639,6 +648,16 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt(KEY_CON_WEATHER_INTERVAL, weatherIntervalSec)
                     dataMap.putString(KEY_CON_BC1_ID, bc1Id)
                     dataMap.putString(KEY_CON_BC2_ID, bc2Id)
+                    // Klipper + Seite 3 Pille
+                    dataMap.putString("con_klipper_host", klipperHost)
+                    dataMap.putInt("con_klipper_port", klipperPort)
+                    dataMap.putBoolean("con_p3_pill_enabled", p3PillEnabled)
+                    dataMap.putString("con_p3_pill_color_true", p3PillColorTrue)
+                    dataMap.putString("con_p3_pill_color_false", p3PillColorFalse)
+                    dataMap.putString("con_p3_pill_object", p3PillObject)
+                    dataMap.putString("con_p3_pill_field", p3PillField)
+                    dataMap.putString("con_p3_pill_gcode_on", p3PillGcodeOn)
+                    dataMap.putString("con_p3_pill_gcode_off", p3PillGcodeOff)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

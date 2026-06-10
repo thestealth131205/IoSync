@@ -379,10 +379,12 @@ class IoSyncWatchFaceRenderer(
         color = Color.argb(40, 0, 229, 255)
     }
 
-    // ── Seite 2 ───────────────────────────────────────────────────────────────
-    private var currentPage = 0          // 0 = Hauptseite, 1 = Zweite Seite
+    // ── Seite 2 / 3 ───────────────────────────────────────────────────────────
+    private var currentPage = 0          // 0 = Hauptseite, 1 = Seite 2, 2 = Seite 3
     private var nineOClockTapBounds = RectF()
+    private var twelveOClockTapBounds = RectF()
     private var page2LastTapTime = 0L
+    private var page3LastTapTime = 0L
     private var page2Pill1LastTapTime = 0L
     private var page2Pill2LastTapTime = 0L
     private var page2Pill1Bounds = RectF()
@@ -395,6 +397,13 @@ class IoSyncWatchFaceRenderer(
     private var page2Pill1PressedAt = 0L
     private var page2Pill2Pressed = false
     private var page2Pill2PressedAt = 0L
+
+    // ── Seite 3 Pille (6 Uhr, Klipper) ───────────────────────────────────────
+    private var p3PillBounds = RectF()
+    private var p3PillTapBounds = RectF()
+    private var p3PillLastTapTime = 0L
+    private var p3PillPressed = false
+    private var p3PillPressedAt = 0L
 
     private val page2PillFillPaint = Paint().apply {
         isAntiAlias = true
@@ -539,12 +548,10 @@ class IoSyncWatchFaceRenderer(
                 visible == true && ambient != true
             }.distinctUntilChanged().collect { active ->
                 if (active) {
-                    // Aktions-Pille beim Aufwachen zunächst deaktiviert anzeigen.
-                    // Sonst blitzt kurz der zuletzt bekannte (evtl. „true") Zustand auf,
-                    // bevor der frische Datenpunkt-Abruf den echten Zustand bestätigt.
-                    // In v5 ermittelt die Uhr den Pillen-Zustand selbst per Abruf –
-                    // erst dann darf „aktiv" angezeigt werden.
+                    // Pillen beim Aufwachen deaktiviert anzeigen, bis frische Abrufe
+                    // (ioBroker/Klipper) den echten Zustand bestätigen.
                     WatchFaceConfigCache.actionPillState = false
+                    WatchFaceConfigCache.p3PillState = false
                     // 1. Zuletzt vom Handy gepushte Werte sofort aus dem Data Layer einlesen
                     loadInitialConfig()
                     // 2. Handy zusätzlich um einen frischen Abruf bitten (Wetter, alle
@@ -794,8 +801,8 @@ class IoSyncWatchFaceRenderer(
         if (!isAmbient) {
             val w = bounds.width()
             val h = bounds.height()
-            if (currentPage == 1) {
-                // Seite 2: eigenes Hintergrundbild (unabhängig von Seite 1)
+            if (currentPage == 1 || currentPage == 2) {
+                // Seite 2 + 3: eigenes Hintergrundbild
                 if (backgroundBitmapP2Scaled?.width != w || backgroundBitmapP2Scaled?.height != h) {
                     if (backgroundBitmapP2 == null) {
                         backgroundBitmapP2 = BitmapFactory.decodeResource(context.resources, com.iosync.watchface.R.drawable.watchface_background_p2)
@@ -825,10 +832,18 @@ class IoSyncWatchFaceRenderer(
 
         // 9-Uhr-Tipp-Zone aktualisieren (linke Seite, mittlere Höhe)
         nineOClockTapBounds.set(0f, cy - radius * 0.28f, cx * 0.50f, cy + radius * 0.28f)
+        // 12-Uhr-Tipp-Zone (obere Mitte, für Navigation Page 2↔3 und Page 3→1)
+        twelveOClockTapBounds.set(cx - radius * 0.28f, 0f, cx + radius * 0.28f, cy * 0.50f)
 
         // Seite 2 im aktiven Modus rendern (überspringt gesamte Seite-1-Logik)
         if (!isAmbient && currentPage == 1) {
             drawPage2(canvas, cx, cy, radius)
+            return
+        }
+
+        // Seite 3 im aktiven Modus rendern
+        if (!isAmbient && currentPage == 2) {
+            drawPage3(canvas, cx, cy, radius)
             return
         }
 
@@ -1288,6 +1303,11 @@ class IoSyncWatchFaceRenderer(
     /** Schaltet eine Seite-2-Pille (pill=1 → 7-Uhr, pill=2 → 5-Uhr) direkt am Adapter. */
     private fun triggerP2PillAction(pill: Int) {
         if (pill == 1) WatchDataSyncManager.toggleP2Pill1() else WatchDataSyncManager.toggleP2Pill2()
+    }
+
+    /** Schaltet die Seite-3-Pille (Klipper) direkt am Moonraker-Adapter. */
+    private fun triggerP3PillAction() {
+        WatchDataSyncManager.toggleP3Pill()
     }
 
     /** Schreibt den getippten Slider-Wert (Seite 2) direkt in den ioBroker-Datenpunkt. */
@@ -2265,8 +2285,8 @@ class IoSyncWatchFaceRenderer(
         val y = tapEvent.yPos.toFloat()
         val config = WatchFaceConfigCache
 
-        // ── 9-Uhr Doppeltipp: zwischen Seite 1 und 2 wechseln ───────────────
-        if (nineOClockTapBounds.contains(x, y)) {
+        // ── 9-Uhr Doppeltipp: zwischen Seite 1 und 2 wechseln (nicht auf Seite 3) ──
+        if (nineOClockTapBounds.contains(x, y) && currentPage != 2) {
             if (tapType == TapType.UP) {
                 val now = System.currentTimeMillis()
                 if (now - page2LastTapTime <= DOUBLE_TAP_MS) {
@@ -2279,6 +2299,21 @@ class IoSyncWatchFaceRenderer(
                     invalidate()
                 } else {
                     page2LastTapTime = now
+                }
+            }
+            return
+        }
+
+        // ── 12-Uhr Doppeltipp: Seite 2 → Seite 3, Seite 3 → Seite 1 ────────
+        if (twelveOClockTapBounds.contains(x, y) && (currentPage == 1 || currentPage == 2)) {
+            if (tapType == TapType.UP) {
+                val now = System.currentTimeMillis()
+                if (now - page3LastTapTime <= DOUBLE_TAP_MS) {
+                    page3LastTapTime = 0L
+                    currentPage = if (currentPage == 1) 2 else 0
+                    invalidate()
+                } else {
+                    page3LastTapTime = now
                 }
             }
             return
@@ -2346,6 +2381,35 @@ class IoSyncWatchFaceRenderer(
                     page2Pill2LastTapTime = 0L
                 }
                 invalidate()
+            }
+            return
+        }
+
+        // ── Seite 3: P3-Pille (6 Uhr, Klipper) ──────────────────────────────
+        if (currentPage == 2) {
+            val cfg = WatchFaceConfigCache
+            if (cfg.p3PillEnabled && !p3PillTapBounds.isEmpty) {
+                if (tapType == TapType.DOWN && p3PillTapBounds.contains(x, y)) {
+                    p3PillPressed = true
+                    p3PillPressedAt = System.currentTimeMillis()
+                    invalidate()
+                    return
+                }
+                if (tapType == TapType.UP) {
+                    p3PillPressed = false
+                    if (p3PillTapBounds.contains(x, y)) {
+                        val now = System.currentTimeMillis()
+                        if (now - p3PillLastTapTime <= DOUBLE_TAP_MS) {
+                            p3PillLastTapTime = 0L
+                            triggerP3PillAction()
+                        } else {
+                            p3PillLastTapTime = now
+                        }
+                    } else {
+                        p3PillLastTapTime = 0L
+                    }
+                    invalidate()
+                }
             }
             return
         }
@@ -2990,6 +3054,93 @@ class IoSyncWatchFaceRenderer(
             page2SlotLabelPaint.textAlign = Paint.Align.CENTER
             page2SlotValuePaint.textAlign = Paint.Align.CENTER
         }
+    }
+
+    // ── Seite 3 ────────────────────────────────────────────────────────────────
+
+    /**
+     * Zeichnet die dritte Watchface-Seite.
+     * Erreichbar per Doppeltipp auf 12 Uhr von Seite 2.
+     * Zurück zu Seite 1 per Doppeltipp auf 12 Uhr.
+     */
+    private fun drawPage3(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+
+        // ── Seiten-Indikator oben ──────────────────────────────────────────────
+        val indicatorPaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#555555"); style = Paint.Style.FILL
+        }
+        val activePaint = Paint().apply {
+            isAntiAlias = true; color = accentColor; style = Paint.Style.FILL
+        }
+        val dotR = radius * 0.025f
+        val dotY = cy - radius * 0.82f
+        val dotSpacing = radius * 0.07f
+        canvas.drawCircle(cx - dotSpacing, dotY, dotR, indicatorPaint)
+        canvas.drawCircle(cx,             dotY, dotR, indicatorPaint)
+        canvas.drawCircle(cx + dotSpacing, dotY, dotR * 1.4f, activePaint)
+
+        // ── Navigations-Hinweis ────────────────────────────────────────────────
+        val hintPaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#444444")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textSize = radius * 0.075f; textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("↑↑ Seite 1", cx, cy - radius * 0.70f, hintPaint)
+
+        // ── Drucker-Icon / Label Mitte ─────────────────────────────────────────
+        val titlePaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#CCCCCC")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = radius * 0.14f; textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("3D-Drucker", cx, cy - radius * 0.22f, titlePaint)
+
+        // Klipper-Host anzeigen (wenn konfiguriert)
+        val subPaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#555555")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textSize = radius * 0.070f; textAlign = Paint.Align.CENTER
+        }
+        val hostLabel = if (config.klipperHost.isNotBlank()) config.klipperHost else "—"
+        canvas.drawText(hostLabel, cx, cy - radius * 0.07f, subPaint)
+
+        // ── Pille bei 6 Uhr ───────────────────────────────────────────────────
+        if (config.p3PillEnabled) {
+            drawP3Pill(canvas, cx, cy, radius)
+        } else {
+            // Wenn Pille nicht konfiguriert: kleiner Hinweis
+            val inactPaint = Paint().apply {
+                isAntiAlias = true; color = Color.parseColor("#333333")
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                textSize = radius * 0.065f; textAlign = Paint.Align.CENTER
+            }
+            canvas.drawText("Pille nicht aktiviert", cx, cy + radius * 0.72f, inactPaint)
+        }
+    }
+
+    private fun drawP3Pill(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+        val halfW = radius * 0.266f
+        val halfH = radius * 0.060f
+        val centerY = cy + radius * 0.72f
+
+        p3PillBounds.set(cx - halfW, centerY - halfH, cx + halfW, centerY + halfH)
+        val tapPad = radius * 0.06f
+        p3PillTapBounds.set(
+            p3PillBounds.left  - tapPad, p3PillBounds.top    - tapPad,
+            p3PillBounds.right + tapPad, p3PillBounds.bottom + tapPad
+        )
+
+        val isPressedNow = p3PillPressed && (System.currentTimeMillis() - p3PillPressedAt < PILL_PRESS_DURATION_MS)
+        val stateColor   = colorFromPillId(if (config.p3PillState) config.p3PillColorTrue else config.p3PillColorFalse)
+        val activeColor  = if (isPressedNow) colorFromPillId(config.p3PillColorTrue) else stateColor
+        val fillAlpha    = if (isPressedNow) 240 else 180
+
+        pillFillPaint.color = Color.argb(fillAlpha, Color.red(activeColor), Color.green(activeColor), Color.blue(activeColor))
+        canvas.drawRoundRect(p3PillBounds, halfH, halfH, pillFillPaint)
+        pillStrokePaint.color = activeColor
+        canvas.drawRoundRect(p3PillBounds, halfH, halfH, pillStrokePaint)
     }
 
     override fun onDestroy() {
