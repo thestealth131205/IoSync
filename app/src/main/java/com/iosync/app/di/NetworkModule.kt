@@ -38,14 +38,23 @@ object NetworkModule {
         }
         return OkHttpClient.Builder()
             .addInterceptor(logging)
-            // Schreibt Host und Port bei jedem Request dynamisch aus den aktuellen Einstellungen
+            // Schreibt Host und Port bei jedem Request dynamisch aus den aktuellen Einstellungen.
+            // HttpUrl.Builder.host() wirft bei leerem/ungültigem Host eine IllegalArgumentException,
+            // die im OkHttp-Dispatcher-Thread als uncaught exception die App zum Absturz brächte
+            // (z. B. wenn die Simple-API ohne konfigurierten Host genutzt wird). Daher abgesichert:
+            // bei leerem/ungültigem Host bleibt die Original-URL (Default-Host) erhalten.
             .addInterceptor { chain ->
                 val original = chain.request()
-                val newUrl = original.url.newBuilder()
-                    .host(dynamicBaseUrl.host)
-                    .port(dynamicBaseUrl.port)
-                    .build()
-                chain.proceed(original.newBuilder().url(newUrl).build())
+                val host = dynamicBaseUrl.host
+                val request = runCatching {
+                    if (host.isBlank()) return@runCatching original
+                    val newUrl = original.url.newBuilder()
+                        .host(host)
+                        .port(dynamicBaseUrl.port)
+                        .build()
+                    original.newBuilder().url(newUrl).build()
+                }.getOrDefault(original)
+                chain.proceed(request)
             }
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

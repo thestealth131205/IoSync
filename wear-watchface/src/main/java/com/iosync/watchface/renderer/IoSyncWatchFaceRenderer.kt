@@ -1014,7 +1014,10 @@ class IoSyncWatchFaceRenderer(
                 config.ioHost.isBlank() ->
                     "Keine Verbindungs-Config"
                 WatchDataSyncManager.lastFetchAt > 0L && !WatchDataSyncManager.lastFetchOk ->
-                    "Adapter nicht erreichbar"
+                    WatchDataSyncManager.lastFetchError
+                        .takeIf { it.isNotBlank() }
+                        ?.let { "Fehler: ${it.take(40)}" }
+                        ?: "Adapter nicht erreichbar"
                 else -> null
             }
             if (diagText != null) {

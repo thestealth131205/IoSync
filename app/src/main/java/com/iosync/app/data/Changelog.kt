@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.4.7",
+        date = "10.06.2026",
+        changes = listOf(
+            "Fix: Uhr erreicht HTTP-Adapter wieder (Klartext-Traffic auf der Uhr erlaubt)",
+            "Fix: App stuerzt nicht mehr ab, wenn Adapter-Switch ohne gueltigen Host umgelegt wird",
+            "Diagnose: Uhr zeigt die echte Fehlerursache (z. B. HTTP 401) statt 'Adapter nicht erreichbar'"
+        )
+    ),
+    ChangelogEntry(
         version = "4.4.6",
         date = "10.06.2026",
         changes = listOf(
