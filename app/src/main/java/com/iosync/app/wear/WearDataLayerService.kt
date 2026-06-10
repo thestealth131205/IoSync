@@ -199,6 +199,7 @@ private const val KEY_WF_BC1_RING_TH_VAL    = "wf_bc1_ring_th_val"
 private const val KEY_WF_BC1_RING_TH_DIR    = "wf_bc1_ring_th_dir"
 private const val KEY_WF_BC1_RING_TH_TARGET = "wf_bc1_ring_th_target"
 private const val KEY_WF_BC1_RING_TH_COLOR  = "wf_bc1_ring_th_color"
+private const val KEY_WF_BC1_TEXT_SCALE     = "wf_bc1_text_scale"
 private const val KEY_WF_BC2_METRIC         = "wf_bc2_metric"
 private const val KEY_WF_BC2_USE_IOBROKER   = "wf_bc2_use_iobroker"
 private const val KEY_WF_BC2_LABEL          = "wf_bc2_label"
@@ -214,6 +215,7 @@ private const val KEY_WF_BC2_RING_TH_VAL    = "wf_bc2_ring_th_val"
 private const val KEY_WF_BC2_RING_TH_DIR    = "wf_bc2_ring_th_dir"
 private const val KEY_WF_BC2_RING_TH_TARGET = "wf_bc2_ring_th_target"
 private const val KEY_WF_BC2_RING_TH_COLOR  = "wf_bc2_ring_th_color"
+private const val KEY_WF_BC2_TEXT_SCALE     = "wf_bc2_text_scale"
 private const val KEY_CON_BC1_ID            = "con_bc1_id"
 private const val KEY_CON_BC2_ID            = "con_bc2_id"
 
@@ -423,6 +425,7 @@ class WearDataLayerService @Inject constructor(
         bc1RingThreshDir: String = "above",
         bc1RingThreshTarget: String = "color2",
         bc1RingThreshColor: String = "red",
+        bc1TextScale: Int = 100,
         bc2Metric: String = "kcal",
         bc2UseIoBroker: Boolean = false,
         bc2Label: String = "KCAL",
@@ -437,7 +440,8 @@ class WearDataLayerService @Inject constructor(
         bc2RingThreshValue: Float = 0f,
         bc2RingThreshDir: String = "above",
         bc2RingThreshTarget: String = "color2",
-        bc2RingThreshColor: String = "red"
+        bc2RingThreshColor: String = "red",
+        bc2TextScale: Int = 100
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -532,6 +536,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_BC1_RING_TH_DIR,  bc1RingThreshDir)
                     dataMap.putString(KEY_WF_BC1_RING_TH_TARGET, bc1RingThreshTarget)
                     dataMap.putString(KEY_WF_BC1_RING_TH_COLOR, bc1RingThreshColor)
+                    dataMap.putInt(KEY_WF_BC1_TEXT_SCALE,     bc1TextScale)
                     dataMap.putString(KEY_WF_BC2_METRIC,       bc2Metric)
                     dataMap.putBoolean(KEY_WF_BC2_USE_IOBROKER, bc2UseIoBroker)
                     dataMap.putString(KEY_WF_BC2_LABEL,       bc2Label)
@@ -547,6 +552,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_BC2_RING_TH_DIR,  bc2RingThreshDir)
                     dataMap.putString(KEY_WF_BC2_RING_TH_TARGET, bc2RingThreshTarget)
                     dataMap.putString(KEY_WF_BC2_RING_TH_COLOR, bc2RingThreshColor)
+                    dataMap.putInt(KEY_WF_BC2_TEXT_SCALE,     bc2TextScale)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

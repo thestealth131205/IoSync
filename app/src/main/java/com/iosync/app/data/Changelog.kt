@@ -8,6 +8,38 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.5.4",
+        date = "10.06.2026",
+        changes = listOf(
+            "Boden-Ringe (Puls + Kcal/Oxygen) weiter nach außen verschoben und verkleinert",
+            "Passen jetzt sauber in die Kreistaschen des Hintergrunds"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.5.3",
+        date = "10.06.2026",
+        changes = listOf(
+            "Fix: Aktions-Pille (Seite 1) blitzt beim Aufwachen nicht mehr kurz als 'aktiv' auf",
+            "Pille startet deaktiviert und zeigt 'aktiv' erst nach bestaetigtem Datenpunkt-Abruf"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.5.2",
+        date = "10.06.2026",
+        changes = listOf(
+            "Neu: Schriftgröße je Boden-Komplikation (Puls + Kcal/Oxygen/ioBroker) einstellbar",
+            "Größen-Auswahl von 70 % bis 160 % – zwei Stufen kleiner und mehrere größer"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.5.1",
+        date = "10.06.2026",
+        changes = listOf(
+            "Neu: Boden-Komplikation rechts kann auf ioBroker-Datenpunkt gestellt werden",
+            "Neu: Datenpunkt-Picker mit Suche zum schnellen Finden eines Datensatzes"
+        )
+    ),
+    ChangelogEntry(
         version = "4.5.0",
         date = "10.06.2026",
         changes = listOf(

@@ -539,6 +539,12 @@ class IoSyncWatchFaceRenderer(
                 visible == true && ambient != true
             }.distinctUntilChanged().collect { active ->
                 if (active) {
+                    // Aktions-Pille beim Aufwachen zunächst deaktiviert anzeigen.
+                    // Sonst blitzt kurz der zuletzt bekannte (evtl. „true") Zustand auf,
+                    // bevor der frische Datenpunkt-Abruf den echten Zustand bestätigt.
+                    // In v5 ermittelt die Uhr den Pillen-Zustand selbst per Abruf –
+                    // erst dann darf „aktiv" angezeigt werden.
+                    WatchFaceConfigCache.actionPillState = false
                     // 1. Zuletzt vom Handy gepushte Werte sofort aus dem Data Layer einlesen
                     loadInitialConfig()
                     // 2. Handy zusätzlich um einen frischen Abruf bitten (Wetter, alle
@@ -609,8 +615,11 @@ class IoSyncWatchFaceRenderer(
                             if (dataMap.containsKey("wf_custom_slot4_bar_is_slider")) WatchFaceConfigCache.customSlot4BarIsSlider = dataMap.getBoolean("wf_custom_slot4_bar_is_slider")
                         }
                         PATH_ACTION_PILL_STATE -> {
-                            val dataMap = DataMapItem.fromDataItem(item).dataMap
-                            WatchFaceConfigCache.actionPillState = dataMap.getBoolean("pill_state", false)
+                            // Veralteten, vom Handy gepushten Pillen-Zustand beim Aufwachen
+                            // NICHT wiederherstellen. In v5 ermittelt die Uhr den Zustand
+                            // selbst per Datenpunkt-Abruf (resolveAll). Würde hier der alte
+                            // Cache-Wert gesetzt, blitzte kurz „aktiv/true" auf, obwohl der
+                            // Schalter nicht betätigt wurde.
                         }
                         PATH_CUSTOM_SLOTS_P2 -> {
                             val dataMap = DataMapItem.fromDataItem(item).dataMap
@@ -713,7 +722,8 @@ class IoSyncWatchFaceRenderer(
                     if (dataMap.containsKey("wf_custom_slot4_bar_is_slider")) WatchFaceConfigCache.customSlot4BarIsSlider = dataMap.getBoolean("wf_custom_slot4_bar_is_slider")
                 }
                 PATH_ACTION_PILL_STATE -> {
-                    WatchFaceConfigCache.actionPillState = dataMap.getBoolean("pill_state", false)
+                    // Kein Zustand mehr aus dem (veralteten) Handy-Push übernehmen –
+                    // die Uhr ermittelt den Pillen-Zustand in v5 selbst per Abruf.
                 }
                 PATH_P2_PILL_STATES -> {
                     if (dataMap.containsKey("wf_p2_pill1_state")) WatchFaceConfigCache.p2Pill1State = dataMap.getBoolean("wf_p2_pill1_state")
@@ -1516,10 +1526,10 @@ class IoSyncWatchFaceRenderer(
         val config = WatchFaceConfigCache
         if (!config.showBottomComp) return
 
-        val compCy     = cy + radius * 0.52f
-        val leftCx     = cx - radius * 0.39f
-        val rightCx    = cx + radius * 0.39f
-        val compRadius = radius * 0.215f
+        val compCy     = cy + radius * 0.54f
+        val leftCx     = cx - radius * 0.46f
+        val rightCx    = cx + radius * 0.46f
+        val compRadius = radius * 0.17f
 
         // ── BC1 (links) – Puls oder ioBroker ──────────────────────────────────
         val bc1NumValue: Float
@@ -1552,7 +1562,8 @@ class IoSyncWatchFaceRenderer(
             ringColor2  = bc1Col2,
             ringMin     = config.bc1RingMin,
             ringMax     = config.bc1RingMax,
-            ringWidth   = config.bc1RingWidth
+            ringWidth   = config.bc1RingWidth,
+            textScale   = config.bc1TextScale / 100f
         )
 
         // ── BC2 (rechts) – wählbare Metrik oder ioBroker ──────────────────────
@@ -1600,7 +1611,8 @@ class IoSyncWatchFaceRenderer(
             ringColor2  = bc2Col2,
             ringMin     = config.bc2RingMin,
             ringMax     = config.bc2RingMax,
-            ringWidth   = config.bc2RingWidth
+            ringWidth   = config.bc2RingWidth,
+            textScale   = config.bc2TextScale / 100f
         )
     }
 
@@ -1639,7 +1651,8 @@ class IoSyncWatchFaceRenderer(
         ringEnabled: Boolean,
         ringColor1: Int, ringColor2: Int,
         ringMin: Float, ringMax: Float,
-        ringWidth: Int
+        ringWidth: Int,
+        textScale: Float = 1f
     ) {
         val strokeW = ringWidth * density
 
@@ -1676,14 +1689,14 @@ class IoSyncWatchFaceRenderer(
 
         // Wert-Text (z. B. "72" oder "--")
         bcValuePaint.color    = valueColor
-        bcValuePaint.textSize = compRadius * 0.68f
+        bcValuePaint.textSize = compRadius * 0.68f * textScale
         val fm     = bcValuePaint.fontMetrics
         val valueY = compCy - (fm.ascent + fm.descent) / 2f
         canvas.drawText(valueText, compCx, valueY, bcValuePaint)
 
         // Label (z. B. "BPM" oder "KCAL")
         if (label.isNotBlank()) {
-            bcLabelPaint.textSize = compRadius * 0.28f
+            bcLabelPaint.textSize = compRadius * 0.28f * textScale
             val labelY = valueY + bcValuePaint.fontMetrics.descent + compRadius * 0.16f
             canvas.drawText(label.take(6).uppercase(), compCx, labelY, bcLabelPaint)
         }

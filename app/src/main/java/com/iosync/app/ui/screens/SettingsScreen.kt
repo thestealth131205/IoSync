@@ -271,8 +271,10 @@ fun SettingsScreen(
     var bc1ThDir       by remember(uiState.wfBc1RingThreshDir)     { mutableStateOf(uiState.wfBc1RingThreshDir) }
     var bc1ThTarget    by remember(uiState.wfBc1RingThreshTarget)  { mutableStateOf(uiState.wfBc1RingThreshTarget) }
     var bc1ThColor     by remember(uiState.wfBc1RingThreshColor)   { mutableStateOf(uiState.wfBc1RingThreshColor) }
+    var bc1TextScale   by remember(uiState.wfBc1TextScale)         { mutableStateOf(uiState.wfBc1TextScale) }
     // BC2 (rechts – Kcal oder Oxygen)
-    var bc2Metric      by remember(uiState.wfBc2Metric)     { mutableStateOf(uiState.wfBc2Metric) }
+    var bc2Metric      by remember(uiState.wfBc2Metric, uiState.wfBc2UseIoBroker) { mutableStateOf(if (uiState.wfBc2UseIoBroker) "iobroker" else uiState.wfBc2Metric) }
+    var bc2Id          by remember(uiState.wfBc2Id)         { mutableStateOf(uiState.wfBc2Id) }
     var bc2Label       by remember(uiState.wfBc2Label)      { mutableStateOf(uiState.wfBc2Label) }
     var bc2Color       by remember(uiState.wfBc2Color)      { mutableStateOf(uiState.wfBc2Color) }
     var bc2RingEnabled by remember(uiState.wfBc2RingEnabled){ mutableStateOf(uiState.wfBc2RingEnabled) }
@@ -286,6 +288,7 @@ fun SettingsScreen(
     var bc2ThDir       by remember(uiState.wfBc2RingThreshDir)     { mutableStateOf(uiState.wfBc2RingThreshDir) }
     var bc2ThTarget    by remember(uiState.wfBc2RingThreshTarget)  { mutableStateOf(uiState.wfBc2RingThreshTarget) }
     var bc2ThColor     by remember(uiState.wfBc2RingThreshColor)   { mutableStateOf(uiState.wfBc2RingThreshColor) }
+    var bc2TextScale   by remember(uiState.wfBc2TextScale)         { mutableStateOf(uiState.wfBc2TextScale) }
     var sectionBottomComp by remember { mutableStateOf(false) }
 
     // ── Auto-Transfer bei Watchface-Einstellungsänderung ────────────────────
@@ -1953,6 +1956,8 @@ fun SettingsScreen(
                 OutlinedTextField(value = bc1Label, onValueChange = { bc1Label = it.take(6) }, label = { Text("Label") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Text("Wert-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceColorRow(selected = bc1Color, onSelect = { bc1Color = it })
+                Text("Schriftgröße", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FontSizeDropdown(selected = bc1TextScale, onSelect = { bc1TextScale = it })
                 WatchFaceToggleRow(text = "Ring anzeigen", checked = bc1RingEnabled, onCheckedChange = { bc1RingEnabled = it })
                 if (bc1RingEnabled) {
                     Text("Ring beginnt bei 12 Uhr. Bei Max ist der Ring voll (360°).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1981,9 +1986,9 @@ fun SettingsScreen(
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Rechts (Kcal oder Oxygen)", style = MaterialTheme.typography.titleSmall, color = NeonYellow)
-                Text("Metrik – Oxygen ersetzt Kcal an dieser Stelle", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Metrik – Oxygen oder ioBroker ersetzt Kcal an dieser Stelle", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 GenericValueDropdown(
-                    options = listOf("kcal" to "Kalorien (Kcal)", "oxygen" to "Sauerstoff (Oxygen/SpO2)"),
+                    options = listOf("kcal" to "Kalorien (Kcal)", "oxygen" to "Sauerstoff (Oxygen/SpO2)", "iobroker" to "ioBroker-Datenpunkt"),
                     selected = bc2Metric,
                     onSelect = { m ->
                         bc2Metric = m
@@ -1992,9 +1997,15 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (bc2Metric == "iobroker") {
+                    Text("Datenpunkt – die Uhr ruft diesen Wert selbst ab", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DatapointDropdown(selectedId = bc2Id, availableStates = uiState.ioSyncStates.ifEmpty { uiState.states }, onSelect = { bc2Id = it }, modifier = Modifier.fillMaxWidth())
+                }
                 OutlinedTextField(value = bc2Label, onValueChange = { bc2Label = it.take(6) }, label = { Text("Label") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Text("Wert-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WatchFaceColorRow(selected = bc2Color, onSelect = { bc2Color = it })
+                Text("Schriftgröße", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FontSizeDropdown(selected = bc2TextScale, onSelect = { bc2TextScale = it })
                 WatchFaceToggleRow(text = "Ring anzeigen", checked = bc2RingEnabled, onCheckedChange = { bc2RingEnabled = it })
                 if (bc2RingEnabled) {
                     Text("Ring beginnt bei 12 Uhr. Bei Max ist der Ring voll (360°).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2036,8 +2047,9 @@ fun SettingsScreen(
                             bc1RingThreshValue = bc1ThValue.toFloatOrNull() ?: 0f,
                             bc1RingThreshDir = bc1ThDir, bc1RingThreshTarget = bc1ThTarget,
                             bc1RingThreshColor = bc1ThColor,
-                            bc2Metric = bc2Metric,
-                            bc2UseIoBroker = false, bc2Id = uiState.wfBc2Id,
+                            bc1TextScale = bc1TextScale,
+                            bc2Metric = if (bc2Metric == "iobroker") uiState.wfBc2Metric else bc2Metric,
+                            bc2UseIoBroker = bc2Metric == "iobroker", bc2Id = bc2Id,
                             bc2Label = bc2Label, bc2Color = bc2Color,
                             bc2RingEnabled = bc2RingEnabled,
                             bc2RingColor1 = bc2RingColor1, bc2RingColor2 = bc2RingColor2,
@@ -2047,7 +2059,8 @@ fun SettingsScreen(
                             bc2RingThreshEnabled = bc2ThEnabled,
                             bc2RingThreshValue = bc2ThValue.toFloatOrNull() ?: 0f,
                             bc2RingThreshDir = bc2ThDir, bc2RingThreshTarget = bc2ThTarget,
-                            bc2RingThreshColor = bc2ThColor
+                            bc2RingThreshColor = bc2ThColor,
+                            bc2TextScale = bc2TextScale
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -2688,6 +2701,7 @@ private fun DatapointDropdown(
                 .fillMaxWidth(0.7f)
                 .background(Color(0xFF2A2A2A))
         ) {
+            var search by remember { mutableStateOf("") }
             if (availableStates.isEmpty()) {
                 DropdownMenuItem(
                     text = {
@@ -2700,7 +2714,30 @@ private fun DatapointDropdown(
                     onClick = { expanded = false }
                 )
             } else {
-                availableStates.forEach { state ->
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    label = { Text("Suche") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+                val filtered = if (search.isBlank()) availableStates
+                    else availableStates.filter { it.name.contains(search, ignoreCase = true) || it.id.contains(search, ignoreCase = true) }
+                if (filtered.isEmpty()) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Kein Treffer",
+                                color = Color(0xFF888888),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        },
+                        onClick = { }
+                    )
+                }
+                filtered.forEach { state ->
                     DropdownMenuItem(
                         text = {
                             Column {
