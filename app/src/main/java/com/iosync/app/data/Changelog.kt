@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.6.0",
+        date = "10.06.2026",
+        changes = listOf(
+            "Watchface: Tipp auf Klipper-Balken (Page 1) wechselt direkt zu Page 3 wenn Klipper aktiv + druckt",
+            "Watchface: Boden-Komplikationen weiter nach außen verschoben (bessere Position in den Kreistaschen)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.5.9",
         date = "10.06.2026",
         changes = listOf(

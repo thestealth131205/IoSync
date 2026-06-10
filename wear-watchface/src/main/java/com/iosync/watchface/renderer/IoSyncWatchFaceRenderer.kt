@@ -366,6 +366,7 @@ class IoSyncWatchFaceRenderer(
     private var daySecondsTapBounds = RectF()  // Tages-Sekunden → Kalender-App
     private var bpmTapBounds = RectF()         // Puls → Health-App
     private var kcalTapBounds = RectF()        // Kalorien → Fitness-App
+    private var slot4BarTapBounds = RectF()    // Slot-4-Balken → Page 3 (Klipper)
 
     private val stopwatchRingFgPaint = Paint().apply {
         isAntiAlias = true
@@ -1549,16 +1550,16 @@ class IoSyncWatchFaceRenderer(
      * Beide haben einen konfigurierbaren Fortschrittsring (ein-/ausschaltbar, Farben, Min/Max).
      *
      * Positionen (relativ zum Uhrmittelpunkt) passend zu den Kreistaschen im Hintergrundbild:
-     *   leftCx  = cx - radius * 0.39, compCy = cy + radius * 0.52
-     *   rightCx = cx + radius * 0.39, compCy = cy + radius * 0.52
+     *   leftCx  = cx - radius * 0.52, compCy = cy + radius * 0.58
+     *   rightCx = cx + radius * 0.52, compCy = cy + radius * 0.58
      */
     private fun drawBottomComplications(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
         if (!config.showBottomComp) return
 
-        val compCy     = cy + radius * 0.54f
-        val leftCx     = cx - radius * 0.46f
-        val rightCx    = cx + radius * 0.46f
+        val compCy     = cy + radius * 0.58f
+        val leftCx     = cx - radius * 0.52f
+        val rightCx    = cx + radius * 0.52f
         val compRadius = radius * 0.17f
 
         // ── BC1 (links) – Puls oder ioBroker ──────────────────────────────────
@@ -2005,6 +2006,7 @@ class IoSyncWatchFaceRenderer(
         var nextY = clockBottomY + dp7
 
         // ── Slot 4: Balken-Graph ───────────────────────────────────────────
+        slot4BarTapBounds.setEmpty()
         if (config.customSlot4Label.isNotBlank()) {
             val slot4Scale = config.slot4TextScale / 100f
             val barW     = radius * 0.88f
@@ -2012,6 +2014,8 @@ class IoSyncWatchFaceRenderer(
             val barLeft  = cx - barW / 2f
             val barRight = cx + barW / 2f
             val barCorner = barH / 2f
+            // Tap-Zone für Klipper-Tap → Page 3 merken
+            slot4BarTapBounds.set(barLeft, nextY, barRight, nextY + barH)
 
             val minVal = config.customSlot4BarMin
             val maxVal = config.customSlot4BarMax
@@ -2476,6 +2480,15 @@ class IoSyncWatchFaceRenderer(
                     invalidate()
                 }
             }
+            return
+        }
+
+        // ── Slot-4-Balken: Tipp → Page 3 wenn Klipper aktiv und druckt ──────
+        if (tapType == TapType.UP && currentPage == 0 &&
+            config.klipperEnabled && config.klipperIsActive &&
+            !slot4BarTapBounds.isEmpty && slot4BarTapBounds.contains(x, y)) {
+            currentPage = 2
+            invalidate()
             return
         }
 
