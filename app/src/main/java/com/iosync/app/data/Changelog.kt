@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.6.2",
+        date = "10.06.2026",
+        changes = listOf(
+            "Fix: Klipper-Daten werden jetzt sofort beim Display-Einschalten abgerufen (syncNow inkl. Klipper)",
+            "Fix: Race-Condition beim Start — nach loadInitialConfig wird Klipper sofort abgerufen statt bis zu 120s zu warten"
+        )
+    ),
+    ChangelogEntry(
         version = "4.6.1",
         date = "10.06.2026",
         changes = listOf(

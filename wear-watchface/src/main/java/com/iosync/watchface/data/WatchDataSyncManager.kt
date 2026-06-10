@@ -88,6 +88,7 @@ object WatchDataSyncManager {
         scope?.launch {
             runFetch()
             runWeather()
+            runKlipperFetch()
         }
     }
 

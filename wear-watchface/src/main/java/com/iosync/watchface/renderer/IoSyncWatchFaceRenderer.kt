@@ -690,6 +690,9 @@ class IoSyncWatchFaceRenderer(
                 // Beim Aufwachen den persistierten NTP-Offset wieder anwenden, falls
                 // der flüchtige Cache nach einem Neustart noch 0 ist.
                 restoreNtpOffsetFromPrefs()
+                // Nach dem Laden der Config sofort Klipper abrufen (falls aktiviert),
+                // damit nicht auf den nächsten Loop-Zyklus gewartet wird.
+                if (WatchFaceConfigCache.klipperEnabled) WatchDataSyncManager.syncNow()
                 // Nach dem (Neu-)Einlesen sofort neu zeichnen, damit aufgefrischte
                 // Werte beim Aufwachen direkt sichtbar werden.
                 invalidate()
