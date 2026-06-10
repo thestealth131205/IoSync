@@ -391,6 +391,21 @@ object WatchDataSyncManager {
         }
     }
 
+    /** Bauteil-Lüfter (Seite 3) auf [percent] % setzen (M106 S0–255). */
+    fun setKlipperFan(percent: Int) {
+        val c = WatchFaceConfigCache
+        if (c.klipperHost.isBlank()) return
+        val pct = percent.coerceIn(0, 100)
+        val sVal = Math.round(pct * 255f / 100f)
+        // Optimistisches UI-Update
+        c.klipperFanPercent = pct.toFloat()
+        invalidate?.invoke()
+        scope?.launch {
+            WatchKlipperClient.sendGcode(c.klipperHost, c.klipperPort, "M106 S$sVal", c.klipperApiKey)
+                .onFailure { Log.e(TAG, "Klipper-Lüfter-G-Code fehlgeschlagen: ${it.message}") }
+        }
+    }
+
     /** Seite-3-Pille (Klipper) schalten. */
     fun toggleP3Pill() {
         val c = WatchFaceConfigCache

@@ -418,6 +418,12 @@ class IoSyncWatchFaceRenderer(
     private var p3LedBtnLastTap  = 0L
     private var p3HeatBtnLastTap = 0L
 
+    // ── Seite 3 – Lüfter-Kachel + Lüfter-Slider ──────────────────────────────
+    private var p3FanTileBounds   = RectF()  // Tap-Zone der Lüfter-Kachel (öffnet Slider)
+    private var p3FanSliderVisible = false   // true → Slider-Overlay sichtbar
+    private var p3FanSliderBounds   = RectF() // exakte Balken-Geometrie (Wert-Mapping)
+    private var p3FanSliderTapBounds = RectF() // großzügige Tap-Zone des Sliders
+
     private val page2PillFillPaint = Paint().apply {
         isAntiAlias = true
         style = Paint.Style.FILL
@@ -2432,6 +2438,33 @@ class IoSyncWatchFaceRenderer(
         // ── Seite 3: Klipper-Buttons + P3-Pille ──────────────────────────────
         if (currentPage == 2) {
             val cfg = WatchFaceConfigCache
+
+            // ── Lüfter-Slider hat Priorität, solange er sichtbar ist ────────
+            if (p3FanSliderVisible) {
+                if (tapType == TapType.DOWN) {
+                    if (p3FanSliderTapBounds.contains(x, y)) {
+                        // Wert aus getippter X-Position ableiten, senden, sofort schließen
+                        val frac = ((x - p3FanSliderBounds.left) /
+                            (p3FanSliderBounds.right - p3FanSliderBounds.left)).coerceIn(0f, 1f)
+                        val value = Math.round(frac * 100f)
+                        WatchDataSyncManager.setKlipperFan(value)
+                    }
+                    // Jeder Tap (auch außerhalb = Abbrechen) schließt den Slider
+                    p3FanSliderVisible = false
+                    invalidate()
+                }
+                return
+            }
+
+            // ── Lüfter-Kachel: einfacher Tap öffnet den Slider ──────────────
+            if (!p3FanTileBounds.isEmpty && p3FanTileBounds.contains(x, y)) {
+                if (tapType == TapType.UP) {
+                    p3FanSliderVisible = true
+                    invalidate()
+                }
+                return
+            }
+
             // LED-Button (einfacher Tap)
             if (!p3LedBtnBounds.isEmpty) {
                 if (tapType == TapType.DOWN && p3LedBtnBounds.contains(x, y)) {
@@ -3241,21 +3274,34 @@ class IoSyncWatchFaceRenderer(
         drawTemp("Chamber", config.klipperChamberTemp, 0f, cx, tempRowY2)
 
         // ── Kachel-Geometrie (links: Tempo/Lüfter, rechts: LED/Heater) ────────
-        val tileW   = radius * 0.56f
-        val tileH   = radius * 0.185f
-        val tileCx  = cx + radius * 0.36f
-        val leftTileCx = cx - radius * 0.36f
-        val ledTileCy  = cy + radius * 0.18f
+        // Kacheln füllen den Raum bis kurz vor den runden Display-Rand aus.
+        val tileW   = radius * 0.66f
+        val tileH   = radius * 0.205f
+        val tileCx  = cx + radius * 0.40f
+        val leftTileCx = cx - radius * 0.40f
+        val ledTileCy  = cy + radius * 0.17f
         val heatTileCy = cy + radius * 0.40f
 
         // ── Tempo-Kachel + Lüfter-Kachel (links, gestapelt) ───────────────────
         // Info-Kacheln im selben Stil wie LED/Heater, zeigen reine Werte an.
         drawP3InfoTile(canvas, leftTileCx, ledTileCy, tileW, tileH, "Tempo",
                        "${config.klipperSpeedMms.toInt()} mm/s",
-                       Color.parseColor("#EAFF00"), "speed")
+                       Color.parseColor("#EAFF00"), "speed", 0f)
+        // Lüfter-Rad dreht sich abhängig vom %-Wert (10 Stufen), wenn aktiv.
+        val fanPct = config.klipperFanPercent
+        val fanLevel = when {
+            fanPct < 1f  -> 0
+            fanPct < 20f -> 1
+            else         -> (fanPct / 10f).toInt().coerceAtMost(10)  // 20-29→2 … 90-99→9 … 100→10
+        }
+        // Drehgeschwindigkeit: 30°/s pro Stufe → bei 100 % (Stufe 10) max. 300°/s.
+        val fanAngle = if (fanLevel > 0)
+            (System.currentTimeMillis() / 1000f * fanLevel * 30f) % 360f else 0f
         drawP3InfoTile(canvas, leftTileCx, heatTileCy, tileW, tileH, "Lüfter",
-                       "${config.klipperFanPercent.toInt()} %",
-                       Color.parseColor("#4FC3F7"), "fan")
+                       "${fanPct.toInt()} %",
+                       Color.parseColor("#4FC3F7"), "fan", fanAngle)
+        p3FanTileBounds.set(leftTileCx - tileW / 2f, heatTileCy - tileH / 2f,
+                            leftTileCx + tileW / 2f, heatTileCy + tileH / 2f)
 
         val ledIsOn = config.klipperLedState
         val ledPressed = p3LedBtnPressed && (System.currentTimeMillis() - p3LedBtnPressedAt < PILL_PRESS_DURATION_MS)
@@ -3272,6 +3318,63 @@ class IoSyncWatchFaceRenderer(
         // Hinweis: Die 6-Uhr-Pille wird auf Seite 3 NICHT mehr gezeichnet
         // (gehörte optisch zur Seite-1-Pille). Tap-Bounds leeren.
         p3PillTapBounds.setEmpty()
+
+        // ── Lüfter-Slider-Overlay (über allem) ────────────────────────────────
+        if (p3FanSliderVisible) drawFanSlider(canvas, cx, cy, radius, fanPct)
+        else { p3FanSliderBounds.setEmpty(); p3FanSliderTapBounds.setEmpty() }
+    }
+
+    /**
+     * Zeichnet das Lüfter-Slider-Overlay (horizontaler Balken, 0–100 %).
+     * Tippen springt zur getippten Position; danach verschwindet der Slider sofort.
+     */
+    private fun drawFanSlider(canvas: Canvas, cx: Float, cy: Float, radius: Float, fanPct: Float) {
+        // Abdunkelnder Hintergrund
+        val dimPaint = Paint().apply { isAntiAlias = true; color = Color.argb(190, 0, 0, 0) }
+        canvas.drawRect(0f, 0f, cx * 2f, cy * 2f, dimPaint)
+
+        // Panel
+        val panelW = radius * 1.5f
+        val panelH = radius * 0.46f
+        val panelRect = RectF(cx - panelW / 2f, cy - panelH / 2f, cx + panelW / 2f, cy + panelH / 2f)
+        val panelPaint = Paint().apply { isAntiAlias = true; color = Color.parseColor("#26262B") }
+        canvas.drawRoundRect(panelRect, panelH * 0.30f, panelH * 0.30f, panelPaint)
+
+        // Titel + Prozent
+        val titlePaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#999999")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textSize = radius * 0.075f; textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("Lüfter", cx, panelRect.top + radius * 0.115f, titlePaint)
+        val pctPaint = Paint().apply {
+            isAntiAlias = true; color = Color.WHITE
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = radius * 0.10f; textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("${fanPct.toInt()} %", cx, panelRect.top + radius * 0.225f, pctPaint)
+
+        // Balken (horizontal)
+        val barH   = radius * 0.085f
+        val barL   = cx - panelW / 2f + radius * 0.13f
+        val barR   = cx + panelW / 2f - radius * 0.13f
+        val barCy  = panelRect.bottom - radius * 0.13f
+        val barTop = barCy - barH / 2f
+        val barBot = barCy + barH / 2f
+        val trackPaint = Paint().apply { isAntiAlias = true; color = Color.parseColor("#3A3A3F") }
+        canvas.drawRoundRect(RectF(barL, barTop, barR, barBot), barH / 2f, barH / 2f, trackPaint)
+        val frac = (fanPct / 100f).coerceIn(0f, 1f)
+        val knobX = barL + frac * (barR - barL)
+        val fillPaint = Paint().apply { isAntiAlias = true; color = accentColor }
+        if (frac > 0f) canvas.drawRoundRect(RectF(barL, barTop, knobX, barBot), barH / 2f, barH / 2f, fillPaint)
+        // Knopf
+        val knobPaint = Paint().apply { isAntiAlias = true; color = Color.WHITE }
+        canvas.drawCircle(knobX.coerceIn(barL, barR), barCy, barH * 0.78f, knobPaint)
+
+        p3FanSliderBounds.set(barL, barTop, barR, barBot)
+        // Großzügige Tap-Zone (gesamte Balken-Zeile)
+        p3FanSliderTapBounds.set(barL - radius * 0.06f, barTop - radius * 0.10f,
+                                 barR + radius * 0.06f, barBot + radius * 0.10f)
     }
 
     /** Zeichnet eine Seite-3-Kachel (LED/Heater) im Stil der App-„Energiegeräte". */
@@ -3308,7 +3411,7 @@ class IoSyncWatchFaceRenderer(
     /** Zeichnet eine Seite-3-Info-Kachel (reine Wert-Anzeige, kein Tap). */
     private fun drawP3InfoTile(
         canvas: Canvas, tileCx: Float, tileCy: Float, tileW: Float, tileH: Float,
-        label: String, valueText: String, iconColor: Int, iconType: String
+        label: String, valueText: String, iconColor: Int, iconType: String, iconAngle: Float = 0f
     ) {
         val rect = RectF(tileCx - tileW / 2f, tileCy - tileH / 2f, tileCx + tileW / 2f, tileCy + tileH / 2f)
         val corner = tileH * 0.42f
@@ -3331,12 +3434,13 @@ class IoSyncWatchFaceRenderer(
 
         val iconCx = rect.right - tileH * 0.62f
         val iconR  = tileH * 0.30f
-        if (iconType == "fan") drawFanIcon(canvas, iconCx, tileCy, iconR, iconColor)
+        if (iconType == "fan") drawFanIcon(canvas, iconCx, tileCy, iconR, iconColor, iconAngle)
         else drawSpeedIcon(canvas, iconCx, tileCy, iconR, iconColor)
     }
 
-    /** Lüfter-/Propeller-Symbol. */
-    private fun drawFanIcon(canvas: Canvas, cx: Float, cy: Float, r: Float, color: Int) {
+    /** Lüfter-/Propeller-Symbol. Dreht sich um [angle] Grad (z.B. animiert). */
+    private fun drawFanIcon(canvas: Canvas, cx: Float, cy: Float, r: Float, color: Int, angle: Float = 0f) {
+        if (angle != 0f) { canvas.save(); canvas.rotate(angle, cx, cy) }
         val p = Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; this.color = color }
         for (i in 0 until 3) {
             val a = Math.toRadians((i * 120).toDouble())
@@ -3360,6 +3464,7 @@ class IoSyncWatchFaceRenderer(
         p.style = Paint.Style.STROKE
         p.strokeWidth = r * 0.14f
         canvas.drawCircle(cx, cy, r * 0.22f, p)
+        if (angle != 0f) canvas.restore()
     }
 
     /** Tacho-/Geschwindigkeitssymbol. */

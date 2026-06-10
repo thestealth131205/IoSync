@@ -8,6 +8,22 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.6.9",
+        date = "10.06.2026",
+        changes = listOf(
+            "Versionsbump für Deploy"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.6.8",
+        date = "10.06.2026",
+        changes = listOf(
+            "Watchface Page 3: alle 4 Kacheln vergrößert (füllen den Raum bis kurz vor den runden Rand)",
+            "Watchface Page 3: Lüfter-Rad dreht sich animiert, wenn aktiv – Tempo in 10 Stufen abhängig vom %-Wert (max. bei 100 %)",
+            "Watchface Page 3: Tap auf die Lüfter-Kachel öffnet einen Slider – Tippen setzt den %-Wert (M106) und der Slider verschwindet sofort"
+        )
+    ),
+    ChangelogEntry(
         version = "4.6.7",
         date = "10.06.2026",
         changes = listOf(
