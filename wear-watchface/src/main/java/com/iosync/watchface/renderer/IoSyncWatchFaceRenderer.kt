@@ -2814,8 +2814,15 @@ class IoSyncWatchFaceRenderer(
             pendingTimeTapJob?.cancel()
             pendingTimeTapJob = scope.launch {
                 delay(DOUBLE_TAP_MS)
-                onStopwatchSingleTap()
                 lastTimeTapTime = 0L
+                if (stopwatchMode != StopwatchMode.OFF) {
+                    // Stoppuhr aktiv → Einzeltipp steuert Stoppuhr (Start/Stop)
+                    onStopwatchSingleTap()
+                } else {
+                    // Normalmodus → Einzeltipp wechselt direkt zu Page 3
+                    currentPage = 2
+                    invalidate()
+                }
             }
         }
     }

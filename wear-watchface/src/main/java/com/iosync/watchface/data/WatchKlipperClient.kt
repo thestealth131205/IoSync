@@ -61,17 +61,21 @@ object WatchKlipperClient {
      * Ruft ein Drucker-Objekt ab und liest ein bestimmtes Feld aus.
      * Beispiel: objectName = "output_pin my_led", field = "value" → "1.0"
      */
+    private fun Request.Builder.apiKeyHeader(apiKey: String) =
+        apply { if (apiKey.isNotBlank()) addHeader("X-Api-Key", apiKey) }
+
     suspend fun queryObjectField(
         host: String,
         port: Int,
         objectName: String,
-        field: String
+        field: String,
+        apiKey: String = ""
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val encodedObj = objectName.replace(" ", "%20")
             val url = buildUrl(host, port, "/printer/objects/query?$encodedObj")
             val response = okHttpClient.newCall(
-                Request.Builder().url(url).get().build()
+                Request.Builder().url(url).apiKeyHeader(apiKey).get().build()
             ).execute()
             check(response.isSuccessful) { "HTTP ${response.code}" }
             val body = response.body!!.string()
@@ -88,14 +92,15 @@ object WatchKlipperClient {
     suspend fun sendGcode(
         host: String,
         port: Int,
-        gcode: String
+        gcode: String,
+        apiKey: String = ""
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val url = buildUrl(host, port, "/printer/gcode/script")
             val body = JSONObject().apply { put("script", gcode) }
                 .toString().toRequestBody("application/json".toMediaType())
             val response = okHttpClient.newCall(
-                Request.Builder().url(url).post(body).build()
+                Request.Builder().url(url).apiKeyHeader(apiKey).post(body).build()
             ).execute()
             check(response.isSuccessful) { "HTTP ${response.code}" }
         }.onFailure { Log.e(TAG, "sendGcode($gcode) fehlgeschlagen: ${it.message}") }
@@ -110,7 +115,8 @@ object WatchKlipperClient {
     suspend fun queryPrinterStatus(
         host: String,
         port: Int,
-        chamberObject: String = "heater_generic chamber"
+        chamberObject: String = "heater_generic chamber",
+        apiKey: String = ""
     ): Result<KlipperPrinterStatus> = withContext(Dispatchers.IO) {
         runCatching {
             val encObj = chamberObject.replace(" ", "%20")
@@ -119,7 +125,7 @@ object WatchKlipperClient {
                 "/printer/objects/query?display_status&print_stats&extruder&heater_bed&fan&motion_report&$encObj"
             )
             val response = okHttpClient.newCall(
-                Request.Builder().url(url).get().build()
+                Request.Builder().url(url).apiKeyHeader(apiKey).get().build()
             ).execute()
             check(response.isSuccessful) { "HTTP ${response.code}" }
             val root = JSONObject(response.body!!.string())
@@ -160,10 +166,11 @@ object WatchKlipperClient {
         host: String,
         port: Int,
         objectName: String,
-        field: String
+        field: String,
+        apiKey: String = ""
     ): Result<Boolean> = withContext(Dispatchers.IO) {
         runCatching {
-            val raw = queryObjectField(host, port, objectName, field).getOrThrow()
+            val raw = queryObjectField(host, port, objectName, field, apiKey).getOrThrow()
             raw == "true" || raw == "1" || raw == "1.0" || raw.toDoubleOrNull()?.let { it > 0 } == true
         }.onFailure { Log.e(TAG, "queryBoolField($objectName/$field) fehlgeschlagen: ${it.message}") }
     }

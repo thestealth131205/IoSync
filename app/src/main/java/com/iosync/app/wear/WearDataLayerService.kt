@@ -621,6 +621,7 @@ class WearDataLayerService @Inject constructor(
         bc2Id: String = "",
         klipperHost: String = "",
         klipperPort: Int = 7125,
+        klipperApiKey: String = "",
         p3PillEnabled: Boolean = false,
         p3PillColorTrue: String = "cyan",
         p3PillColorFalse: String = "red",
@@ -660,6 +661,7 @@ class WearDataLayerService @Inject constructor(
                     // Klipper + Seite 3 Pille
                     dataMap.putString("con_klipper_host", klipperHost)
                     dataMap.putInt("con_klipper_port", klipperPort)
+                    dataMap.putString("con_klipper_api_key", klipperApiKey)
                     dataMap.putBoolean("con_p3_pill_enabled", p3PillEnabled)
                     dataMap.putString("con_p3_pill_color_true", p3PillColorTrue)
                     dataMap.putString("con_p3_pill_color_false", p3PillColorFalse)

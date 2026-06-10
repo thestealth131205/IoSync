@@ -240,6 +240,7 @@ fun SettingsScreen(
     // Klipper & Seite 3 – Pille
     var klipperHost        by remember(uiState.klipperHost)       { mutableStateOf(uiState.klipperHost) }
     var klipperPort        by remember(uiState.klipperPort)       { mutableStateOf(uiState.klipperPort.toString()) }
+    var klipperApiKey      by remember(uiState.klipperApiKey)     { mutableStateOf(uiState.klipperApiKey) }
     var p3PillEnabled      by remember(uiState.p3PillEnabled)     { mutableStateOf(uiState.p3PillEnabled) }
     var p3PillColorTrue    by remember(uiState.p3PillColorTrue)   { mutableStateOf(uiState.p3PillColorTrue) }
     var p3PillColorFalse   by remember(uiState.p3PillColorFalse)  { mutableStateOf(uiState.p3PillColorFalse) }
@@ -610,12 +611,21 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(), singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
+                    OutlinedTextField(
+                        value = klipperApiKey,
+                        onValueChange = { klipperApiKey = it },
+                        label = { Text("API-Key (optional)") },
+                        placeholder = { Text("Moonraker X-Api-Key") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    )
                     Button(
                         onClick = {
                             viewModel.saveKlipperConnection(
                                 enabled = klipperEnabled,
                                 host    = klipperHost.trim(),
-                                port    = klipperPort.toIntOrNull() ?: 7125
+                                port    = klipperPort.toIntOrNull() ?: 7125,
+                                apiKey  = klipperApiKey.trim()
                             )
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -2070,7 +2080,7 @@ fun SettingsScreen(
                 )
                 if (uiState.klipperHost.isNotBlank()) {
                     Button(
-                        onClick = { viewModel.loadKlipperObjects(uiState.klipperHost, uiState.klipperPort) },
+                        onClick = { viewModel.loadKlipperObjects(uiState.klipperHost, uiState.klipperPort, uiState.klipperApiKey) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A2A), contentColor = Color(0xFFEAFF00)),
                         enabled = !uiState.klipperObjectsLoading
@@ -2213,6 +2223,7 @@ fun SettingsScreen(
                             klipperEnabled          = klipperEnabled,
                             klipperHost             = uiState.klipperHost,
                             klipperPort             = uiState.klipperPort,
+                            klipperApiKey           = uiState.klipperApiKey,
                             klipperChamberObject    = klipperChamberObject.trim(),
                             p3PillEnabled           = p3PillEnabled,
                             p3PillColorTrue         = p3PillColorTrue,

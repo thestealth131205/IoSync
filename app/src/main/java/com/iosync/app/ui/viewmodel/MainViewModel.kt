@@ -273,6 +273,7 @@ data class MainUiState(
     val klipperEnabled: Boolean = false,
     val klipperHost: String = "",
     val klipperPort: Int = 7125,
+    val klipperApiKey: String = "",
     val klipperChamberObject: String = "heater_generic chamber",
     val klipperObjects: List<String> = emptyList(),
     val klipperObjectsLoading: Boolean = false,
@@ -505,6 +506,7 @@ class MainViewModel @Inject constructor(
         val KEY_KLIPPER_ENABLED      = booleanPreferencesKey("klipper_enabled")
         val KEY_KLIPPER_HOST         = stringPreferencesKey("klipper_host")
         val KEY_KLIPPER_PORT         = intPreferencesKey("klipper_port")
+        val KEY_KLIPPER_API_KEY      = stringPreferencesKey("klipper_api_key")
         val KEY_KLIPPER_CHAMBER_OBJ  = stringPreferencesKey("klipper_chamber_obj")
         // Seite 3 – Pille
         val KEY_P3_PILL_ENABLED      = booleanPreferencesKey("p3_pill_enabled")
@@ -728,6 +730,7 @@ class MainViewModel @Inject constructor(
             val klipperEnabled   = prefs[KEY_KLIPPER_ENABLED]    ?: false
             val klipperHost      = prefs[KEY_KLIPPER_HOST]        ?: ""
             val klipperPort      = prefs[KEY_KLIPPER_PORT]        ?: 7125
+            val klipperApiKey    = prefs[KEY_KLIPPER_API_KEY]     ?: ""
             val klipperChamberObj = prefs[KEY_KLIPPER_CHAMBER_OBJ] ?: "heater_generic chamber"
             // Seite 3 – Pille
             val p3PillEnabled    = prefs[KEY_P3_PILL_ENABLED]     ?: false
@@ -934,6 +937,7 @@ class MainViewModel @Inject constructor(
                     klipperEnabled    = klipperEnabled,
                     klipperHost       = klipperHost,
                     klipperPort       = klipperPort,
+                    klipperApiKey     = klipperApiKey,
                     klipperChamberObject = klipperChamberObj,
                     p3PillEnabled     = p3PillEnabled,
                     p3PillColorTrue   = p3PillColorTrue,
@@ -1309,8 +1313,9 @@ class MainViewModel @Inject constructor(
             weatherIntervalSec = 600,
             bc1Id = prefs[KEY_WF_BC1_ID] ?: "",
             bc2Id = prefs[KEY_WF_BC2_ID] ?: "",
-            klipperHost      = prefs[KEY_KLIPPER_HOST]  ?: "",
-            klipperPort      = prefs[KEY_KLIPPER_PORT]  ?: 7125,
+            klipperHost      = prefs[KEY_KLIPPER_HOST]    ?: "",
+            klipperPort      = prefs[KEY_KLIPPER_PORT]    ?: 7125,
+            klipperApiKey    = prefs[KEY_KLIPPER_API_KEY] ?: "",
             p3PillEnabled    = prefs[KEY_P3_PILL_ENABLED]     ?: false,
             p3PillColorTrue  = prefs[KEY_P3_PILL_COLOR_TRUE]  ?: "cyan",
             p3PillColorFalse = prefs[KEY_P3_PILL_COLOR_FALSE] ?: "red",
@@ -1750,14 +1755,15 @@ class MainViewModel @Inject constructor(
      * Speichert nur die Klipper-Verbindungseinstellungen (Aktivierung, Host, Port)
      * und überträgt die Connection-Config an die Uhr.
      */
-    fun saveKlipperConnection(enabled: Boolean, host: String, port: Int) {
+    fun saveKlipperConnection(enabled: Boolean, host: String, port: Int, apiKey: String = "") {
         viewModelScope.launch {
             dataStore.edit { prefs ->
                 prefs[KEY_KLIPPER_ENABLED] = enabled
                 prefs[KEY_KLIPPER_HOST]    = host
                 prefs[KEY_KLIPPER_PORT]    = port
+                prefs[KEY_KLIPPER_API_KEY] = apiKey
             }
-            _uiState.update { it.copy(klipperEnabled = enabled, klipperHost = host, klipperPort = port) }
+            _uiState.update { it.copy(klipperEnabled = enabled, klipperHost = host, klipperPort = port, klipperApiKey = apiKey) }
             try {
                 pushConnectionConfigToWear()
                 _uiState.update { it.copy(wearSyncLog = "Klipper-Verbindung gespeichert") }
@@ -1774,6 +1780,7 @@ class MainViewModel @Inject constructor(
         klipperEnabled: Boolean,
         klipperHost: String,
         klipperPort: Int,
+        klipperApiKey: String,
         klipperChamberObject: String,
         p3PillEnabled: Boolean,
         p3PillColorTrue: String,
@@ -1794,6 +1801,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_KLIPPER_ENABLED]     = klipperEnabled
                 prefs[KEY_KLIPPER_HOST]        = klipperHost
                 prefs[KEY_KLIPPER_PORT]        = klipperPort
+                prefs[KEY_KLIPPER_API_KEY]     = klipperApiKey
                 prefs[KEY_KLIPPER_CHAMBER_OBJ] = klipperChamberObject
                 prefs[KEY_P3_PILL_ENABLED]     = p3PillEnabled
                 prefs[KEY_P3_PILL_COLOR_TRUE]  = p3PillColorTrue
@@ -1814,6 +1822,7 @@ class MainViewModel @Inject constructor(
                     klipperEnabled    = klipperEnabled,
                     klipperHost       = klipperHost,
                     klipperPort       = klipperPort,
+                    klipperApiKey     = klipperApiKey,
                     klipperChamberObject = klipperChamberObject,
                     p3PillEnabled     = p3PillEnabled,
                     p3PillColorTrue   = p3PillColorTrue,
@@ -1842,10 +1851,10 @@ class MainViewModel @Inject constructor(
     /**
      * Ruft die verfügbaren Drucker-Objekte von Moonraker ab (für die UI-Auswahl).
      */
-    fun loadKlipperObjects(host: String, port: Int) {
+    fun loadKlipperObjects(host: String, port: Int, apiKey: String = "") {
         viewModelScope.launch {
             _uiState.update { it.copy(klipperObjectsLoading = true, klipperObjectsError = null) }
-            klipperClient.fetchObjects(host, port)
+            klipperClient.fetchObjects(host, port, apiKey)
                 .onSuccess { objects ->
                     _uiState.update { it.copy(klipperObjects = objects, klipperObjectsLoading = false) }
                 }

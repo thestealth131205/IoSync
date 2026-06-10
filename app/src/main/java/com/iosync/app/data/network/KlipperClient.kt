@@ -52,12 +52,13 @@ class KlipperClient @Inject constructor() {
      * Gibt die Liste alphabetisch sortiert zurück, z.B.:
      *   ["extruder", "fan", "heater_bed", "output_pin my_led", ...]
      */
-    suspend fun fetchObjects(host: String, port: Int): Result<List<String>> = withContext(Dispatchers.IO) {
+    suspend fun fetchObjects(host: String, port: Int, apiKey: String = ""): Result<List<String>> = withContext(Dispatchers.IO) {
         runCatching {
             val url = buildUrl(host, port, "/printer/objects/list")
-            val response = okHttpClient.newCall(
-                Request.Builder().url(url).get().build()
-            ).execute()
+            val req = Request.Builder().url(url)
+                .apply { if (apiKey.isNotBlank()) addHeader("X-Api-Key", apiKey) }
+                .get().build()
+            val response = okHttpClient.newCall(req).execute()
             check(response.isSuccessful) { "HTTP ${response.code}" }
             val root = JSONObject(response.body!!.string())
             val arr = root.getJSONObject("result").getJSONArray("objects")

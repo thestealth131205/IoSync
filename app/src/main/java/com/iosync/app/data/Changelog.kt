@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.5.9",
+        date = "10.06.2026",
+        changes = listOf(
+            "Klipper API-Key: Moonraker X-Api-Key Unterstützung (Eingabefeld in Klipper-Einstellungen, wird an Uhr übertragen)",
+            "App + Watchface senden X-Api-Key Header bei allen Moonraker-Anfragen wenn gesetzt"
+        )
+    ),
+    ChangelogEntry(
         version = "4.5.8",
         date = "10.06.2026",
         changes = listOf(

@@ -618,6 +618,7 @@ object WatchFaceConfigCache {
     @Volatile var klipperEnabled: Boolean = false
     @Volatile var klipperHost: String = ""
     @Volatile var klipperPort: Int = 7125
+    @Volatile var klipperApiKey: String = ""
     // Objekt-Name für Chamber-Temperatur (default: "heater_generic chamber")
     @Volatile var klipperChamberObject: String = "heater_generic chamber"
 
@@ -719,6 +720,7 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey("con_klipper_enabled")) klipperEnabled = dataMap.getBoolean("con_klipper_enabled")
         dataMap.getString("con_klipper_host")?.let { klipperHost = it }
         if (dataMap.containsKey("con_klipper_port")) klipperPort = dataMap.getInt("con_klipper_port")
+        dataMap.getString("con_klipper_api_key")?.let { klipperApiKey = it }
         dataMap.getString("con_klipper_chamber_obj")?.let { klipperChamberObject = it }
         // Seite 3 – Pille
         if (dataMap.containsKey("con_p3_pill_enabled"))  p3PillEnabled    = dataMap.getBoolean("con_p3_pill_enabled")
