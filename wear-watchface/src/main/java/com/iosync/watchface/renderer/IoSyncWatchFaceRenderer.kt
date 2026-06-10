@@ -1536,6 +1536,11 @@ class IoSyncWatchFaceRenderer(
             bc1NumValue = hr?.toFloat() ?: 0f
             bc1Text     = if (hr != null && hr > 0) "$hr" else "--"
         }
+        val (bc1Col1, bc1Col2) = applyRingThreshold(
+            colorFromId(config.bc1RingColor1), colorFromId(config.bc1RingColor2),
+            bc1NumValue, config.bc1RingThreshEnabled, config.bc1RingThreshValue,
+            config.bc1RingThreshDir, config.bc1RingThreshTarget, config.bc1RingThreshColor
+        )
         drawBottomComp(
             canvas, leftCx, compCy, compRadius,
             label       = config.bc1Label,
@@ -1543,10 +1548,11 @@ class IoSyncWatchFaceRenderer(
             numValue    = bc1NumValue,
             valueColor  = colorFromId(config.bc1Color),
             ringEnabled = config.bc1RingEnabled,
-            ringColor1  = colorFromId(config.bc1RingColor1),
-            ringColor2  = colorFromId(config.bc1RingColor2),
+            ringColor1  = bc1Col1,
+            ringColor2  = bc1Col2,
             ringMin     = config.bc1RingMin,
-            ringMax     = config.bc1RingMax
+            ringMax     = config.bc1RingMax,
+            ringWidth   = config.bc1RingWidth
         )
 
         // ── BC2 (rechts) – wählbare Metrik oder ioBroker ──────────────────────
@@ -1578,6 +1584,11 @@ class IoSyncWatchFaceRenderer(
                 }
             }
         }
+        val (bc2Col1, bc2Col2) = applyRingThreshold(
+            colorFromId(config.bc2RingColor1), colorFromId(config.bc2RingColor2),
+            bc2NumValue, config.bc2RingThreshEnabled, config.bc2RingThreshValue,
+            config.bc2RingThreshDir, config.bc2RingThreshTarget, config.bc2RingThreshColor
+        )
         drawBottomComp(
             canvas, rightCx, compCy, compRadius,
             label       = config.bc2Label,
@@ -1585,11 +1596,30 @@ class IoSyncWatchFaceRenderer(
             numValue    = bc2NumValue,
             valueColor  = colorFromId(config.bc2Color),
             ringEnabled = config.bc2RingEnabled,
-            ringColor1  = colorFromId(config.bc2RingColor1),
-            ringColor2  = colorFromId(config.bc2RingColor2),
+            ringColor1  = bc2Col1,
+            ringColor2  = bc2Col2,
             ringMin     = config.bc2RingMin,
-            ringMax     = config.bc2RingMax
+            ringMax     = config.bc2RingMax,
+            ringWidth   = config.bc2RingWidth
         )
+    }
+
+    /**
+     * Wendet den Schwellenwert-Farbumschlag auf die beiden Ring-Farben an.
+     * Ist der Schwellenwert aktiv und (je nach Richtung) über- bzw. unterschritten,
+     * wird die gewählte Zielfarbe (erste oder zweite Verlaufsfarbe) durch threshColor ersetzt.
+     * Gibt das ggf. angepasste Farbpaar (color1, color2) zurück.
+     */
+    private fun applyRingThreshold(
+        color1: Int, color2: Int,
+        value: Float, enabled: Boolean, threshold: Float,
+        dir: String, target: String, threshColorId: String
+    ): Pair<Int, Int> {
+        if (!enabled) return color1 to color2
+        val triggered = if (dir == "below") value <= threshold else value >= threshold
+        if (!triggered) return color1 to color2
+        val tc = colorFromId(threshColorId)
+        return if (target == "color1") tc to color2 else color1 to tc
     }
 
     /**
@@ -1608,9 +1638,10 @@ class IoSyncWatchFaceRenderer(
         valueColor: Int,
         ringEnabled: Boolean,
         ringColor1: Int, ringColor2: Int,
-        ringMin: Float, ringMax: Float
+        ringMin: Float, ringMax: Float,
+        ringWidth: Int
     ) {
-        val strokeW = compRadius * 0.14f
+        val strokeW = ringWidth * density
 
         // 3D-Vertiefungs-Kreis hinter dem Ring
         drawEmbossedCircleRecess(canvas, compCx, compCy, compRadius + strokeW * 1.6f)

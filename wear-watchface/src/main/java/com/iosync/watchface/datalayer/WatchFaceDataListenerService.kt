@@ -106,6 +106,12 @@ private const val KEY_WF_BC1_RING_COLOR1    = "wf_bc1_ring_color1"
 private const val KEY_WF_BC1_RING_COLOR2    = "wf_bc1_ring_color2"
 private const val KEY_WF_BC1_RING_MIN       = "wf_bc1_ring_min"
 private const val KEY_WF_BC1_RING_MAX       = "wf_bc1_ring_max"
+private const val KEY_WF_BC1_RING_WIDTH     = "wf_bc1_ring_width"
+private const val KEY_WF_BC1_RING_TH_EN     = "wf_bc1_ring_th_en"
+private const val KEY_WF_BC1_RING_TH_VAL    = "wf_bc1_ring_th_val"
+private const val KEY_WF_BC1_RING_TH_DIR    = "wf_bc1_ring_th_dir"
+private const val KEY_WF_BC1_RING_TH_TARGET = "wf_bc1_ring_th_target"
+private const val KEY_WF_BC1_RING_TH_COLOR  = "wf_bc1_ring_th_color"
 // Komplikation 2 (rechts) – wählbare Metrik oder ioBroker-Datenpunkt (kcal|oxygen|bloodpressure|training)
 private const val KEY_WF_BC2_METRIC         = "wf_bc2_metric"
 private const val KEY_WF_BC2_USE_IOBROKER   = "wf_bc2_use_iobroker"
@@ -116,6 +122,12 @@ private const val KEY_WF_BC2_RING_COLOR1    = "wf_bc2_ring_color1"
 private const val KEY_WF_BC2_RING_COLOR2    = "wf_bc2_ring_color2"
 private const val KEY_WF_BC2_RING_MIN       = "wf_bc2_ring_min"
 private const val KEY_WF_BC2_RING_MAX       = "wf_bc2_ring_max"
+private const val KEY_WF_BC2_RING_WIDTH     = "wf_bc2_ring_width"
+private const val KEY_WF_BC2_RING_TH_EN     = "wf_bc2_ring_th_en"
+private const val KEY_WF_BC2_RING_TH_VAL    = "wf_bc2_ring_th_val"
+private const val KEY_WF_BC2_RING_TH_DIR    = "wf_bc2_ring_th_dir"
+private const val KEY_WF_BC2_RING_TH_TARGET = "wf_bc2_ring_th_target"
+private const val KEY_WF_BC2_RING_TH_COLOR  = "wf_bc2_ring_th_color"
 
 // ── Phone-Health-Daten (vom Smartphone gesendet) ────────────────────────────
 private const val PATH_PHONE_HEALTH          = "/iosync/watchface/phone_health"
@@ -499,7 +511,14 @@ object WatchFaceConfigCache {
     @Volatile var bc1RingColor1: String = "red"
     @Volatile var bc1RingColor2: String = "orange"
     @Volatile var bc1RingMin: Float = 0f
-    @Volatile var bc1RingMax: Float = 220f
+    @Volatile var bc1RingMax: Float = 140f
+    @Volatile var bc1RingWidth: Int = 6
+    // Schwellenwert-Farbumschlag für den BC1-Ring
+    @Volatile var bc1RingThreshEnabled: Boolean = false
+    @Volatile var bc1RingThreshValue: Float = 0f
+    @Volatile var bc1RingThreshDir: String = "above"      // above | below
+    @Volatile var bc1RingThreshTarget: String = "color2"  // color1 | color2
+    @Volatile var bc1RingThreshColor: String = "red"
     // BC2 (rechts) – wählbare Metrik oder ioBroker-Datenpunkt
     @Volatile var bc2Metric: String = "kcal"  // kcal | oxygen | bloodpressure | training
     @Volatile var bc2UseIoBroker: Boolean = false
@@ -510,6 +529,13 @@ object WatchFaceConfigCache {
     @Volatile var bc2RingColor2: String = "neon_yellow"
     @Volatile var bc2RingMin: Float = 0f
     @Volatile var bc2RingMax: Float = 1000f
+    @Volatile var bc2RingWidth: Int = 6
+    // Schwellenwert-Farbumschlag für den BC2-Ring
+    @Volatile var bc2RingThreshEnabled: Boolean = false
+    @Volatile var bc2RingThreshValue: Float = 0f
+    @Volatile var bc2RingThreshDir: String = "above"      // above | below
+    @Volatile var bc2RingThreshTarget: String = "color2"  // color1 | color2
+    @Volatile var bc2RingThreshColor: String = "red"
     // ioBroker-Datenpunkt-IDs für BC1/BC2 (aus Verbindungs-Konfig)
     @Volatile var conBc1Id: String = ""
     @Volatile var conBc2Id: String = ""
@@ -725,6 +751,12 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_BC1_RING_COLOR2)?.let { bc1RingColor2 = it }
         if (dataMap.containsKey(KEY_WF_BC1_RING_MIN)) bc1RingMin = dataMap.getFloat(KEY_WF_BC1_RING_MIN)
         if (dataMap.containsKey(KEY_WF_BC1_RING_MAX)) bc1RingMax = dataMap.getFloat(KEY_WF_BC1_RING_MAX)
+        if (dataMap.containsKey(KEY_WF_BC1_RING_WIDTH)) bc1RingWidth = dataMap.getInt(KEY_WF_BC1_RING_WIDTH)
+        if (dataMap.containsKey(KEY_WF_BC1_RING_TH_EN)) bc1RingThreshEnabled = dataMap.getBoolean(KEY_WF_BC1_RING_TH_EN)
+        if (dataMap.containsKey(KEY_WF_BC1_RING_TH_VAL)) bc1RingThreshValue = dataMap.getFloat(KEY_WF_BC1_RING_TH_VAL)
+        dataMap.getString(KEY_WF_BC1_RING_TH_DIR)?.let { bc1RingThreshDir = it }
+        dataMap.getString(KEY_WF_BC1_RING_TH_TARGET)?.let { bc1RingThreshTarget = it }
+        dataMap.getString(KEY_WF_BC1_RING_TH_COLOR)?.let { bc1RingThreshColor = it }
         dataMap.getString(KEY_WF_BC2_METRIC)?.let { bc2Metric = it }
         if (dataMap.containsKey(KEY_WF_BC2_USE_IOBROKER)) bc2UseIoBroker = dataMap.getBoolean(KEY_WF_BC2_USE_IOBROKER)
         dataMap.getString(KEY_WF_BC2_LABEL)?.let  { bc2Label  = it }
@@ -734,6 +766,12 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_BC2_RING_COLOR2)?.let { bc2RingColor2 = it }
         if (dataMap.containsKey(KEY_WF_BC2_RING_MIN)) bc2RingMin = dataMap.getFloat(KEY_WF_BC2_RING_MIN)
         if (dataMap.containsKey(KEY_WF_BC2_RING_MAX)) bc2RingMax = dataMap.getFloat(KEY_WF_BC2_RING_MAX)
+        if (dataMap.containsKey(KEY_WF_BC2_RING_WIDTH)) bc2RingWidth = dataMap.getInt(KEY_WF_BC2_RING_WIDTH)
+        if (dataMap.containsKey(KEY_WF_BC2_RING_TH_EN)) bc2RingThreshEnabled = dataMap.getBoolean(KEY_WF_BC2_RING_TH_EN)
+        if (dataMap.containsKey(KEY_WF_BC2_RING_TH_VAL)) bc2RingThreshValue = dataMap.getFloat(KEY_WF_BC2_RING_TH_VAL)
+        dataMap.getString(KEY_WF_BC2_RING_TH_DIR)?.let { bc2RingThreshDir = it }
+        dataMap.getString(KEY_WF_BC2_RING_TH_TARGET)?.let { bc2RingThreshTarget = it }
+        dataMap.getString(KEY_WF_BC2_RING_TH_COLOR)?.let { bc2RingThreshColor = it }
     }
 
     fun updateP2ConfigFromDataMap(dataMap: DataMap) {

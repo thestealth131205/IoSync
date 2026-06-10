@@ -255,6 +255,39 @@ fun SettingsScreen(
     var p2BarWarn2Color by remember(uiState.p2BarWarn2Color) { mutableStateOf(uiState.p2BarWarn2Color) }
     var p2BarWarn2Value by remember(uiState.p2BarWarn2Value) { mutableStateOf(if (uiState.p2BarWarn2Value.isNaN()) "" else uiState.p2BarWarn2Value.toString()) }
 
+    // ── Boden-Komplikationen (BC1 Puls / BC2 Kcal·Oxygen) mit Ring ──────────
+    var bcShow         by remember(uiState.wfShowBottomComp) { mutableStateOf(uiState.wfShowBottomComp) }
+    // BC1 (links – Puls)
+    var bc1Label       by remember(uiState.wfBc1Label)      { mutableStateOf(uiState.wfBc1Label) }
+    var bc1Color       by remember(uiState.wfBc1Color)      { mutableStateOf(uiState.wfBc1Color) }
+    var bc1RingEnabled by remember(uiState.wfBc1RingEnabled){ mutableStateOf(uiState.wfBc1RingEnabled) }
+    var bc1RingColor1  by remember(uiState.wfBc1RingColor1) { mutableStateOf(uiState.wfBc1RingColor1) }
+    var bc1RingColor2  by remember(uiState.wfBc1RingColor2) { mutableStateOf(uiState.wfBc1RingColor2) }
+    var bc1RingMin     by remember(uiState.wfBc1RingMin)    { mutableStateOf(uiState.wfBc1RingMin.toInt().toString()) }
+    var bc1RingMax     by remember(uiState.wfBc1RingMax)    { mutableStateOf(uiState.wfBc1RingMax.toInt().toString()) }
+    var bc1RingWidth   by remember(uiState.wfBc1RingWidth)  { mutableStateOf(uiState.wfBc1RingWidth.toFloat()) }
+    var bc1ThEnabled   by remember(uiState.wfBc1RingThreshEnabled) { mutableStateOf(uiState.wfBc1RingThreshEnabled) }
+    var bc1ThValue     by remember(uiState.wfBc1RingThreshValue)   { mutableStateOf(uiState.wfBc1RingThreshValue.toInt().toString()) }
+    var bc1ThDir       by remember(uiState.wfBc1RingThreshDir)     { mutableStateOf(uiState.wfBc1RingThreshDir) }
+    var bc1ThTarget    by remember(uiState.wfBc1RingThreshTarget)  { mutableStateOf(uiState.wfBc1RingThreshTarget) }
+    var bc1ThColor     by remember(uiState.wfBc1RingThreshColor)   { mutableStateOf(uiState.wfBc1RingThreshColor) }
+    // BC2 (rechts – Kcal oder Oxygen)
+    var bc2Metric      by remember(uiState.wfBc2Metric)     { mutableStateOf(uiState.wfBc2Metric) }
+    var bc2Label       by remember(uiState.wfBc2Label)      { mutableStateOf(uiState.wfBc2Label) }
+    var bc2Color       by remember(uiState.wfBc2Color)      { mutableStateOf(uiState.wfBc2Color) }
+    var bc2RingEnabled by remember(uiState.wfBc2RingEnabled){ mutableStateOf(uiState.wfBc2RingEnabled) }
+    var bc2RingColor1  by remember(uiState.wfBc2RingColor1) { mutableStateOf(uiState.wfBc2RingColor1) }
+    var bc2RingColor2  by remember(uiState.wfBc2RingColor2) { mutableStateOf(uiState.wfBc2RingColor2) }
+    var bc2RingMin     by remember(uiState.wfBc2RingMin)    { mutableStateOf(uiState.wfBc2RingMin.toInt().toString()) }
+    var bc2RingMax     by remember(uiState.wfBc2RingMax)    { mutableStateOf(uiState.wfBc2RingMax.toInt().toString()) }
+    var bc2RingWidth   by remember(uiState.wfBc2RingWidth)  { mutableStateOf(uiState.wfBc2RingWidth.toFloat()) }
+    var bc2ThEnabled   by remember(uiState.wfBc2RingThreshEnabled) { mutableStateOf(uiState.wfBc2RingThreshEnabled) }
+    var bc2ThValue     by remember(uiState.wfBc2RingThreshValue)   { mutableStateOf(uiState.wfBc2RingThreshValue.toInt().toString()) }
+    var bc2ThDir       by remember(uiState.wfBc2RingThreshDir)     { mutableStateOf(uiState.wfBc2RingThreshDir) }
+    var bc2ThTarget    by remember(uiState.wfBc2RingThreshTarget)  { mutableStateOf(uiState.wfBc2RingThreshTarget) }
+    var bc2ThColor     by remember(uiState.wfBc2RingThreshColor)   { mutableStateOf(uiState.wfBc2RingThreshColor) }
+    var sectionBottomComp by remember { mutableStateOf(false) }
+
     // ── Auto-Transfer bei Watchface-Einstellungsänderung ────────────────────
     var wfSettingsInitialized by remember { mutableStateOf(false) }
     LaunchedEffect(
@@ -1898,6 +1931,131 @@ fun SettingsScreen(
                 onToggle = { sectionHealth = !sectionHealth }
             ) {
                 HealthConnectSection(viewModel = viewModel, uiState = uiState)
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // ── Sektion: Boden-Komplikationen (Puls-Ring / Kcal·Oxygen-Ring) ──
+            AccordionSection(
+                title = "Boden-Komplikationen (Ringe)",
+                expanded = sectionBottomComp,
+                onToggle = { sectionBottomComp = !sectionBottomComp }
+            ) {
+                WatchFaceToggleRow(
+                    text = "Boden-Komplikationen anzeigen",
+                    subText = "Zwei Kreistaschen unten: Puls (links) + Kcal/Oxygen (rechts)",
+                    checked = bcShow,
+                    onCheckedChange = { bcShow = it }
+                )
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Puls (links)", style = MaterialTheme.typography.titleSmall, color = NeonYellow)
+                OutlinedTextField(value = bc1Label, onValueChange = { bc1Label = it.take(6) }, label = { Text("Label") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Text("Wert-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceColorRow(selected = bc1Color, onSelect = { bc1Color = it })
+                WatchFaceToggleRow(text = "Ring anzeigen", checked = bc1RingEnabled, onCheckedChange = { bc1RingEnabled = it })
+                if (bc1RingEnabled) {
+                    Text("Ring beginnt bei 12 Uhr. Bei Max ist der Ring voll (360°).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(value = bc1RingMin, onValueChange = { v -> bc1RingMin = v.filter { it.isDigit() } }, label = { Text("Min") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        OutlinedTextField(value = bc1RingMax, onValueChange = { v -> bc1RingMax = v.filter { it.isDigit() } }, label = { Text("Max (z.B. 140)") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    }
+                    Text("Ringbreite: ${bc1RingWidth.toInt()} dp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Slider(value = bc1RingWidth, onValueChange = { bc1RingWidth = it }, valueRange = 2f..16f, steps = 13, modifier = Modifier.fillMaxWidth())
+                    Text("Verlauf-Farbe 1", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    WatchFaceColorRow(selected = bc1RingColor1, onSelect = { bc1RingColor1 = it })
+                    Text("Verlauf-Farbe 2", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    WatchFaceColorRow(selected = bc1RingColor2, onSelect = { bc1RingColor2 = it })
+                    WatchFaceToggleRow(text = "Schwellenwert-Farbumschlag", subText = "Ab/unter einem Wert wechselt eine Verlauf-Farbe", checked = bc1ThEnabled, onCheckedChange = { bc1ThEnabled = it })
+                    if (bc1ThEnabled) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(value = bc1ThValue, onValueChange = { v -> bc1ThValue = v.filter { it.isDigit() } }, label = { Text("Schwelle") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            GenericValueDropdown(options = listOf("above" to "darüber", "below" to "darunter"), selected = bc1ThDir, onSelect = { bc1ThDir = it }, modifier = Modifier.weight(1f))
+                        }
+                        Text("Welche Verlauf-Farbe wechselt", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        GenericValueDropdown(options = listOf("color1" to "Farbe 1", "color2" to "Farbe 2"), selected = bc1ThTarget, onSelect = { bc1ThTarget = it }, modifier = Modifier.fillMaxWidth())
+                        Text("Umschlag-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        WatchFaceColorRow(selected = bc1ThColor, onSelect = { bc1ThColor = it })
+                    }
+                }
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Rechts (Kcal oder Oxygen)", style = MaterialTheme.typography.titleSmall, color = NeonYellow)
+                Text("Metrik – Oxygen ersetzt Kcal an dieser Stelle", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                GenericValueDropdown(
+                    options = listOf("kcal" to "Kalorien (Kcal)", "oxygen" to "Sauerstoff (Oxygen/SpO2)"),
+                    selected = bc2Metric,
+                    onSelect = { m ->
+                        bc2Metric = m
+                        if (m == "oxygen" && (bc2Label.equals("KCAL", true) || bc2Label.isBlank())) bc2Label = "SpO2"
+                        if (m == "kcal" && (bc2Label.equals("SpO2", true) || bc2Label.isBlank())) bc2Label = "KCAL"
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(value = bc2Label, onValueChange = { bc2Label = it.take(6) }, label = { Text("Label") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Text("Wert-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WatchFaceColorRow(selected = bc2Color, onSelect = { bc2Color = it })
+                WatchFaceToggleRow(text = "Ring anzeigen", checked = bc2RingEnabled, onCheckedChange = { bc2RingEnabled = it })
+                if (bc2RingEnabled) {
+                    Text("Ring beginnt bei 12 Uhr. Bei Max ist der Ring voll (360°).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(value = bc2RingMin, onValueChange = { v -> bc2RingMin = v.filter { it.isDigit() } }, label = { Text("Min") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        OutlinedTextField(value = bc2RingMax, onValueChange = { v -> bc2RingMax = v.filter { it.isDigit() } }, label = { Text("Max") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    }
+                    Text("Ringbreite: ${bc2RingWidth.toInt()} dp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Slider(value = bc2RingWidth, onValueChange = { bc2RingWidth = it }, valueRange = 2f..16f, steps = 13, modifier = Modifier.fillMaxWidth())
+                    Text("Verlauf-Farbe 1", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    WatchFaceColorRow(selected = bc2RingColor1, onSelect = { bc2RingColor1 = it })
+                    Text("Verlauf-Farbe 2", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    WatchFaceColorRow(selected = bc2RingColor2, onSelect = { bc2RingColor2 = it })
+                    WatchFaceToggleRow(text = "Schwellenwert-Farbumschlag", subText = "Ab/unter einem Wert wechselt eine Verlauf-Farbe", checked = bc2ThEnabled, onCheckedChange = { bc2ThEnabled = it })
+                    if (bc2ThEnabled) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(value = bc2ThValue, onValueChange = { v -> bc2ThValue = v.filter { it.isDigit() } }, label = { Text("Schwelle") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            GenericValueDropdown(options = listOf("above" to "darüber", "below" to "darunter"), selected = bc2ThDir, onSelect = { bc2ThDir = it }, modifier = Modifier.weight(1f))
+                        }
+                        Text("Welche Verlauf-Farbe wechselt", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        GenericValueDropdown(options = listOf("color1" to "Farbe 1", "color2" to "Farbe 2"), selected = bc2ThTarget, onSelect = { bc2ThTarget = it }, modifier = Modifier.fillMaxWidth())
+                        Text("Umschlag-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        WatchFaceColorRow(selected = bc2ThColor, onSelect = { bc2ThColor = it })
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        viewModel.setBottomCompConfig(
+                            showBottomComp = bcShow,
+                            bc1UseIoBroker = false, bc1Id = uiState.wfBc1Id,
+                            bc1Label = bc1Label, bc1Color = bc1Color,
+                            bc1RingEnabled = bc1RingEnabled,
+                            bc1RingColor1 = bc1RingColor1, bc1RingColor2 = bc1RingColor2,
+                            bc1RingMin = bc1RingMin.toFloatOrNull() ?: 0f,
+                            bc1RingMax = bc1RingMax.toFloatOrNull() ?: 140f,
+                            bc1RingWidth = bc1RingWidth.toInt(),
+                            bc1RingThreshEnabled = bc1ThEnabled,
+                            bc1RingThreshValue = bc1ThValue.toFloatOrNull() ?: 0f,
+                            bc1RingThreshDir = bc1ThDir, bc1RingThreshTarget = bc1ThTarget,
+                            bc1RingThreshColor = bc1ThColor,
+                            bc2Metric = bc2Metric,
+                            bc2UseIoBroker = false, bc2Id = uiState.wfBc2Id,
+                            bc2Label = bc2Label, bc2Color = bc2Color,
+                            bc2RingEnabled = bc2RingEnabled,
+                            bc2RingColor1 = bc2RingColor1, bc2RingColor2 = bc2RingColor2,
+                            bc2RingMin = bc2RingMin.toFloatOrNull() ?: 0f,
+                            bc2RingMax = bc2RingMax.toFloatOrNull() ?: 1000f,
+                            bc2RingWidth = bc2RingWidth.toInt(),
+                            bc2RingThreshEnabled = bc2ThEnabled,
+                            bc2RingThreshValue = bc2ThValue.toFloatOrNull() ?: 0f,
+                            bc2RingThreshDir = bc2ThDir, bc2RingThreshTarget = bc2ThTarget,
+                            bc2RingThreshColor = bc2ThColor
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonYellow, contentColor = Color(0xFF1A1A00))
+                ) { Text("Boden-Komplikationen speichern & übertragen", style = MaterialTheme.typography.labelLarge) }
+                if (uiState.wearSyncLog.isNotBlank()) {
+                    Text(text = uiState.wearSyncLog, style = MaterialTheme.typography.labelSmall, color = if (uiState.wearSyncLog.startsWith("Fehler")) Color(0xFFF44336) else Color(0xFF4CAF50), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                }
             }
 
             Spacer(Modifier.height(4.dp))

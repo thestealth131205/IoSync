@@ -8,6 +8,31 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.5.0",
+        date = "10.06.2026",
+        changes = listOf(
+            "Stabile Version der Boden-Ring-Konfiguration (Puls + Kcal/Oxygen)",
+            "Ring-Verlaufsfarben, Schwellenwert-Farbumschlag und Breiten-Slider gebuendelt"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.4.9",
+        date = "10.06.2026",
+        changes = listOf(
+            "Neu: Breiten-Slider fuer Puls-Ring und Kcal/Oxygen-Ring (2-16 dp)"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.4.8",
+        date = "10.06.2026",
+        changes = listOf(
+            "Puls-Ring: Standard-Maximum auf 140 (360° = 140 bpm), Start weiterhin bei 12 Uhr",
+            "Neu: Boden-Komplikationen (Puls/Kcal-Oxygen) komplett in der App konfigurierbar",
+            "Neu: Ring-Verlaufsfarben + Schwellenwert-Farbumschlag (darueber/darunter, Farbe 1 oder 2)",
+            "Rechts: Umschaltung Kcal <-> Oxygen mit eigenem Ring (gleiche Einstellungen wie Puls)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.4.7",
         date = "10.06.2026",
         changes = listOf(

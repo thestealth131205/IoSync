@@ -240,7 +240,13 @@ data class MainUiState(
     val wfBc1RingColor1: String = "red",
     val wfBc1RingColor2: String = "orange",
     val wfBc1RingMin: Float = 0f,
-    val wfBc1RingMax: Float = 220f,
+    val wfBc1RingMax: Float = 140f,
+    val wfBc1RingWidth: Int = 6,
+    val wfBc1RingThreshEnabled: Boolean = false,
+    val wfBc1RingThreshValue: Float = 0f,
+    val wfBc1RingThreshDir: String = "above",
+    val wfBc1RingThreshTarget: String = "color2",
+    val wfBc1RingThreshColor: String = "red",
     val wfBc2Metric: String = "kcal",
     val wfBc2UseIoBroker: Boolean = false,
     val wfBc2Id: String = "",
@@ -250,7 +256,13 @@ data class MainUiState(
     val wfBc2RingColor1: String = "orange",
     val wfBc2RingColor2: String = "neon_yellow",
     val wfBc2RingMin: Float = 0f,
-    val wfBc2RingMax: Float = 1000f
+    val wfBc2RingMax: Float = 1000f,
+    val wfBc2RingWidth: Int = 6,
+    val wfBc2RingThreshEnabled: Boolean = false,
+    val wfBc2RingThreshValue: Float = 0f,
+    val wfBc2RingThreshDir: String = "above",
+    val wfBc2RingThreshTarget: String = "color2",
+    val wfBc2RingThreshColor: String = "red"
 )
 
 @HiltViewModel
@@ -433,6 +445,12 @@ class MainViewModel @Inject constructor(
         val KEY_WF_BC1_RING_COLOR2   = stringPreferencesKey("wf_bc1_ring_color2")
         val KEY_WF_BC1_RING_MIN      = stringPreferencesKey("wf_bc1_ring_min")
         val KEY_WF_BC1_RING_MAX      = stringPreferencesKey("wf_bc1_ring_max")
+        val KEY_WF_BC1_RING_WIDTH    = intPreferencesKey("wf_bc1_ring_width")
+        val KEY_WF_BC1_RING_TH_EN    = booleanPreferencesKey("wf_bc1_ring_th_en")
+        val KEY_WF_BC1_RING_TH_VAL   = stringPreferencesKey("wf_bc1_ring_th_val")
+        val KEY_WF_BC1_RING_TH_DIR   = stringPreferencesKey("wf_bc1_ring_th_dir")
+        val KEY_WF_BC1_RING_TH_TGT   = stringPreferencesKey("wf_bc1_ring_th_target")
+        val KEY_WF_BC1_RING_TH_COLOR = stringPreferencesKey("wf_bc1_ring_th_color")
         val KEY_WF_BC2_METRIC        = stringPreferencesKey("wf_bc2_metric")
         val KEY_WF_BC2_USE_IOBROKER  = booleanPreferencesKey("wf_bc2_use_iobroker")
         val KEY_WF_BC2_ID            = stringPreferencesKey("wf_bc2_id")
@@ -443,6 +461,12 @@ class MainViewModel @Inject constructor(
         val KEY_WF_BC2_RING_COLOR2   = stringPreferencesKey("wf_bc2_ring_color2")
         val KEY_WF_BC2_RING_MIN      = stringPreferencesKey("wf_bc2_ring_min")
         val KEY_WF_BC2_RING_MAX      = stringPreferencesKey("wf_bc2_ring_max")
+        val KEY_WF_BC2_RING_WIDTH    = intPreferencesKey("wf_bc2_ring_width")
+        val KEY_WF_BC2_RING_TH_EN    = booleanPreferencesKey("wf_bc2_ring_th_en")
+        val KEY_WF_BC2_RING_TH_VAL   = stringPreferencesKey("wf_bc2_ring_th_val")
+        val KEY_WF_BC2_RING_TH_DIR   = stringPreferencesKey("wf_bc2_ring_th_dir")
+        val KEY_WF_BC2_RING_TH_TGT   = stringPreferencesKey("wf_bc2_ring_th_target")
+        val KEY_WF_BC2_RING_TH_COLOR = stringPreferencesKey("wf_bc2_ring_th_color")
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -612,7 +636,13 @@ class MainViewModel @Inject constructor(
             val wfBc1RingColor1   = prefs[KEY_WF_BC1_RING_COLOR1]   ?: "red"
             val wfBc1RingColor2   = prefs[KEY_WF_BC1_RING_COLOR2]   ?: "orange"
             val wfBc1RingMin      = prefs[KEY_WF_BC1_RING_MIN]?.toFloatOrNull() ?: 0f
-            val wfBc1RingMax      = prefs[KEY_WF_BC1_RING_MAX]?.toFloatOrNull() ?: 220f
+            val wfBc1RingMax      = prefs[KEY_WF_BC1_RING_MAX]?.toFloatOrNull() ?: 140f
+            val wfBc1RingWidth    = prefs[KEY_WF_BC1_RING_WIDTH] ?: 6
+            val wfBc1RingThreshEnabled = prefs[KEY_WF_BC1_RING_TH_EN] ?: false
+            val wfBc1RingThreshValue   = prefs[KEY_WF_BC1_RING_TH_VAL]?.toFloatOrNull() ?: 0f
+            val wfBc1RingThreshDir     = prefs[KEY_WF_BC1_RING_TH_DIR]    ?: "above"
+            val wfBc1RingThreshTarget  = prefs[KEY_WF_BC1_RING_TH_TGT]    ?: "color2"
+            val wfBc1RingThreshColor   = prefs[KEY_WF_BC1_RING_TH_COLOR]  ?: "red"
             val wfBc2Metric       = prefs[KEY_WF_BC2_METRIC]        ?: "kcal"
             val wfBc2UseIoBroker  = prefs[KEY_WF_BC2_USE_IOBROKER]  ?: false
             val wfBc2Id           = prefs[KEY_WF_BC2_ID]            ?: ""
@@ -623,6 +653,12 @@ class MainViewModel @Inject constructor(
             val wfBc2RingColor2   = prefs[KEY_WF_BC2_RING_COLOR2]   ?: "neon_yellow"
             val wfBc2RingMin      = prefs[KEY_WF_BC2_RING_MIN]?.toFloatOrNull() ?: 0f
             val wfBc2RingMax      = prefs[KEY_WF_BC2_RING_MAX]?.toFloatOrNull() ?: 1000f
+            val wfBc2RingWidth    = prefs[KEY_WF_BC2_RING_WIDTH] ?: 6
+            val wfBc2RingThreshEnabled = prefs[KEY_WF_BC2_RING_TH_EN] ?: false
+            val wfBc2RingThreshValue   = prefs[KEY_WF_BC2_RING_TH_VAL]?.toFloatOrNull() ?: 0f
+            val wfBc2RingThreshDir     = prefs[KEY_WF_BC2_RING_TH_DIR]    ?: "above"
+            val wfBc2RingThreshTarget  = prefs[KEY_WF_BC2_RING_TH_TGT]    ?: "color2"
+            val wfBc2RingThreshColor   = prefs[KEY_WF_BC2_RING_TH_COLOR]  ?: "red"
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -781,6 +817,12 @@ class MainViewModel @Inject constructor(
                     wfBc1RingColor2   = wfBc1RingColor2,
                     wfBc1RingMin      = wfBc1RingMin,
                     wfBc1RingMax      = wfBc1RingMax,
+                    wfBc1RingWidth    = wfBc1RingWidth,
+                    wfBc1RingThreshEnabled = wfBc1RingThreshEnabled,
+                    wfBc1RingThreshValue   = wfBc1RingThreshValue,
+                    wfBc1RingThreshDir     = wfBc1RingThreshDir,
+                    wfBc1RingThreshTarget  = wfBc1RingThreshTarget,
+                    wfBc1RingThreshColor   = wfBc1RingThreshColor,
                     wfBc2Metric       = wfBc2Metric,
                     wfBc2UseIoBroker  = wfBc2UseIoBroker,
                     wfBc2Id           = wfBc2Id,
@@ -790,7 +832,13 @@ class MainViewModel @Inject constructor(
                     wfBc2RingColor1   = wfBc2RingColor1,
                     wfBc2RingColor2   = wfBc2RingColor2,
                     wfBc2RingMin      = wfBc2RingMin,
-                    wfBc2RingMax      = wfBc2RingMax
+                    wfBc2RingMax      = wfBc2RingMax,
+                    wfBc2RingWidth    = wfBc2RingWidth,
+                    wfBc2RingThreshEnabled = wfBc2RingThreshEnabled,
+                    wfBc2RingThreshValue   = wfBc2RingThreshValue,
+                    wfBc2RingThreshDir     = wfBc2RingThreshDir,
+                    wfBc2RingThreshTarget  = wfBc2RingThreshTarget,
+                    wfBc2RingThreshColor   = wfBc2RingThreshColor
                 )
             }
     }
@@ -1084,6 +1132,12 @@ class MainViewModel @Inject constructor(
             bc1RingColor2   = s.wfBc1RingColor2,
             bc1RingMin      = s.wfBc1RingMin,
             bc1RingMax      = s.wfBc1RingMax,
+            bc1RingWidth    = s.wfBc1RingWidth,
+            bc1RingThreshEnabled = s.wfBc1RingThreshEnabled,
+            bc1RingThreshValue   = s.wfBc1RingThreshValue,
+            bc1RingThreshDir     = s.wfBc1RingThreshDir,
+            bc1RingThreshTarget  = s.wfBc1RingThreshTarget,
+            bc1RingThreshColor   = s.wfBc1RingThreshColor,
             bc2Metric       = s.wfBc2Metric,
             bc2UseIoBroker  = s.wfBc2UseIoBroker,
             bc2Label        = s.wfBc2Label,
@@ -1092,7 +1146,13 @@ class MainViewModel @Inject constructor(
             bc2RingColor1   = s.wfBc2RingColor1,
             bc2RingColor2   = s.wfBc2RingColor2,
             bc2RingMin      = s.wfBc2RingMin,
-            bc2RingMax      = s.wfBc2RingMax
+            bc2RingMax      = s.wfBc2RingMax,
+            bc2RingWidth    = s.wfBc2RingWidth,
+            bc2RingThreshEnabled = s.wfBc2RingThreshEnabled,
+            bc2RingThreshValue   = s.wfBc2RingThreshValue,
+            bc2RingThreshDir     = s.wfBc2RingThreshDir,
+            bc2RingThreshTarget  = s.wfBc2RingThreshTarget,
+            bc2RingThreshColor   = s.wfBc2RingThreshColor
         )
         pushConnectionConfigToWear()
     }
@@ -1472,11 +1532,15 @@ class MainViewModel @Inject constructor(
         showBottomComp: Boolean,
         bc1UseIoBroker: Boolean, bc1Id: String, bc1Label: String, bc1Color: String,
         bc1RingEnabled: Boolean, bc1RingColor1: String, bc1RingColor2: String,
-        bc1RingMin: Float, bc1RingMax: Float,
+        bc1RingMin: Float, bc1RingMax: Float, bc1RingWidth: Int,
+        bc1RingThreshEnabled: Boolean, bc1RingThreshValue: Float,
+        bc1RingThreshDir: String, bc1RingThreshTarget: String, bc1RingThreshColor: String,
         bc2Metric: String,
         bc2UseIoBroker: Boolean, bc2Id: String, bc2Label: String, bc2Color: String,
         bc2RingEnabled: Boolean, bc2RingColor1: String, bc2RingColor2: String,
-        bc2RingMin: Float, bc2RingMax: Float
+        bc2RingMin: Float, bc2RingMax: Float, bc2RingWidth: Int,
+        bc2RingThreshEnabled: Boolean, bc2RingThreshValue: Float,
+        bc2RingThreshDir: String, bc2RingThreshTarget: String, bc2RingThreshColor: String
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -1490,6 +1554,12 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_BC1_RING_COLOR2]   = bc1RingColor2
                 prefs[KEY_WF_BC1_RING_MIN]      = bc1RingMin.toString()
                 prefs[KEY_WF_BC1_RING_MAX]      = bc1RingMax.toString()
+                prefs[KEY_WF_BC1_RING_WIDTH]    = bc1RingWidth
+                prefs[KEY_WF_BC1_RING_TH_EN]    = bc1RingThreshEnabled
+                prefs[KEY_WF_BC1_RING_TH_VAL]   = bc1RingThreshValue.toString()
+                prefs[KEY_WF_BC1_RING_TH_DIR]   = bc1RingThreshDir
+                prefs[KEY_WF_BC1_RING_TH_TGT]   = bc1RingThreshTarget
+                prefs[KEY_WF_BC1_RING_TH_COLOR] = bc1RingThreshColor
                 prefs[KEY_WF_BC2_METRIC]        = bc2Metric
                 prefs[KEY_WF_BC2_USE_IOBROKER]  = bc2UseIoBroker
                 prefs[KEY_WF_BC2_ID]            = bc2Id
@@ -1500,6 +1570,12 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_BC2_RING_COLOR2]   = bc2RingColor2
                 prefs[KEY_WF_BC2_RING_MIN]      = bc2RingMin.toString()
                 prefs[KEY_WF_BC2_RING_MAX]      = bc2RingMax.toString()
+                prefs[KEY_WF_BC2_RING_WIDTH]    = bc2RingWidth
+                prefs[KEY_WF_BC2_RING_TH_EN]    = bc2RingThreshEnabled
+                prefs[KEY_WF_BC2_RING_TH_VAL]   = bc2RingThreshValue.toString()
+                prefs[KEY_WF_BC2_RING_TH_DIR]   = bc2RingThreshDir
+                prefs[KEY_WF_BC2_RING_TH_TGT]   = bc2RingThreshTarget
+                prefs[KEY_WF_BC2_RING_TH_COLOR] = bc2RingThreshColor
             }
             _uiState.update {
                 it.copy(
@@ -1509,12 +1585,24 @@ class MainViewModel @Inject constructor(
                     wfBc1RingEnabled = bc1RingEnabled,
                     wfBc1RingColor1 = bc1RingColor1, wfBc1RingColor2 = bc1RingColor2,
                     wfBc1RingMin = bc1RingMin, wfBc1RingMax = bc1RingMax,
+                    wfBc1RingWidth = bc1RingWidth,
+                    wfBc1RingThreshEnabled = bc1RingThreshEnabled,
+                    wfBc1RingThreshValue = bc1RingThreshValue,
+                    wfBc1RingThreshDir = bc1RingThreshDir,
+                    wfBc1RingThreshTarget = bc1RingThreshTarget,
+                    wfBc1RingThreshColor = bc1RingThreshColor,
                     wfBc2Metric = bc2Metric,
                     wfBc2UseIoBroker = bc2UseIoBroker, wfBc2Id = bc2Id,
                     wfBc2Label = bc2Label, wfBc2Color = bc2Color,
                     wfBc2RingEnabled = bc2RingEnabled,
                     wfBc2RingColor1 = bc2RingColor1, wfBc2RingColor2 = bc2RingColor2,
-                    wfBc2RingMin = bc2RingMin, wfBc2RingMax = bc2RingMax
+                    wfBc2RingMin = bc2RingMin, wfBc2RingMax = bc2RingMax,
+                    wfBc2RingWidth = bc2RingWidth,
+                    wfBc2RingThreshEnabled = bc2RingThreshEnabled,
+                    wfBc2RingThreshValue = bc2RingThreshValue,
+                    wfBc2RingThreshDir = bc2RingThreshDir,
+                    wfBc2RingThreshTarget = bc2RingThreshTarget,
+                    wfBc2RingThreshColor = bc2RingThreshColor
                 )
             }
             try {
