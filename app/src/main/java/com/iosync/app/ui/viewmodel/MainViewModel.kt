@@ -266,8 +266,10 @@ data class MainUiState(
     val wfBc2RingThreshColor: String = "red",
     val wfBc2TextScale: Int = 100,
     // ── Klipper-Verbindung (Seite 3 – Moonraker, Port 7125) ──────────────────
+    val klipperEnabled: Boolean = false,
     val klipperHost: String = "",
     val klipperPort: Int = 7125,
+    val klipperChamberObject: String = "heater_generic chamber",
     val klipperObjects: List<String> = emptyList(),
     val klipperObjectsLoading: Boolean = false,
     val klipperObjectsError: String? = null,
@@ -279,7 +281,15 @@ data class MainUiState(
     val p3PillField: String = "value",
     val p3PillGcodeOn: String = "",
     val p3PillGcodeOff: String = "",
-    val p3PillState: Boolean = false
+    val p3PillState: Boolean = false,
+    // ── Seite 3 – LED-Button ──────────────────────────────────────────────────
+    val klipperLedGcodeOn: String = "",
+    val klipperLedGcodeOff: String = "",
+    val klipperLedObject: String = "",
+    val klipperLedField: String = "value",
+    // ── Seite 3 – Chamber-Heater-Button ───────────────────────────────────────
+    val klipperChamberHeatGcodeOn: String = "",
+    val klipperChamberHeatGcodeOff: String = ""
 )
 
 @HiltViewModel
@@ -488,8 +498,10 @@ class MainViewModel @Inject constructor(
         val KEY_WF_BC2_RING_TH_COLOR = stringPreferencesKey("wf_bc2_ring_th_color")
         val KEY_WF_BC2_TEXT_SCALE    = intPreferencesKey("wf_bc2_text_scale")
         // Klipper
+        val KEY_KLIPPER_ENABLED      = booleanPreferencesKey("klipper_enabled")
         val KEY_KLIPPER_HOST         = stringPreferencesKey("klipper_host")
         val KEY_KLIPPER_PORT         = intPreferencesKey("klipper_port")
+        val KEY_KLIPPER_CHAMBER_OBJ  = stringPreferencesKey("klipper_chamber_obj")
         // Seite 3 – Pille
         val KEY_P3_PILL_ENABLED      = booleanPreferencesKey("p3_pill_enabled")
         val KEY_P3_PILL_COLOR_TRUE   = stringPreferencesKey("p3_pill_color_true")
@@ -499,6 +511,14 @@ class MainViewModel @Inject constructor(
         val KEY_P3_PILL_GCODE_ON     = stringPreferencesKey("p3_pill_gcode_on")
         val KEY_P3_PILL_GCODE_OFF    = stringPreferencesKey("p3_pill_gcode_off")
         val KEY_P3_PILL_STATE        = booleanPreferencesKey("p3_pill_state")
+        // Seite 3 – LED-Button
+        val KEY_KLIPPER_LED_GCODE_ON  = stringPreferencesKey("klipper_led_gcode_on")
+        val KEY_KLIPPER_LED_GCODE_OFF = stringPreferencesKey("klipper_led_gcode_off")
+        val KEY_KLIPPER_LED_OBJECT    = stringPreferencesKey("klipper_led_object")
+        val KEY_KLIPPER_LED_FIELD     = stringPreferencesKey("klipper_led_field")
+        // Seite 3 – Chamber-Heater-Button
+        val KEY_KLIPPER_HEAT_GCODE_ON  = stringPreferencesKey("klipper_heat_gcode_on")
+        val KEY_KLIPPER_HEAT_GCODE_OFF = stringPreferencesKey("klipper_heat_gcode_off")
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -694,8 +714,10 @@ class MainViewModel @Inject constructor(
             val wfBc2RingThreshColor   = prefs[KEY_WF_BC2_RING_TH_COLOR]  ?: "red"
             val wfBc2TextScale    = prefs[KEY_WF_BC2_TEXT_SCALE]    ?: 100
             // Klipper
-            val klipperHost      = prefs[KEY_KLIPPER_HOST]  ?: ""
-            val klipperPort      = prefs[KEY_KLIPPER_PORT]  ?: 7125
+            val klipperEnabled   = prefs[KEY_KLIPPER_ENABLED]    ?: false
+            val klipperHost      = prefs[KEY_KLIPPER_HOST]        ?: ""
+            val klipperPort      = prefs[KEY_KLIPPER_PORT]        ?: 7125
+            val klipperChamberObj = prefs[KEY_KLIPPER_CHAMBER_OBJ] ?: "heater_generic chamber"
             // Seite 3 – Pille
             val p3PillEnabled    = prefs[KEY_P3_PILL_ENABLED]     ?: false
             val p3PillColorTrue  = prefs[KEY_P3_PILL_COLOR_TRUE]  ?: "cyan"
@@ -705,6 +727,14 @@ class MainViewModel @Inject constructor(
             val p3PillGcodeOn    = prefs[KEY_P3_PILL_GCODE_ON]    ?: ""
             val p3PillGcodeOff   = prefs[KEY_P3_PILL_GCODE_OFF]   ?: ""
             val p3PillState      = prefs[KEY_P3_PILL_STATE]       ?: false
+            // Seite 3 – LED-Button
+            val klipperLedGcodeOn  = prefs[KEY_KLIPPER_LED_GCODE_ON]  ?: ""
+            val klipperLedGcodeOff = prefs[KEY_KLIPPER_LED_GCODE_OFF] ?: ""
+            val klipperLedObject   = prefs[KEY_KLIPPER_LED_OBJECT]    ?: ""
+            val klipperLedField    = prefs[KEY_KLIPPER_LED_FIELD]     ?: "value"
+            // Seite 3 – Chamber-Heater-Button
+            val klipperHeatGcodeOn  = prefs[KEY_KLIPPER_HEAT_GCODE_ON]  ?: ""
+            val klipperHeatGcodeOff = prefs[KEY_KLIPPER_HEAT_GCODE_OFF] ?: ""
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -887,8 +917,10 @@ class MainViewModel @Inject constructor(
                     wfBc2RingThreshTarget  = wfBc2RingThreshTarget,
                     wfBc2RingThreshColor   = wfBc2RingThreshColor,
                     wfBc2TextScale    = wfBc2TextScale,
+                    klipperEnabled    = klipperEnabled,
                     klipperHost       = klipperHost,
                     klipperPort       = klipperPort,
+                    klipperChamberObject = klipperChamberObj,
                     p3PillEnabled     = p3PillEnabled,
                     p3PillColorTrue   = p3PillColorTrue,
                     p3PillColorFalse  = p3PillColorFalse,
@@ -896,7 +928,13 @@ class MainViewModel @Inject constructor(
                     p3PillField       = p3PillField,
                     p3PillGcodeOn     = p3PillGcodeOn,
                     p3PillGcodeOff    = p3PillGcodeOff,
-                    p3PillState       = p3PillState
+                    p3PillState       = p3PillState,
+                    klipperLedGcodeOn  = klipperLedGcodeOn,
+                    klipperLedGcodeOff = klipperLedGcodeOff,
+                    klipperLedObject   = klipperLedObject,
+                    klipperLedField    = klipperLedField,
+                    klipperChamberHeatGcodeOn  = klipperHeatGcodeOn,
+                    klipperChamberHeatGcodeOff = klipperHeatGcodeOff
                 )
             }
     }
@@ -1692,23 +1730,54 @@ class MainViewModel @Inject constructor(
     // ── Klipper & Seite 3 ─────────────────────────────────────────────────────
 
     /**
-     * Speichert Klipper-Verbindung + Seite-3-Pille und überträgt die Connection-Config.
+     * Speichert nur die Klipper-Verbindungseinstellungen (Aktivierung, Host, Port)
+     * und überträgt die Connection-Config an die Uhr.
+     */
+    fun saveKlipperConnection(enabled: Boolean, host: String, port: Int) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_KLIPPER_ENABLED] = enabled
+                prefs[KEY_KLIPPER_HOST]    = host
+                prefs[KEY_KLIPPER_PORT]    = port
+            }
+            _uiState.update { it.copy(klipperEnabled = enabled, klipperHost = host, klipperPort = port) }
+            try {
+                pushConnectionConfigToWear()
+                _uiState.update { it.copy(wearSyncLog = "Klipper-Verbindung gespeichert") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Speichert Klipper-Verbindung + Seite-3-Konfiguration und überträgt die Connection-Config.
      */
     fun setKlipperAndP3PillConfig(
+        klipperEnabled: Boolean,
         klipperHost: String,
         klipperPort: Int,
+        klipperChamberObject: String,
         p3PillEnabled: Boolean,
         p3PillColorTrue: String,
         p3PillColorFalse: String,
         p3PillObject: String,
         p3PillField: String,
         p3PillGcodeOn: String,
-        p3PillGcodeOff: String
+        p3PillGcodeOff: String,
+        klipperLedGcodeOn: String,
+        klipperLedGcodeOff: String,
+        klipperLedObject: String,
+        klipperLedField: String,
+        klipperChamberHeatGcodeOn: String,
+        klipperChamberHeatGcodeOff: String
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
+                prefs[KEY_KLIPPER_ENABLED]     = klipperEnabled
                 prefs[KEY_KLIPPER_HOST]        = klipperHost
                 prefs[KEY_KLIPPER_PORT]        = klipperPort
+                prefs[KEY_KLIPPER_CHAMBER_OBJ] = klipperChamberObject
                 prefs[KEY_P3_PILL_ENABLED]     = p3PillEnabled
                 prefs[KEY_P3_PILL_COLOR_TRUE]  = p3PillColorTrue
                 prefs[KEY_P3_PILL_COLOR_FALSE] = p3PillColorFalse
@@ -1716,18 +1785,32 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_P3_PILL_FIELD]       = p3PillField
                 prefs[KEY_P3_PILL_GCODE_ON]    = p3PillGcodeOn
                 prefs[KEY_P3_PILL_GCODE_OFF]   = p3PillGcodeOff
+                prefs[KEY_KLIPPER_LED_GCODE_ON]  = klipperLedGcodeOn
+                prefs[KEY_KLIPPER_LED_GCODE_OFF] = klipperLedGcodeOff
+                prefs[KEY_KLIPPER_LED_OBJECT]    = klipperLedObject
+                prefs[KEY_KLIPPER_LED_FIELD]     = klipperLedField
+                prefs[KEY_KLIPPER_HEAT_GCODE_ON]  = klipperChamberHeatGcodeOn
+                prefs[KEY_KLIPPER_HEAT_GCODE_OFF] = klipperChamberHeatGcodeOff
             }
             _uiState.update {
                 it.copy(
+                    klipperEnabled    = klipperEnabled,
                     klipperHost       = klipperHost,
                     klipperPort       = klipperPort,
+                    klipperChamberObject = klipperChamberObject,
                     p3PillEnabled     = p3PillEnabled,
                     p3PillColorTrue   = p3PillColorTrue,
                     p3PillColorFalse  = p3PillColorFalse,
                     p3PillObject      = p3PillObject,
                     p3PillField       = p3PillField,
                     p3PillGcodeOn     = p3PillGcodeOn,
-                    p3PillGcodeOff    = p3PillGcodeOff
+                    p3PillGcodeOff    = p3PillGcodeOff,
+                    klipperLedGcodeOn  = klipperLedGcodeOn,
+                    klipperLedGcodeOff = klipperLedGcodeOff,
+                    klipperLedObject   = klipperLedObject,
+                    klipperLedField    = klipperLedField,
+                    klipperChamberHeatGcodeOn  = klipperChamberHeatGcodeOn,
+                    klipperChamberHeatGcodeOff = klipperChamberHeatGcodeOff
                 )
             }
             try {

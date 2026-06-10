@@ -405,6 +405,16 @@ class IoSyncWatchFaceRenderer(
     private var p3PillPressed = false
     private var p3PillPressedAt = 0L
 
+    // ── Seite 3 – LED-Button + Chamber-Heater-Button ─────────────────────────
+    private var p3LedBtnBounds   = RectF()
+    private var p3HeatBtnBounds  = RectF()
+    private var p3LedBtnPressed  = false
+    private var p3HeatBtnPressed = false
+    private var p3LedBtnPressedAt  = 0L
+    private var p3HeatBtnPressedAt = 0L
+    private var p3LedBtnLastTap  = 0L
+    private var p3HeatBtnLastTap = 0L
+
     private val page2PillFillPaint = Paint().apply {
         isAntiAlias = true
         style = Paint.Style.FILL
@@ -2385,9 +2395,50 @@ class IoSyncWatchFaceRenderer(
             return
         }
 
-        // ── Seite 3: P3-Pille (6 Uhr, Klipper) ──────────────────────────────
+        // ── Seite 3: Klipper-Buttons + P3-Pille ──────────────────────────────
         if (currentPage == 2) {
             val cfg = WatchFaceConfigCache
+            // LED-Button (einfacher Tap)
+            if (!p3LedBtnBounds.isEmpty) {
+                if (tapType == TapType.DOWN && p3LedBtnBounds.contains(x, y)) {
+                    p3LedBtnPressed = true; p3LedBtnPressedAt = System.currentTimeMillis()
+                    invalidate(); return
+                }
+                if (tapType == TapType.UP) {
+                    val wasPressed = p3LedBtnPressed
+                    p3LedBtnPressed = false
+                    if (wasPressed && p3LedBtnBounds.contains(x, y)) {
+                        val now = System.currentTimeMillis()
+                        if (now - p3LedBtnLastTap <= DOUBLE_TAP_MS) {
+                            p3LedBtnLastTap = 0L
+                            WatchDataSyncManager.toggleKlipperLed()
+                        } else { p3LedBtnLastTap = now }
+                    } else { p3LedBtnLastTap = 0L }
+                    invalidate()
+                    if (p3LedBtnBounds.contains(x, y)) return
+                }
+            }
+            // Chamber-Heater-Button (einfacher Tap)
+            if (!p3HeatBtnBounds.isEmpty) {
+                if (tapType == TapType.DOWN && p3HeatBtnBounds.contains(x, y)) {
+                    p3HeatBtnPressed = true; p3HeatBtnPressedAt = System.currentTimeMillis()
+                    invalidate(); return
+                }
+                if (tapType == TapType.UP) {
+                    val wasPressed = p3HeatBtnPressed
+                    p3HeatBtnPressed = false
+                    if (wasPressed && p3HeatBtnBounds.contains(x, y)) {
+                        val now = System.currentTimeMillis()
+                        if (now - p3HeatBtnLastTap <= DOUBLE_TAP_MS) {
+                            p3HeatBtnLastTap = 0L
+                            WatchDataSyncManager.toggleKlipperChamberHeat()
+                        } else { p3HeatBtnLastTap = now }
+                    } else { p3HeatBtnLastTap = 0L }
+                    invalidate()
+                    if (p3HeatBtnBounds.contains(x, y)) return
+                }
+            }
+            // P3-Pille (6 Uhr)
             if (cfg.p3PillEnabled && !p3PillTapBounds.isEmpty) {
                 if (tapType == TapType.DOWN && p3PillTapBounds.contains(x, y)) {
                     p3PillPressed = true
@@ -3059,63 +3110,156 @@ class IoSyncWatchFaceRenderer(
     // ── Seite 3 ────────────────────────────────────────────────────────────────
 
     /**
-     * Zeichnet die dritte Watchface-Seite.
-     * Erreichbar per Doppeltipp auf 12 Uhr von Seite 2.
-     * Zurück zu Seite 1 per Doppeltipp auf 12 Uhr.
+     * Zeichnet die dritte Watchface-Seite (Klipper 3D-Drucker).
+     * Layout:
+     *   - Seiten-Indikator (3 Punkte oben)
+     *   - Fortschrittsring bei 12 Uhr mit %-Wert
+     *   - Nozzle / Bed / Chamber Temperaturen
+     *   - Geschwindigkeit + Lüfter (links) + LED-Button + Heater-Button (rechts)
+     *   - P3-Pille bei 6 Uhr
      */
     private fun drawPage3(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
 
-        // ── Seiten-Indikator oben ──────────────────────────────────────────────
+        // ── Seiten-Indikator ──────────────────────────────────────────────────
         val indicatorPaint = Paint().apply {
             isAntiAlias = true; color = Color.parseColor("#555555"); style = Paint.Style.FILL
         }
         val activePaint = Paint().apply {
             isAntiAlias = true; color = accentColor; style = Paint.Style.FILL
         }
-        val dotR = radius * 0.025f
-        val dotY = cy - radius * 0.82f
+        val dotR      = radius * 0.025f
+        val dotY      = cy - radius * 0.87f
         val dotSpacing = radius * 0.07f
         canvas.drawCircle(cx - dotSpacing, dotY, dotR, indicatorPaint)
-        canvas.drawCircle(cx,             dotY, dotR, indicatorPaint)
+        canvas.drawCircle(cx,              dotY, dotR, indicatorPaint)
         canvas.drawCircle(cx + dotSpacing, dotY, dotR * 1.4f, activePaint)
 
-        // ── Navigations-Hinweis ────────────────────────────────────────────────
-        val hintPaint = Paint().apply {
-            isAntiAlias = true; color = Color.parseColor("#444444")
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            textSize = radius * 0.075f; textAlign = Paint.Align.CENTER
+        // ── Fortschrittsring (12 Uhr) ─────────────────────────────────────────
+        val ringCy     = cy - radius * 0.52f
+        val ringRadius = radius * 0.22f
+        val progress   = config.klipperPrintProgress.coerceIn(0f, 1f)
+        val ringBgPaint = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.STROKE
+            strokeWidth = radius * 0.045f; color = Color.parseColor("#2A2A2A")
         }
-        canvas.drawText("↑↑ Seite 1", cx, cy - radius * 0.70f, hintPaint)
-
-        // ── Drucker-Icon / Label Mitte ─────────────────────────────────────────
-        val titlePaint = Paint().apply {
-            isAntiAlias = true; color = Color.parseColor("#CCCCCC")
+        val ringFgPaint = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.STROKE
+            strokeWidth = radius * 0.045f; color = accentColor
+            strokeCap = Paint.Cap.ROUND
+        }
+        val ringRect = RectF(cx - ringRadius, ringCy - ringRadius, cx + ringRadius, ringCy + ringRadius)
+        canvas.drawArc(ringRect, -90f, 360f, false, ringBgPaint)
+        if (progress > 0f) canvas.drawArc(ringRect, -90f, 360f * progress, false, ringFgPaint)
+        // Prozent-Text in der Ringmitte
+        val pctPaint = Paint().apply {
+            isAntiAlias = true; color = Color.WHITE
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = radius * 0.14f; textAlign = Paint.Align.CENTER
+            textSize = ringRadius * 0.70f; textAlign = Paint.Align.CENTER
         }
-        canvas.drawText("3D-Drucker", cx, cy - radius * 0.22f, titlePaint)
+        val pctStr = "${(progress * 100).toInt()}%"
+        val pctTextY = ringCy - (pctPaint.descent() + pctPaint.ascent()) / 2f
+        canvas.drawText(pctStr, cx, pctTextY, pctPaint)
 
-        // Klipper-Host anzeigen (wenn konfiguriert)
-        val subPaint = Paint().apply {
-            isAntiAlias = true; color = Color.parseColor("#555555")
+        // ── Temperatur-Anzeigen ────────────────────────────────────────────────
+        val tempLabelPaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#888888")
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            textSize = radius * 0.070f; textAlign = Paint.Align.CENTER
+            textSize = radius * 0.068f; textAlign = Paint.Align.CENTER
         }
-        val hostLabel = if (config.klipperHost.isNotBlank()) config.klipperHost else "—"
-        canvas.drawText(hostLabel, cx, cy - radius * 0.07f, subPaint)
+        val tempValuePaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#E8E8E8")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = radius * 0.090f; textAlign = Paint.Align.CENTER
+        }
+        val tempRowY1 = cy - radius * 0.22f
+        val tempRowY2 = cy - radius * 0.22f + radius * 0.16f
+        val tempRowY3 = cy - radius * 0.22f + radius * 0.32f
 
-        // ── Pille bei 6 Uhr ───────────────────────────────────────────────────
+        fun drawTemp(label: String, current: Float, target: Float, tx: Float, ty: Float) {
+            canvas.drawText(label, tx, ty, tempLabelPaint)
+            val valStr = if (target > 0f) "${current.toInt()}°/${target.toInt()}°" else "${current.toInt()}°"
+            canvas.drawText(valStr, tx, ty + radius * 0.11f, tempValuePaint)
+        }
+
+        // Nozzle (links), Bed (rechts), Chamber (Mitte darunter)
+        val colL = cx - radius * 0.30f
+        val colR = cx + radius * 0.30f
+        drawTemp("Nozzle", config.klipperNozzleTemp, config.klipperNozzleTarget, colL, tempRowY1)
+        drawTemp("Bed",    config.klipperBedTemp,    config.klipperBedTarget,    colR, tempRowY1)
+        // Chamber centered in second row
+        drawTemp("Chamber", config.klipperChamberTemp, 0f, cx, tempRowY2)
+
+        // ── Geschwindigkeit + Lüfter (links) ──────────────────────────────────
+        val infoRowY  = cy + radius * 0.20f
+        val infoLabelPaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#888888")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textSize = radius * 0.062f; textAlign = Paint.Align.LEFT
+        }
+        val infoValuePaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#EAFF00")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = radius * 0.085f; textAlign = Paint.Align.LEFT
+        }
+        val infoX = cx - radius * 0.88f
+        canvas.drawText("Speed", infoX, infoRowY - radius * 0.01f, infoLabelPaint)
+        canvas.drawText("${config.klipperSpeedMms.toInt()} mm/s", infoX, infoRowY + radius * 0.10f, infoValuePaint)
+        canvas.drawText("Fan", infoX, infoRowY + radius * 0.18f, infoLabelPaint)
+        canvas.drawText("${config.klipperFanPercent.toInt()}%", infoX, infoRowY + radius * 0.29f, infoValuePaint)
+
+        // ── LED-Button + Heater-Button (rechts) ───────────────────────────────
+        val btnW    = radius * 0.28f
+        val btnH    = radius * 0.14f
+        val btnCorner = btnH * 0.5f
+        val btnY    = infoRowY + radius * 0.05f  // Mitte des Buttons
+        val ledX    = cx + radius * 0.22f
+        val heatX   = cx + radius * 0.62f
+
+        // LED-Button
+        val ledIsOn = config.klipperLedState
+        val ledPressed = p3LedBtnPressed && (System.currentTimeMillis() - p3LedBtnPressedAt < PILL_PRESS_DURATION_MS)
+        val ledBtnRect = RectF(ledX - btnW / 2f, btnY - btnH / 2f, ledX + btnW / 2f, btnY + btnH / 2f)
+        p3LedBtnBounds.set(ledBtnRect.left - radius * 0.04f, ledBtnRect.top - radius * 0.04f,
+                           ledBtnRect.right + radius * 0.04f, ledBtnRect.bottom + radius * 0.04f)
+        val ledColor = if (ledIsOn || ledPressed) Color.parseColor("#EAFF00") else Color.parseColor("#333333")
+        pillFillPaint.color = Color.argb(if (ledIsOn) 200 else 120,
+            Color.red(ledColor), Color.green(ledColor), Color.blue(ledColor))
+        canvas.drawRoundRect(ledBtnRect, btnCorner, btnCorner, pillFillPaint)
+        pillStrokePaint.color = ledColor
+        canvas.drawRoundRect(ledBtnRect, btnCorner, btnCorner, pillStrokePaint)
+        val btnTextPaint = Paint().apply {
+            isAntiAlias = true; color = if (ledIsOn) Color.BLACK else Color.parseColor("#AAAAAA")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = radius * 0.072f; textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("LED", ledX, btnY - (btnTextPaint.descent() + btnTextPaint.ascent()) / 2f, btnTextPaint)
+
+        // Heater-Button
+        val heatIsOn = config.klipperChamberHeatState
+        val heatPressed = p3HeatBtnPressed && (System.currentTimeMillis() - p3HeatBtnPressedAt < PILL_PRESS_DURATION_MS)
+        val heatBtnRect = RectF(heatX - btnW / 2f, btnY - btnH / 2f, heatX + btnW / 2f, btnY + btnH / 2f)
+        p3HeatBtnBounds.set(heatBtnRect.left - radius * 0.04f, heatBtnRect.top - radius * 0.04f,
+                            heatBtnRect.right + radius * 0.04f, heatBtnRect.bottom + radius * 0.04f)
+        val heatColor = if (heatIsOn || heatPressed) Color.parseColor("#FF5722") else Color.parseColor("#333333")
+        pillFillPaint.color = Color.argb(if (heatIsOn) 200 else 120,
+            Color.red(heatColor), Color.green(heatColor), Color.blue(heatColor))
+        canvas.drawRoundRect(heatBtnRect, btnCorner, btnCorner, pillFillPaint)
+        pillStrokePaint.color = heatColor
+        canvas.drawRoundRect(heatBtnRect, btnCorner, btnCorner, pillStrokePaint)
+        val heatTextPaint = Paint().apply {
+            isAntiAlias = true; color = if (heatIsOn) Color.WHITE else Color.parseColor("#AAAAAA")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = radius * 0.060f; textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("HEAT", heatX, btnY - (heatTextPaint.descent() + heatTextPaint.ascent()) / 2f, heatTextPaint)
+
+        // ── P3-Pille (6 Uhr) ──────────────────────────────────────────────────
         if (config.p3PillEnabled) {
             drawP3Pill(canvas, cx, cy, radius)
         } else {
-            // Wenn Pille nicht konfiguriert: kleiner Hinweis
-            val inactPaint = Paint().apply {
-                isAntiAlias = true; color = Color.parseColor("#333333")
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-                textSize = radius * 0.065f; textAlign = Paint.Align.CENTER
-            }
-            canvas.drawText("Pille nicht aktiviert", cx, cy + radius * 0.72f, inactPaint)
+            // Tap-Bounds leeren damit kein Phantom-Input ausgelöst wird
+            p3PillTapBounds.setEmpty()
         }
     }
 

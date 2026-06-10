@@ -352,6 +352,44 @@ object WatchDataSyncManager {
         }
     }
 
+    /** LED-Button (Seite 3) schalten. */
+    fun toggleKlipperLed() {
+        val c = WatchFaceConfigCache
+        if (c.klipperHost.isBlank()) return
+        val gcode = if (c.klipperLedState) c.klipperLedGcodeOff else c.klipperLedGcodeOn
+        if (gcode.isBlank()) return
+        val newState = !c.klipperLedState
+        c.klipperLedState = newState
+        invalidate?.invoke()
+        scope?.launch {
+            WatchKlipperClient.sendGcode(c.klipperHost, c.klipperPort, gcode)
+                .onFailure {
+                    Log.e(TAG, "Klipper-LED-G-Code fehlgeschlagen: ${it.message}")
+                    c.klipperLedState = !newState
+                    invalidate?.invoke()
+                }
+        }
+    }
+
+    /** Chamber-Heater-Button (Seite 3) schalten. */
+    fun toggleKlipperChamberHeat() {
+        val c = WatchFaceConfigCache
+        if (c.klipperHost.isBlank()) return
+        val gcode = if (c.klipperChamberHeatState) c.klipperChamberHeatGcodeOff else c.klipperChamberHeatGcodeOn
+        if (gcode.isBlank()) return
+        val newState = !c.klipperChamberHeatState
+        c.klipperChamberHeatState = newState
+        invalidate?.invoke()
+        scope?.launch {
+            WatchKlipperClient.sendGcode(c.klipperHost, c.klipperPort, gcode)
+                .onFailure {
+                    Log.e(TAG, "Klipper-Heater-G-Code fehlgeschlagen: ${it.message}")
+                    c.klipperChamberHeatState = !newState
+                    invalidate?.invoke()
+                }
+        }
+    }
+
     /** Seite-3-Pille (Klipper) schalten. */
     fun toggleP3Pill() {
         val c = WatchFaceConfigCache
@@ -392,18 +430,50 @@ object WatchDataSyncManager {
 
     private suspend fun runKlipperFetch() {
         val c = WatchFaceConfigCache
-        if (!c.p3PillEnabled || c.klipperHost.isBlank() || c.p3PillObject.isBlank()) return
-        WatchKlipperClient.queryObjectField(
-            c.klipperHost, c.klipperPort, c.p3PillObject, c.p3PillField
-        ).onSuccess { raw ->
-            val state = raw == "true" || raw == "1" || raw == "1.0"
-            if (c.p3PillState != state) {
-                c.p3PillState = state
-                invalidate?.invoke()
+        if (!c.klipperEnabled || c.klipperHost.isBlank()) return
+
+        var changed = false
+
+        // ── Druckdaten (Fortschritt, Temps, Geschwindigkeit, Lüfter) ──────────
+        WatchKlipperClient.queryPrinterStatus(c.klipperHost, c.klipperPort, c.klipperChamberObject)
+            .onSuccess { st ->
+                c.klipperPrintProgress = st.progress
+                c.klipperNozzleTemp    = st.nozzleTemp
+                c.klipperNozzleTarget  = st.nozzleTarget
+                c.klipperBedTemp       = st.bedTemp
+                c.klipperBedTarget     = st.bedTarget
+                c.klipperChamberTemp   = st.chamberTemp
+                c.klipperSpeedMms      = st.speedMms
+                c.klipperFanPercent    = st.fanPercent
+                changed = true
+            }.onFailure {
+                Log.w(TAG, "Klipper-Druckdaten fehlgeschlagen: ${it.message}")
             }
-        }.onFailure {
-            Log.w(TAG, "Klipper-Abruf fehlgeschlagen: ${it.message}")
+
+        // ── Pillen-Status (LED + P3-Pille) ────────────────────────────────────
+        if (c.p3PillEnabled && c.p3PillObject.isNotBlank()) {
+            WatchKlipperClient.queryObjectField(c.klipperHost, c.klipperPort, c.p3PillObject, c.p3PillField)
+                .onSuccess { raw ->
+                    val state = raw == "true" || raw == "1" || raw == "1.0"
+                    if (c.p3PillState != state) { c.p3PillState = state; changed = true }
+                }.onFailure { Log.w(TAG, "Klipper-P3-Pille fehlgeschlagen: ${it.message}") }
         }
+        if (c.klipperLedObject.isNotBlank()) {
+            WatchKlipperClient.queryBoolField(c.klipperHost, c.klipperPort, c.klipperLedObject, c.klipperLedField)
+                .onSuccess { state ->
+                    if (c.klipperLedState != state) { c.klipperLedState = state; changed = true }
+                }.onFailure { Log.w(TAG, "Klipper-LED-Status fehlgeschlagen: ${it.message}") }
+        }
+        // Chamber-Heater-Status: target > 0 = aktiv
+        if (c.klipperChamberObject.isNotBlank()) {
+            WatchKlipperClient.queryObjectField(c.klipperHost, c.klipperPort, c.klipperChamberObject, "target")
+                .onSuccess { raw ->
+                    val on = raw.toDoubleOrNull()?.let { it > 0.0 } ?: false
+                    if (c.klipperChamberHeatState != on) { c.klipperChamberHeatState = on; changed = true }
+                }.onFailure { Log.w(TAG, "Klipper-Heater-Status fehlgeschlagen: ${it.message}") }
+        }
+
+        if (changed) invalidate?.invoke()
     }
 
     private fun sendPillCommand(

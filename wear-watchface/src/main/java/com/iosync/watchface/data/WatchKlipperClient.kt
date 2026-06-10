@@ -17,6 +17,18 @@ import javax.net.ssl.X509TrustManager
 
 private const val TAG = "WatchKlipperClient"
 
+/** Zusammengefasste Druckzustandsdaten von Moonraker. */
+data class KlipperPrinterStatus(
+    val progress: Float,      // 0.0 – 1.0
+    val nozzleTemp: Float,
+    val nozzleTarget: Float,
+    val bedTemp: Float,
+    val bedTarget: Float,
+    val chamberTemp: Float,
+    val speedMms: Float,
+    val fanPercent: Float     // 0 – 100
+)
+
 /**
  * HTTP-Client für die Moonraker-API des Klipper-3D-Druckers.
  *
@@ -86,6 +98,71 @@ object WatchKlipperClient {
             ).execute()
             check(response.isSuccessful) { "HTTP ${response.code}" }
         }.onFailure { Log.e(TAG, "sendGcode($gcode) fehlgeschlagen: ${it.message}") }
+    }
+
+    /**
+     * Ruft alle relevanten Druckdaten in einer einzigen Anfrage ab.
+     * Gibt [KlipperPrinterStatus] zurück oder schlägt fehl.
+     * @param chamberObject  Moonraker-Objektname für die Chamber-Temperatur
+     *                       (z.B. "heater_generic chamber").
+     */
+    suspend fun queryPrinterStatus(
+        host: String,
+        port: Int,
+        chamberObject: String = "heater_generic chamber"
+    ): Result<KlipperPrinterStatus> = withContext(Dispatchers.IO) {
+        runCatching {
+            val encObj = chamberObject.replace(" ", "%20")
+            val url = buildUrl(
+                host, port,
+                "/printer/objects/query?display_status&extruder&heater_bed&fan&motion_report&$encObj"
+            )
+            val response = okHttpClient.newCall(
+                Request.Builder().url(url).get().build()
+            ).execute()
+            check(response.isSuccessful) { "HTTP ${response.code}" }
+            val root = JSONObject(response.body!!.string())
+            val status = root.getJSONObject("result").getJSONObject("status")
+
+            fun objFloat(obj: String, field: String): Float =
+                status.optJSONObject(obj)?.optDouble(field, 0.0)?.toFloat() ?: 0f
+
+            val progress = objFloat("display_status", "progress")
+            val nozzleTemp   = objFloat("extruder", "temperature")
+            val nozzleTarget = objFloat("extruder", "target")
+            val bedTemp      = objFloat("heater_bed", "temperature")
+            val bedTarget    = objFloat("heater_bed", "target")
+            val chamberTemp  = status.optJSONObject(chamberObject)?.optDouble("temperature", 0.0)?.toFloat() ?: 0f
+            val fanSpeed     = objFloat("fan", "speed") * 100f          // 0..1 → %
+            val speedMms     = objFloat("motion_report", "live_velocity")
+
+            KlipperPrinterStatus(
+                progress     = progress,
+                nozzleTemp   = nozzleTemp,
+                nozzleTarget = nozzleTarget,
+                bedTemp      = bedTemp,
+                bedTarget    = bedTarget,
+                chamberTemp  = chamberTemp,
+                speedMms     = speedMms,
+                fanPercent   = fanSpeed
+            )
+        }.onFailure { Log.e(TAG, "queryPrinterStatus fehlgeschlagen: ${it.message}") }
+    }
+
+    /**
+     * Liest ein einzelnes Feld eines Moonraker-Objekts und gibt es als Boolean zurück.
+     * Nützlich um den aktuellen Status von LED oder Chamber-Heater zu ermitteln.
+     */
+    suspend fun queryBoolField(
+        host: String,
+        port: Int,
+        objectName: String,
+        field: String
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        runCatching {
+            val raw = queryObjectField(host, port, objectName, field).getOrThrow()
+            raw == "true" || raw == "1" || raw == "1.0" || raw.toDoubleOrNull()?.let { it > 0 } == true
+        }.onFailure { Log.e(TAG, "queryBoolField($objectName/$field) fehlgeschlagen: ${it.message}") }
     }
 
     private fun buildUrl(host: String, port: Int, path: String): String {

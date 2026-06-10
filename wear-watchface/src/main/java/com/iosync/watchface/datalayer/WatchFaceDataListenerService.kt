@@ -605,8 +605,11 @@ object WatchFaceConfigCache {
     @Volatile var p2Pill2State: Boolean = false
 
     // ── Klipper-Verbindung (Seite 3 – Moonraker-API) ─────────────────────────
+    @Volatile var klipperEnabled: Boolean = false
     @Volatile var klipperHost: String = ""
     @Volatile var klipperPort: Int = 7125
+    // Objekt-Name für Chamber-Temperatur (default: "heater_generic chamber")
+    @Volatile var klipperChamberObject: String = "heater_generic chamber"
 
     // ── Seite 3 – Pille (6 Uhr) ───────────────────────────────────────────────
     @Volatile var p3PillEnabled: Boolean = false
@@ -617,6 +620,28 @@ object WatchFaceConfigCache {
     @Volatile var p3PillGcodeOn: String = ""     // G-Code zum Einschalten
     @Volatile var p3PillGcodeOff: String = ""    // G-Code zum Ausschalten
     @Volatile var p3PillState: Boolean = false
+
+    // ── Seite 3 – LED-Button ──────────────────────────────────────────────────
+    @Volatile var klipperLedGcodeOn: String = ""
+    @Volatile var klipperLedGcodeOff: String = ""
+    @Volatile var klipperLedObject: String = ""  // Objekt zum Ablesen des LED-Status
+    @Volatile var klipperLedField: String = "value"
+    @Volatile var klipperLedState: Boolean = false
+
+    // ── Seite 3 – Chamber-Heater-Button ───────────────────────────────────────
+    @Volatile var klipperChamberHeatGcodeOn: String = ""
+    @Volatile var klipperChamberHeatGcodeOff: String = ""
+    @Volatile var klipperChamberHeatState: Boolean = false
+
+    // ── Seite 3 – Live-Druckdaten (direkt von Moonraker abgerufen) ────────────
+    @Volatile var klipperPrintProgress: Float = 0f   // 0.0–1.0
+    @Volatile var klipperNozzleTemp: Float = 0f
+    @Volatile var klipperNozzleTarget: Float = 0f
+    @Volatile var klipperBedTemp: Float = 0f
+    @Volatile var klipperBedTarget: Float = 0f
+    @Volatile var klipperChamberTemp: Float = 0f
+    @Volatile var klipperSpeedMms: Float = 0f
+    @Volatile var klipperFanPercent: Float = 0f
 
     // ── Verbindungs-Konfig (ab v5: Uhr fragt ioBroker + Wetter selbst ab) ─────
     @Volatile var ioUseAdapter: Boolean = false
@@ -680,8 +705,10 @@ object WatchFaceConfigCache {
         dataMap.getString("con_bc1_id")?.let { conBc1Id = it }
         dataMap.getString("con_bc2_id")?.let { conBc2Id = it }
         // Klipper-Verbindung
+        if (dataMap.containsKey("con_klipper_enabled")) klipperEnabled = dataMap.getBoolean("con_klipper_enabled")
         dataMap.getString("con_klipper_host")?.let { klipperHost = it }
         if (dataMap.containsKey("con_klipper_port")) klipperPort = dataMap.getInt("con_klipper_port")
+        dataMap.getString("con_klipper_chamber_obj")?.let { klipperChamberObject = it }
         // Seite 3 – Pille
         if (dataMap.containsKey("con_p3_pill_enabled"))  p3PillEnabled    = dataMap.getBoolean("con_p3_pill_enabled")
         dataMap.getString("con_p3_pill_color_true")?.let  { p3PillColorTrue  = it }
@@ -690,6 +717,14 @@ object WatchFaceConfigCache {
         dataMap.getString("con_p3_pill_field")?.let       { p3PillField      = it }
         dataMap.getString("con_p3_pill_gcode_on")?.let    { p3PillGcodeOn    = it }
         dataMap.getString("con_p3_pill_gcode_off")?.let   { p3PillGcodeOff   = it }
+        // Seite 3 – LED-Button
+        dataMap.getString("con_klipper_led_gcode_on")?.let  { klipperLedGcodeOn  = it }
+        dataMap.getString("con_klipper_led_gcode_off")?.let { klipperLedGcodeOff = it }
+        dataMap.getString("con_klipper_led_object")?.let    { klipperLedObject   = it }
+        dataMap.getString("con_klipper_led_field")?.let     { klipperLedField    = it }
+        // Seite 3 – Chamber-Heater-Button
+        dataMap.getString("con_klipper_heat_gcode_on")?.let  { klipperChamberHeatGcodeOn  = it }
+        dataMap.getString("con_klipper_heat_gcode_off")?.let { klipperChamberHeatGcodeOff = it }
     }
 
     fun updateFromDataMap(dataMap: DataMap) {

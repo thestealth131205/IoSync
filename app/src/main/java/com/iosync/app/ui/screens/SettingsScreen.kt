@@ -244,7 +244,16 @@ fun SettingsScreen(
     var p3PillField        by remember(uiState.p3PillField)       { mutableStateOf(uiState.p3PillField) }
     var p3PillGcodeOn      by remember(uiState.p3PillGcodeOn)     { mutableStateOf(uiState.p3PillGcodeOn) }
     var p3PillGcodeOff     by remember(uiState.p3PillGcodeOff)    { mutableStateOf(uiState.p3PillGcodeOff) }
-    var klipperObjExpanded by remember { mutableStateOf(false) }
+    var klipperObjExpanded       by remember { mutableStateOf(false) }
+    var klipperEnabled           by remember(uiState.klipperEnabled)           { mutableStateOf(uiState.klipperEnabled) }
+    var klipperChamberObject     by remember(uiState.klipperChamberObject)     { mutableStateOf(uiState.klipperChamberObject) }
+    var klipperLedGcodeOn        by remember(uiState.klipperLedGcodeOn)        { mutableStateOf(uiState.klipperLedGcodeOn) }
+    var klipperLedGcodeOff       by remember(uiState.klipperLedGcodeOff)       { mutableStateOf(uiState.klipperLedGcodeOff) }
+    var klipperLedObject         by remember(uiState.klipperLedObject)         { mutableStateOf(uiState.klipperLedObject) }
+    var klipperLedField          by remember(uiState.klipperLedField)          { mutableStateOf(uiState.klipperLedField) }
+    var klipperChamberHeatGcodeOn  by remember(uiState.klipperChamberHeatGcodeOn)  { mutableStateOf(uiState.klipperChamberHeatGcodeOn) }
+    var klipperChamberHeatGcodeOff by remember(uiState.klipperChamberHeatGcodeOff) { mutableStateOf(uiState.klipperChamberHeatGcodeOff) }
+    var sectionKlipper           by remember { mutableStateOf(false) }
 
     // NTP-Zeitkorrektur
     var ntpEnabled by remember(uiState.wfNtpEnabled) { mutableStateOf(uiState.wfNtpEnabled) }
@@ -562,6 +571,53 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = if (!uiState.useIoSyncAdapter) NeonYellow else Color(0xFF333333), contentColor = if (!uiState.useIoSyncAdapter) Color(0xFF1A1A00) else Color(0xFFAAAAAA))
                 ) { Text("Simple-API speichern", style = MaterialTheme.typography.labelLarge) }
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                // ── Klipper 3D-Drucker (aufklappbar) ──────────────────────────
+                AccordionSection(
+                    title = "Klipper 3D-Drucker",
+                    expanded = sectionKlipper,
+                    onToggle = { sectionKlipper = !sectionKlipper }
+                ) {
+                    Text(
+                        "Moonraker-API für Klipper-Drucker. Ermöglicht Druckstatus und Steuerung auf Seite 3 des Watchface.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    WatchFaceToggleRow(
+                        text = "Klipper aktivieren",
+                        subText = "Seite 3 zeigt Druckerstatus (Fortschritt, Temperaturen, Steuerung)",
+                        checked = klipperEnabled,
+                        onCheckedChange = { klipperEnabled = it }
+                    )
+                    OutlinedTextField(
+                        value = klipperHost, onValueChange = { klipperHost = it },
+                        label = { Text("Klipper-Host / IP") }, placeholder = { Text("192.168.1.200") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+                    )
+                    OutlinedTextField(
+                        value = klipperPort,
+                        onValueChange = { klipperPort = it.filter { c -> c.isDigit() } },
+                        label = { Text("Port") }, placeholder = { Text("7125") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Button(
+                        onClick = {
+                            viewModel.saveKlipperConnection(
+                                enabled = klipperEnabled,
+                                host    = klipperHost.trim(),
+                                port    = klipperPort.toIntOrNull() ?: 7125
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonYellow, contentColor = Color(0xFF1A1A00))
+                    ) { Text("Klipper-Verbindung speichern", style = MaterialTheme.typography.labelLarge) }
+                    if (uiState.wearSyncLog.isNotBlank() && sectionKlipper) {
+                        Text(text = uiState.wearSyncLog, style = MaterialTheme.typography.labelSmall, color = if (uiState.wearSyncLog.startsWith("Fehler")) Color(0xFFF44336) else Color(0xFF4CAF50), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                    }
+                }
             }
 
             Spacer(Modifier.height(4.dp))
@@ -1954,32 +2010,22 @@ fun SettingsScreen(
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Klipper-Verbindung", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                OutlinedTextField(
-                    value = klipperHost, onValueChange = { klipperHost = it },
-                    label = { Text("Klipper-Host / IP") },
-                    placeholder = { Text("192.168.1.200") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+                Text(
+                    text = if (uiState.klipperHost.isNotBlank()) "Verbunden mit: ${uiState.klipperHost}:${uiState.klipperPort}" else "Nicht konfiguriert – unter \"ioBroker Adapter Verbindung → Klipper 3D-Drucker\" einstellen",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (uiState.klipperHost.isNotBlank()) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFF44336)
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = klipperPort,
-                        onValueChange = { klipperPort = it.filter { c -> c.isDigit() } },
-                        label = { Text("Port") }, placeholder = { Text("7125") },
-                        modifier = Modifier.weight(1f), singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
+                if (uiState.klipperHost.isNotBlank()) {
                     Button(
-                        onClick = { viewModel.loadKlipperObjects(klipperHost.trim(), klipperPort.toIntOrNull() ?: 7125) },
-                        modifier = Modifier.weight(2f).align(Alignment.CenterVertically),
+                        onClick = { viewModel.loadKlipperObjects(uiState.klipperHost, uiState.klipperPort) },
+                        modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A2A), contentColor = Color(0xFFEAFF00)),
-                        enabled = klipperHost.isNotBlank() && !uiState.klipperObjectsLoading
+                        enabled = !uiState.klipperObjectsLoading
                     ) {
                         if (uiState.klipperObjectsLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFFEAFF00))
                         } else {
-                            Text("Objekte laden", style = MaterialTheme.typography.labelSmall)
+                            Text("Drucker-Objekte laden", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -2064,19 +2110,70 @@ fun SettingsScreen(
                     )
                 }
 
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("LED-Button (Seite 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Der LED-Button auf Seite 3 sendet einen festen G-Code-Befehl.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = klipperLedObject, onValueChange = { klipperLedObject = it },
+                    label = { Text("LED-Objekt (zum Lesen des Status)") }, placeholder = { Text("output_pin my_led") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
+                    value = klipperLedField, onValueChange = { klipperLedField = it },
+                    label = { Text("LED-Feld") }, placeholder = { Text("value") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
+                    value = klipperLedGcodeOn, onValueChange = { klipperLedGcodeOn = it },
+                    label = { Text("G-Code LED einschalten") }, placeholder = { Text("SET_PIN PIN=my_led VALUE=1") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
+                    value = klipperLedGcodeOff, onValueChange = { klipperLedGcodeOff = it },
+                    label = { Text("G-Code LED ausschalten") }, placeholder = { Text("SET_PIN PIN=my_led VALUE=0") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Chamber-Heater-Button (Seite 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Der Heater-Button sendet feste G-Code-Befehle zum Ein-/Ausschalten der Kammer-Heizung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = klipperChamberObject, onValueChange = { klipperChamberObject = it },
+                    label = { Text("Chamber-Objekt (zum Lesen des Status)") }, placeholder = { Text("heater_generic chamber") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
+                    value = klipperChamberHeatGcodeOn, onValueChange = { klipperChamberHeatGcodeOn = it },
+                    label = { Text("G-Code Heizung einschalten") }, placeholder = { Text("SET_HEATER_TEMPERATURE HEATER=chamber TARGET=50") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
+                    value = klipperChamberHeatGcodeOff, onValueChange = { klipperChamberHeatGcodeOff = it },
+                    label = { Text("G-Code Heizung ausschalten") }, placeholder = { Text("SET_HEATER_TEMPERATURE HEATER=chamber TARGET=0") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = {
                         viewModel.setKlipperAndP3PillConfig(
-                            klipperHost      = klipperHost.trim(),
-                            klipperPort      = klipperPort.toIntOrNull() ?: 7125,
-                            p3PillEnabled    = p3PillEnabled,
-                            p3PillColorTrue  = p3PillColorTrue,
-                            p3PillColorFalse = p3PillColorFalse,
-                            p3PillObject     = p3PillObject.trim(),
-                            p3PillField      = p3PillField.trim(),
-                            p3PillGcodeOn    = p3PillGcodeOn.trim(),
-                            p3PillGcodeOff   = p3PillGcodeOff.trim()
+                            klipperEnabled          = klipperEnabled,
+                            klipperHost             = uiState.klipperHost,
+                            klipperPort             = uiState.klipperPort,
+                            klipperChamberObject    = klipperChamberObject.trim(),
+                            p3PillEnabled           = p3PillEnabled,
+                            p3PillColorTrue         = p3PillColorTrue,
+                            p3PillColorFalse        = p3PillColorFalse,
+                            p3PillObject            = p3PillObject.trim(),
+                            p3PillField             = p3PillField.trim(),
+                            p3PillGcodeOn           = p3PillGcodeOn.trim(),
+                            p3PillGcodeOff          = p3PillGcodeOff.trim(),
+                            klipperLedGcodeOn       = klipperLedGcodeOn.trim(),
+                            klipperLedGcodeOff      = klipperLedGcodeOff.trim(),
+                            klipperLedObject        = klipperLedObject.trim(),
+                            klipperLedField         = klipperLedField.trim(),
+                            klipperChamberHeatGcodeOn  = klipperChamberHeatGcodeOn.trim(),
+                            klipperChamberHeatGcodeOff = klipperChamberHeatGcodeOff.trim()
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),

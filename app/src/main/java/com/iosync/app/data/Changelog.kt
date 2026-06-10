@@ -8,6 +8,16 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.5.7",
+        date = "10.06.2026",
+        changes = listOf(
+            "Klipper-Verbindung jetzt unter 'ioBroker Adapter' als aufklappbarer Bereich mit Enable/IP/Port-Button",
+            "Page 3: LED-Button und Chamber-Heater-Button: G-Code On/Off + Objekt/Feld in App konfigurierbar",
+            "Page 3: Host/Port-Felder aus Dritte-Seite-Abschnitt in Adapter-Abschnitt verschoben",
+            "Bugfix: Save-Button in 'Dritte Seite' übergab alle Parameter korrekt (klipperEnabled, LED/Heater G-Codes)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.5.6",
         date = "10.06.2026",
         changes = listOf(
