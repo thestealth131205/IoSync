@@ -119,6 +119,10 @@ data class MainUiState(
     val customSlot4BarMax: Float = 100f,
     val customSlot4BarShowLabel: Boolean = true,
     val customSlot4BarIsSlider: Boolean = false,
+    // Slot 4: Klipper-Override (zeigt Klipper-Wert statt ioBroker-Wert wenn Drucker druckt)
+    val customSlot4UseKlipper: Boolean = false,
+    val customSlot4KlipperSource: String = "progress",          // progress|nozzle_temp|bed_temp|chamber_temp|fan|speed
+    val customSlot4KlipperColorActive: String = "neon_yellow",  // Balkenfarbe während aktivem Druck
     // Slot 4 Warnstufen (absoluter Wert; leer/NaN = deaktiviert)
     val customSlot4Warn1Color: String = "orange",
     val customSlot4Warn1Value: Float = Float.NaN,
@@ -511,6 +515,10 @@ class MainViewModel @Inject constructor(
         val KEY_P3_PILL_GCODE_ON     = stringPreferencesKey("p3_pill_gcode_on")
         val KEY_P3_PILL_GCODE_OFF    = stringPreferencesKey("p3_pill_gcode_off")
         val KEY_P3_PILL_STATE        = booleanPreferencesKey("p3_pill_state")
+        // Slot 4 – Klipper-Override
+        val KEY_CUSTOM_SLOT4_USE_KLIPPER        = booleanPreferencesKey("custom_slot4_use_klipper")
+        val KEY_CUSTOM_SLOT4_KLIPPER_SOURCE     = stringPreferencesKey("custom_slot4_klipper_source")
+        val KEY_CUSTOM_SLOT4_KLIPPER_COLOR_ACT  = stringPreferencesKey("custom_slot4_klipper_color_active")
         // Seite 3 – LED-Button
         val KEY_KLIPPER_LED_GCODE_ON  = stringPreferencesKey("klipper_led_gcode_on")
         val KEY_KLIPPER_LED_GCODE_OFF = stringPreferencesKey("klipper_led_gcode_off")
@@ -580,6 +588,9 @@ class MainViewModel @Inject constructor(
             val customSlot4BarMax        = prefs[KEY_CUSTOM_SLOT4_BAR_MAX]?.toFloatOrNull() ?: 100f
             val customSlot4BarShowLabel  = prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] ?: true
             val customSlot4BarIsSlider   = prefs[KEY_CUSTOM_SLOT4_BAR_IS_SLIDER] ?: false
+            val customSlot4UseKlipper       = prefs[KEY_CUSTOM_SLOT4_USE_KLIPPER]       ?: false
+            val customSlot4KlipperSource    = prefs[KEY_CUSTOM_SLOT4_KLIPPER_SOURCE]    ?: "progress"
+            val customSlot4KlipperColorAct  = prefs[KEY_CUSTOM_SLOT4_KLIPPER_COLOR_ACT] ?: "neon_yellow"
             val customSlot4Warn1Color    = prefs[KEY_CUSTOM_SLOT4_WARN1_COLOR] ?: "orange"
             val customSlot4Warn1Value    = prefs[KEY_CUSTOM_SLOT4_WARN1_VALUE]?.toFloatOrNull() ?: Float.NaN
             val customSlot4Warn2Color    = prefs[KEY_CUSTOM_SLOT4_WARN2_COLOR] ?: "red"
@@ -788,8 +799,11 @@ class MainViewModel @Inject constructor(
                     customSlot4BarMin        = customSlot4BarMin,
                     customSlot4BarMax        = customSlot4BarMax,
                     customSlot4BarShowLabel  = customSlot4BarShowLabel,
-                    customSlot4BarIsSlider   = customSlot4BarIsSlider,
-                    customSlot4Warn1Color    = customSlot4Warn1Color,
+                    customSlot4BarIsSlider        = customSlot4BarIsSlider,
+                    customSlot4UseKlipper         = customSlot4UseKlipper,
+                    customSlot4KlipperSource      = customSlot4KlipperSource,
+                    customSlot4KlipperColorActive = customSlot4KlipperColorAct,
+                    customSlot4Warn1Color         = customSlot4Warn1Color,
                     customSlot4Warn1Value    = customSlot4Warn1Value,
                     customSlot4Warn2Color    = customSlot4Warn2Color,
                     customSlot4Warn2Value    = customSlot4Warn2Value,
@@ -1198,6 +1212,9 @@ class MainViewModel @Inject constructor(
             s.showCustomSlots, s.customSlot1Label, s.customSlot2Label,
             s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
             s.customSlot4BarShowLabel, s.customSlot4BarIsSlider,
+            customSlot4UseKlipper = s.customSlot4UseKlipper,
+            customSlot4KlipperSource = s.customSlot4KlipperSource,
+            customSlot4KlipperColorActive = s.customSlot4KlipperColorActive,
             s.wfHrTextScale, s.wfKcalTextScale, s.wfStepsTextScale, s.wfSlot1TextScale, s.wfSlot2TextScale, s.wfSlot3TextScale, s.wfSlot4TextScale,
             s.wfWeatherTextScale, s.wfSunriseTextScale, s.wfWatchBatteryTextScale,
             s.wfBatteryRingColor1, s.wfBatteryRingColor2, s.wfBatteryRingStrokeScale,
@@ -2112,7 +2129,10 @@ class MainViewModel @Inject constructor(
         slot4Warn1Color: String = _uiState.value.customSlot4Warn1Color,
         slot4Warn1Value: Float = _uiState.value.customSlot4Warn1Value,
         slot4Warn2Color: String = _uiState.value.customSlot4Warn2Color,
-        slot4Warn2Value: Float = _uiState.value.customSlot4Warn2Value
+        slot4Warn2Value: Float = _uiState.value.customSlot4Warn2Value,
+        slot4UseKlipper: Boolean = _uiState.value.customSlot4UseKlipper,
+        slot4KlipperSource: String = _uiState.value.customSlot4KlipperSource,
+        slot4KlipperColorActive: String = _uiState.value.customSlot4KlipperColorActive
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -2129,7 +2149,10 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_CUSTOM_SLOT4_BAR_MIN]        = slot4BarMin.toString()
                 prefs[KEY_CUSTOM_SLOT4_BAR_MAX]        = slot4BarMax.toString()
                 prefs[KEY_CUSTOM_SLOT4_BAR_SHOW_LABEL] = slot4BarShowLabel
-                prefs[KEY_CUSTOM_SLOT4_BAR_IS_SLIDER]  = slot4BarIsSlider
+                prefs[KEY_CUSTOM_SLOT4_BAR_IS_SLIDER]      = slot4BarIsSlider
+                prefs[KEY_CUSTOM_SLOT4_USE_KLIPPER]        = slot4UseKlipper
+                prefs[KEY_CUSTOM_SLOT4_KLIPPER_SOURCE]     = slot4KlipperSource
+                prefs[KEY_CUSTOM_SLOT4_KLIPPER_COLOR_ACT]  = slot4KlipperColorActive
                 prefs[KEY_CUSTOM_SLOT4_WARN1_COLOR] = slot4Warn1Color
                 prefs[KEY_CUSTOM_SLOT4_WARN1_VALUE] = if (slot4Warn1Value.isNaN()) "" else slot4Warn1Value.toString()
                 prefs[KEY_CUSTOM_SLOT4_WARN2_COLOR] = slot4Warn2Color
@@ -2154,7 +2177,10 @@ class MainViewModel @Inject constructor(
                     customSlot4BarMin        = slot4BarMin,
                     customSlot4BarMax        = slot4BarMax,
                     customSlot4BarShowLabel  = slot4BarShowLabel,
-                    customSlot4BarIsSlider   = slot4BarIsSlider,
+                    customSlot4BarIsSlider        = slot4BarIsSlider,
+                    customSlot4UseKlipper         = slot4UseKlipper,
+                    customSlot4KlipperSource      = slot4KlipperSource,
+                    customSlot4KlipperColorActive = slot4KlipperColorActive,
                     customSlot4Warn1Color    = slot4Warn1Color,
                     customSlot4Warn1Value    = slot4Warn1Value,
                     customSlot4Warn2Color    = slot4Warn2Color,
@@ -2204,7 +2230,10 @@ class MainViewModel @Inject constructor(
         slot4Warn1Color: String = _uiState.value.customSlot4Warn1Color,
         slot4Warn1Value: Float = _uiState.value.customSlot4Warn1Value,
         slot4Warn2Color: String = _uiState.value.customSlot4Warn2Color,
-        slot4Warn2Value: Float = _uiState.value.customSlot4Warn2Value
+        slot4Warn2Value: Float = _uiState.value.customSlot4Warn2Value,
+        slot4UseKlipper: Boolean = _uiState.value.customSlot4UseKlipper,
+        slot4KlipperSource: String = _uiState.value.customSlot4KlipperSource,
+        slot4KlipperColorActive: String = _uiState.value.customSlot4KlipperColorActive
     ) {
         viewModelScope.launch {
             _uiState.update {
@@ -2222,7 +2251,10 @@ class MainViewModel @Inject constructor(
                     customSlot4BarMin        = slot4BarMin,
                     customSlot4BarMax        = slot4BarMax,
                     customSlot4BarShowLabel  = slot4BarShowLabel,
-                    customSlot4BarIsSlider   = slot4BarIsSlider,
+                    customSlot4BarIsSlider        = slot4BarIsSlider,
+                    customSlot4UseKlipper         = slot4UseKlipper,
+                    customSlot4KlipperSource      = slot4KlipperSource,
+                    customSlot4KlipperColorActive = slot4KlipperColorActive,
                     customSlot4Warn1Color    = slot4Warn1Color,
                     customSlot4Warn1Value    = slot4Warn1Value,
                     customSlot4Warn2Color    = slot4Warn2Color,

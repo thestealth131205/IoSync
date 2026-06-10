@@ -145,6 +145,9 @@ fun SettingsScreen(
     var customSlot4Warn1Value    by remember(uiState.customSlot4Warn1Value)    { mutableStateOf(if (uiState.customSlot4Warn1Value.isNaN()) "" else uiState.customSlot4Warn1Value.toString()) }
     var customSlot4Warn2Color    by remember(uiState.customSlot4Warn2Color)    { mutableStateOf(uiState.customSlot4Warn2Color) }
     var customSlot4Warn2Value    by remember(uiState.customSlot4Warn2Value)    { mutableStateOf(if (uiState.customSlot4Warn2Value.isNaN()) "" else uiState.customSlot4Warn2Value.toString()) }
+    var customSlot4UseKlipper        by remember(uiState.customSlot4UseKlipper)        { mutableStateOf(uiState.customSlot4UseKlipper) }
+    var customSlot4KlipperSource     by remember(uiState.customSlot4KlipperSource)     { mutableStateOf(uiState.customSlot4KlipperSource) }
+    var customSlot4KlipperColorActive by remember(uiState.customSlot4KlipperColorActive) { mutableStateOf(uiState.customSlot4KlipperColorActive) }
 
     // Individuelle Schriftgrößen je Wert
     var wfHrTextScale      by remember(uiState.wfHrTextScale)      { mutableStateOf(uiState.wfHrTextScale) }
@@ -391,7 +394,8 @@ fun SettingsScreen(
         customSlot3Id, customSlot3Label, customSlot4Id, customSlot4Label,
         customSlot4BarColor, customSlot4BarMin, customSlot4BarMax, customSlot4BarShowLabel, customSlot4BarIsSlider,
         wfSlot1TextScale, wfSlot2TextScale, wfSlot3TextScale, wfSlot4TextScale,
-        customSlot4Warn1Color, customSlot4Warn1Value, customSlot4Warn2Color, customSlot4Warn2Value
+        customSlot4Warn1Color, customSlot4Warn1Value, customSlot4Warn2Color, customSlot4Warn2Value,
+        customSlot4UseKlipper, customSlot4KlipperSource, customSlot4KlipperColorActive
     ) {
         if (!customSlotsInitialized) { customSlotsInitialized = true; return@LaunchedEffect }
         delay(400)
@@ -417,7 +421,10 @@ fun SettingsScreen(
             slot4Warn1Color   = customSlot4Warn1Color,
             slot4Warn1Value   = customSlot4Warn1Value.toFloatOrNull() ?: Float.NaN,
             slot4Warn2Color   = customSlot4Warn2Color,
-            slot4Warn2Value   = customSlot4Warn2Value.toFloatOrNull() ?: Float.NaN
+            slot4Warn2Value   = customSlot4Warn2Value.toFloatOrNull() ?: Float.NaN,
+            slot4UseKlipper          = customSlot4UseKlipper,
+            slot4KlipperSource       = customSlot4KlipperSource,
+            slot4KlipperColorActive  = customSlot4KlipperColorActive
         )
     }
 
@@ -1323,6 +1330,49 @@ fun SettingsScreen(
                     PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = customSlot4Warn2Color == "purple",      onClick = { customSlot4Warn2Color = "purple" })
                 }
 
+                // ── Klipper-Override für Slot-4-Balken ────────────────────────────
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                WatchFaceToggleRow(
+                    text = "Klipper-Fortschritt als Balken",
+                    subText = "Zeigt Klipper-Wert im Balken wenn Drucker aktiv druckt; sonst ioBroker-Wert",
+                    checked = customSlot4UseKlipper,
+                    onCheckedChange = { customSlot4UseKlipper = it }
+                )
+                if (customSlot4UseKlipper) {
+                    Text("Klipper-Quelle für Balken", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val klipperSourceOptions = listOf(
+                        "progress"     to "Druckfortschritt (%)",
+                        "nozzle_temp"  to "Düsentemperatur (°C)",
+                        "bed_temp"     to "Bett-Temperatur (°C)",
+                        "chamber_temp" to "Kammer-Temperatur (°C)",
+                        "fan"          to "Lüfter-Drehzahl (%)",
+                        "speed"        to "Geschwindigkeit (mm/s)"
+                    )
+                    var klipperSourceExpanded by remember { mutableStateOf(false) }
+                    val currentSourceLabel = klipperSourceOptions.firstOrNull { it.first == customSlot4KlipperSource }?.second ?: customSlot4KlipperSource
+                    Box {
+                        OutlinedButton(onClick = { klipperSourceExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text(currentSourceLabel, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                        }
+                        DropdownMenu(expanded = klipperSourceExpanded, onDismissRequest = { klipperSourceExpanded = false }) {
+                            klipperSourceOptions.forEach { (key, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = { customSlot4KlipperSource = key; klipperSourceExpanded = false }
+                                )
+                            }
+                        }
+                    }
+                    Text("Balkenfarbe wenn Drucker druckt", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        PillColorChip(color = Color(0xFFEAFF00), label = "Gelb",   selected = customSlot4KlipperColorActive == "neon_yellow", onClick = { customSlot4KlipperColorActive = "neon_yellow" })
+                        PillColorChip(color = Color(0xFF00BCD4), label = "Cyan",   selected = customSlot4KlipperColorActive == "cyan",        onClick = { customSlot4KlipperColorActive = "cyan" })
+                        PillColorChip(color = Color(0xFF4CAF50), label = "Grün",   selected = customSlot4KlipperColorActive == "green",       onClick = { customSlot4KlipperColorActive = "green" })
+                        PillColorChip(color = Color(0xFFF44336), label = "Rot",    selected = customSlot4KlipperColorActive == "red",         onClick = { customSlot4KlipperColorActive = "red" })
+                        PillColorChip(color = Color(0xFFFF9800), label = "Orange", selected = customSlot4KlipperColorActive == "orange",      onClick = { customSlot4KlipperColorActive = "orange" })
+                    }
+                }
+
                 Button(
                     onClick = {
                         viewModel.updateCustomSlotsConfig(
@@ -1347,7 +1397,10 @@ fun SettingsScreen(
                             slot4Warn1Color   = customSlot4Warn1Color,
                             slot4Warn1Value   = customSlot4Warn1Value.toFloatOrNull() ?: Float.NaN,
                             slot4Warn2Color   = customSlot4Warn2Color,
-                            slot4Warn2Value   = customSlot4Warn2Value.toFloatOrNull() ?: Float.NaN
+                            slot4Warn2Value   = customSlot4Warn2Value.toFloatOrNull() ?: Float.NaN,
+                            slot4UseKlipper          = customSlot4UseKlipper,
+                            slot4KlipperSource       = customSlot4KlipperSource,
+                            slot4KlipperColorActive  = customSlot4KlipperColorActive
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),

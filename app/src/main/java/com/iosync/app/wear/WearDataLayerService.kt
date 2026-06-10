@@ -100,6 +100,9 @@ private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN        = "wf_custom_slot4_bar_min"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX        = "wf_custom_slot4_bar_max"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL = "wf_custom_slot4_bar_show_label"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER  = "wf_custom_slot4_bar_is_slider"
+private const val KEY_WF_CUSTOM_SLOT4_USE_KLIPPER       = "wf_custom_slot4_use_klipper"
+private const val KEY_WF_CUSTOM_SLOT4_KLIPPER_SOURCE    = "wf_custom_slot4_klipper_source"
+private const val KEY_WF_CUSTOM_SLOT4_KLIPPER_COLOR_ACT = "wf_custom_slot4_klipper_color_active"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
 private const val KEY_WF_HR_TEXT_SCALE        = "wf_hr_text_scale"
 private const val KEY_WF_KCAL_TEXT_SCALE      = "wf_kcal_text_scale"
@@ -369,6 +372,9 @@ class WearDataLayerService @Inject constructor(
         customSlot4BarMax: Float = 100f,
         customSlot4BarShowLabel: Boolean = true,
         customSlot4BarIsSlider: Boolean = false,
+        customSlot4UseKlipper: Boolean = false,
+        customSlot4KlipperSource: String = "progress",
+        customSlot4KlipperColorActive: String = "neon_yellow",
         hrTextScale: Int = 100,
         kcalTextScale: Int = 100,
         stepsTextScale: Int = 100,
@@ -480,6 +486,9 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX, customSlot4BarMax)
                     dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL, customSlot4BarShowLabel)
                     dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER, customSlot4BarIsSlider)
+                    dataMap.putBoolean(KEY_WF_CUSTOM_SLOT4_USE_KLIPPER, customSlot4UseKlipper)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT4_KLIPPER_SOURCE, customSlot4KlipperSource)
+                    dataMap.putString(KEY_WF_CUSTOM_SLOT4_KLIPPER_COLOR_ACT, customSlot4KlipperColorActive)
                     dataMap.putInt(KEY_WF_HR_TEXT_SCALE,    hrTextScale)
                     dataMap.putInt(KEY_WF_KCAL_TEXT_SCALE,  kcalTextScale)
                     dataMap.putInt(KEY_WF_STEPS_TEXT_SCALE, stepsTextScale)

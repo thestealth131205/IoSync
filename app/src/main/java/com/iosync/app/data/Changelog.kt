@@ -8,6 +8,16 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.5.8",
+        date = "10.06.2026",
+        changes = listOf(
+            "Slot-4-Balken (Page 1): Klipper-Fortschritt als optionale Datenquelle (Druckfortschritt, Düsen-/Bett-/Kammer-Temp, Lüfter, Geschwindigkeit)",
+            "Klipper-Override: Während aktiver Druck (print_stats.state == printing) wird Klipper-Wert mit eigener Farbe angezeigt; sonst bleibt ioBroker-Wert aktiv",
+            "App-Einstellungen: Toggle + Quellenauswahl + Aktivfarbe für Slot-4-Klipper-Modus",
+            "Moonraker-Abfrage erweitert: print_stats.state wird jetzt für isActive-Erkennung ausgewertet"
+        )
+    ),
+    ChangelogEntry(
         version = "4.5.7",
         date = "10.06.2026",
         changes = listOf(

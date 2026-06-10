@@ -70,6 +70,9 @@ private const val KEY_WF_CUSTOM_SLOT4_BAR_MIN   = "wf_custom_slot4_bar_min"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_MAX        = "wf_custom_slot4_bar_max"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL = "wf_custom_slot4_bar_show_label"
 private const val KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER  = "wf_custom_slot4_bar_is_slider"
+private const val KEY_WF_CUSTOM_SLOT4_USE_KLIPPER       = "wf_custom_slot4_use_klipper"
+private const val KEY_WF_CUSTOM_SLOT4_KLIPPER_SOURCE    = "wf_custom_slot4_klipper_source"
+private const val KEY_WF_CUSTOM_SLOT4_KLIPPER_COLOR_ACT = "wf_custom_slot4_klipper_color_active"
 private const val KEY_WF_SHOW_CUSTOM_SLOTS  = "wf_show_custom_slots"
 private const val KEY_WF_HR_TEXT_SCALE        = "wf_hr_text_scale"
 private const val KEY_WF_KCAL_TEXT_SCALE      = "wf_kcal_text_scale"
@@ -321,6 +324,9 @@ class WatchFaceDataListenerService : WearableListenerService() {
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX))        WatchFaceConfigCache.customSlot4BarMax       = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) WatchFaceConfigCache.customSlot4BarShowLabel = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
                     if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER))  WatchFaceConfigCache.customSlot4BarIsSlider  = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER)
+                    if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_USE_KLIPPER))    WatchFaceConfigCache.customSlot4UseKlipper   = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_USE_KLIPPER)
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT4_KLIPPER_SOURCE)?.let  { WatchFaceConfigCache.customSlot4KlipperSource = it }
+                    dataMap.getString(KEY_WF_CUSTOM_SLOT4_KLIPPER_COLOR_ACT)?.let { WatchFaceConfigCache.customSlot4KlipperColorActive = it }
                     dataMap.getString(KEY_WF_SLOT4_WARN1_COLOR)?.let { WatchFaceConfigCache.slot4Warn1Color = it }
                     dataMap.getString(KEY_WF_SLOT4_WARN2_COLOR)?.let { WatchFaceConfigCache.slot4Warn2Color = it }
                     if (dataMap.containsKey(KEY_WF_SLOT4_WARN1_VALUE)) WatchFaceConfigCache.slot4Warn1Value = dataMap.getFloat(KEY_WF_SLOT4_WARN1_VALUE)
@@ -445,6 +451,10 @@ object WatchFaceConfigCache {
     @Volatile var customSlot4BarMax: Float = 100f
     @Volatile var customSlot4BarShowLabel: Boolean = true
     @Volatile var customSlot4BarIsSlider: Boolean = false
+    // Klipper-Override: Wenn aktiv, zeigt Slot-4-Balken Klipper-Wert statt ioBroker-Wert
+    @Volatile var customSlot4UseKlipper: Boolean = false
+    @Volatile var customSlot4KlipperSource: String = "progress"   // progress|nozzle_temp|bed_temp|chamber_temp|fan|speed
+    @Volatile var customSlot4KlipperColorActive: String = "neon_yellow"
     // Individuelle Schriftgrößen je Wert (70–160, Default 100 = 100 %)
     @Volatile var hrTextScale: Int = 100
     @Volatile var kcalTextScale: Int = 100
@@ -634,6 +644,7 @@ object WatchFaceConfigCache {
     @Volatile var klipperChamberHeatState: Boolean = false
 
     // ── Seite 3 – Live-Druckdaten (direkt von Moonraker abgerufen) ────────────
+    @Volatile var klipperIsActive: Boolean = false   // true wenn Drucker aktiv druckt
     @Volatile var klipperPrintProgress: Float = 0f   // 0.0–1.0
     @Volatile var klipperNozzleTemp: Float = 0f
     @Volatile var klipperNozzleTarget: Float = 0f
@@ -764,6 +775,9 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_MAX))        customSlot4BarMax        = dataMap.getFloat(KEY_WF_CUSTOM_SLOT4_BAR_MAX)
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)) customSlot4BarShowLabel = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_SHOW_LABEL)
         if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER))  customSlot4BarIsSlider  = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_BAR_IS_SLIDER)
+        if (dataMap.containsKey(KEY_WF_CUSTOM_SLOT4_USE_KLIPPER))    customSlot4UseKlipper   = dataMap.getBoolean(KEY_WF_CUSTOM_SLOT4_USE_KLIPPER)
+        dataMap.getString(KEY_WF_CUSTOM_SLOT4_KLIPPER_SOURCE)?.let  { customSlot4KlipperSource = it }
+        dataMap.getString(KEY_WF_CUSTOM_SLOT4_KLIPPER_COLOR_ACT)?.let { customSlot4KlipperColorActive = it }
         if (dataMap.containsKey(KEY_WF_HR_TEXT_SCALE))      hrTextScale      = dataMap.getInt(KEY_WF_HR_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_KCAL_TEXT_SCALE))    kcalTextScale    = dataMap.getInt(KEY_WF_KCAL_TEXT_SCALE)
         if (dataMap.containsKey(KEY_WF_STEPS_TEXT_SCALE))   stepsTextScale   = dataMap.getInt(KEY_WF_STEPS_TEXT_SCALE)

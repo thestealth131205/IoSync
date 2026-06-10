@@ -26,7 +26,8 @@ data class KlipperPrinterStatus(
     val bedTarget: Float,
     val chamberTemp: Float,
     val speedMms: Float,
-    val fanPercent: Float     // 0 – 100
+    val fanPercent: Float,    // 0 – 100
+    val isActive: Boolean     // true wenn Drucker gerade druckt (print_stats.state == "printing")
 )
 
 /**
@@ -115,7 +116,7 @@ object WatchKlipperClient {
             val encObj = chamberObject.replace(" ", "%20")
             val url = buildUrl(
                 host, port,
-                "/printer/objects/query?display_status&extruder&heater_bed&fan&motion_report&$encObj"
+                "/printer/objects/query?display_status&print_stats&extruder&heater_bed&fan&motion_report&$encObj"
             )
             val response = okHttpClient.newCall(
                 Request.Builder().url(url).get().build()
@@ -128,6 +129,7 @@ object WatchKlipperClient {
                 status.optJSONObject(obj)?.optDouble(field, 0.0)?.toFloat() ?: 0f
 
             val progress = objFloat("display_status", "progress")
+            val printState   = status.optJSONObject("print_stats")?.optString("state", "standby") ?: "standby"
             val nozzleTemp   = objFloat("extruder", "temperature")
             val nozzleTarget = objFloat("extruder", "target")
             val bedTemp      = objFloat("heater_bed", "temperature")
@@ -144,7 +146,8 @@ object WatchKlipperClient {
                 bedTarget    = bedTarget,
                 chamberTemp  = chamberTemp,
                 speedMms     = speedMms,
-                fanPercent   = fanSpeed
+                fanPercent   = fanSpeed,
+                isActive     = printState == "printing"
             )
         }.onFailure { Log.e(TAG, "queryPrinterStatus fehlgeschlagen: ${it.message}") }
     }

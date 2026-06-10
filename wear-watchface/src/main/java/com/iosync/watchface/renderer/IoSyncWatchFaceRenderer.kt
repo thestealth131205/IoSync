@@ -2015,18 +2015,32 @@ class IoSyncWatchFaceRenderer(
 
             val minVal = config.customSlot4BarMin
             val maxVal = config.customSlot4BarMax
-            val curVal = config.customSlot4Value.replace(',', '.').toFloatOrNull() ?: minVal
-            val fraction = if (maxVal > minVal) ((curVal - minVal) / (maxVal - minVal)).coerceIn(0f, 1f) else 0f
 
-            // Warnstufen: Balkenfarbe wechselt bei Unterschreiten der Schwelle (absoluter
-            // Wert). NaN = deaktiviert; Stufe 2 hat Vorrang.
-            var barColor = colorFromPillId(config.customSlot4BarColor)
-            if (!config.slot4Warn1Value.isNaN() && curVal <= config.slot4Warn1Value) {
-                barColor = colorFromPillId(config.slot4Warn1Color)
+            // Klipper-Override: wenn Klipper aktiviert ist und der Drucker gerade druckt,
+            // wird der konfigurierte Klipper-Wert anstelle des ioBroker-Werts angezeigt.
+            val useKlipperOverride = config.customSlot4UseKlipper && config.klipperEnabled && config.klipperIsActive
+            val (curValRaw, barColor) = if (useKlipperOverride) {
+                val klipperFloat = when (config.customSlot4KlipperSource) {
+                    "nozzle_temp"  -> config.klipperNozzleTemp
+                    "bed_temp"     -> config.klipperBedTemp
+                    "chamber_temp" -> config.klipperChamberTemp
+                    "fan"          -> config.klipperFanPercent
+                    "speed"        -> config.klipperSpeedMms
+                    else           -> config.klipperPrintProgress * 100f   // "progress"
+                }
+                Pair("%.1f".format(klipperFloat), colorFromPillId(config.customSlot4KlipperColorActive))
+            } else {
+                var c = colorFromPillId(config.customSlot4BarColor)
+                val raw = config.customSlot4Value
+                val fv = raw.replace(',', '.').toFloatOrNull() ?: minVal
+                // Warnstufen: Balkenfarbe wechselt bei Unterschreiten der Schwelle (absoluter
+                // Wert). NaN = deaktiviert; Stufe 2 hat Vorrang.
+                if (!config.slot4Warn1Value.isNaN() && fv <= config.slot4Warn1Value) c = colorFromPillId(config.slot4Warn1Color)
+                if (!config.slot4Warn2Value.isNaN() && fv <= config.slot4Warn2Value) c = colorFromPillId(config.slot4Warn2Color)
+                Pair(raw, c)
             }
-            if (!config.slot4Warn2Value.isNaN() && curVal <= config.slot4Warn2Value) {
-                barColor = colorFromPillId(config.slot4Warn2Color)
-            }
+            val curVal = curValRaw.replace(',', '.').toFloatOrNull() ?: minVal
+            val fraction = if (maxVal > minVal) ((curVal - minVal) / (maxVal - minVal)).coerceIn(0f, 1f) else 0f
 
             // Hintergrund
             canvas.drawRoundRect(
@@ -2068,7 +2082,7 @@ class IoSyncWatchFaceRenderer(
                 canvas.drawText(config.customSlot4Label.take(3).uppercase(), barLeft, nextY - labelSize * 0.18f, customSlotLabelPaint)
                 customSlotValuePaint.textSize = labelSize
                 customSlotValuePaint.textAlign = Paint.Align.RIGHT
-                canvas.drawText(config.customSlot4Value, barRight, nextY - labelSize * 0.18f, customSlotValuePaint)
+                canvas.drawText(curValRaw, barRight, nextY - labelSize * 0.18f, customSlotValuePaint)
             }
 
             nextY += barH + 3f * context.resources.displayMetrics.density

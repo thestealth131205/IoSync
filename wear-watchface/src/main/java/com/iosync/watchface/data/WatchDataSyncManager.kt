@@ -437,6 +437,7 @@ object WatchDataSyncManager {
         // ── Druckdaten (Fortschritt, Temps, Geschwindigkeit, Lüfter) ──────────
         WatchKlipperClient.queryPrinterStatus(c.klipperHost, c.klipperPort, c.klipperChamberObject)
             .onSuccess { st ->
+                c.klipperIsActive      = st.isActive
                 c.klipperPrintProgress = st.progress
                 c.klipperNozzleTemp    = st.nozzleTemp
                 c.klipperNozzleTarget  = st.nozzleTarget
