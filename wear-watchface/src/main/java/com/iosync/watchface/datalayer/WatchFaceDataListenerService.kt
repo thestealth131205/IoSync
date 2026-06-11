@@ -633,14 +633,21 @@ object WatchFaceConfigCache {
     @Volatile var p3PillState: Boolean = false
 
     // ── Seite 3 – LED-Button ──────────────────────────────────────────────────
+    /** "gcode" = Moonraker G-Code; "tasmota_power" = Moonraker Power-API */
+    @Volatile var klipperLedType: String = "gcode"
     @Volatile var klipperLedGcodeOn: String = ""
     @Volatile var klipperLedGcodeOff: String = ""
     @Volatile var klipperLedObject: String = ""  // Objekt zum Ablesen des LED-Status
     @Volatile var klipperLedField: String = "value"
+    @Volatile var klipperLedPowerDevice: String = ""  // Moonraker-Power-Gerätename (z.B. "LED")
     @Volatile var klipperLedState: Boolean = false
     @Volatile var klipperLedLabel: String = "Led"
 
     // ── Seite 3 – Chamber-Heater-Button ───────────────────────────────────────
+    /** "gcode" = manuelle Befehle; "heater_generic" = Moonraker heater_generic */
+    @Volatile var klipperHeatType: String = "gcode"
+    @Volatile var klipperHeatHeaterName: String = "chamber"
+    @Volatile var klipperHeatTargetTemp: Int = 50
     @Volatile var klipperChamberHeatGcodeOn: String = ""
     @Volatile var klipperChamberHeatGcodeOff: String = ""
     @Volatile var klipperChamberHeatState: Boolean = false
@@ -736,12 +743,17 @@ object WatchFaceConfigCache {
         dataMap.getString("con_p3_pill_gcode_on")?.let    { p3PillGcodeOn    = it }
         dataMap.getString("con_p3_pill_gcode_off")?.let   { p3PillGcodeOff   = it }
         // Seite 3 – LED-Button
-        dataMap.getString("con_klipper_led_gcode_on")?.let  { klipperLedGcodeOn  = it }
-        dataMap.getString("con_klipper_led_gcode_off")?.let { klipperLedGcodeOff = it }
-        dataMap.getString("con_klipper_led_object")?.let    { klipperLedObject   = it }
-        dataMap.getString("con_klipper_led_field")?.let     { klipperLedField    = it }
-        dataMap.getString("con_klipper_led_label")?.let     { klipperLedLabel    = it }
+        dataMap.getString("con_klipper_led_type")?.let        { klipperLedType        = it }
+        dataMap.getString("con_klipper_led_gcode_on")?.let    { klipperLedGcodeOn     = it }
+        dataMap.getString("con_klipper_led_gcode_off")?.let   { klipperLedGcodeOff    = it }
+        dataMap.getString("con_klipper_led_object")?.let      { klipperLedObject      = it }
+        dataMap.getString("con_klipper_led_field")?.let       { klipperLedField       = it }
+        dataMap.getString("con_klipper_led_power_device")?.let{ klipperLedPowerDevice = it }
+        dataMap.getString("con_klipper_led_label")?.let       { klipperLedLabel       = it }
         // Seite 3 – Chamber-Heater-Button
+        dataMap.getString("con_klipper_heat_type")?.let        { klipperHeatType        = it }
+        dataMap.getString("con_klipper_heat_heater_name")?.let { klipperHeatHeaterName  = it }
+        if (dataMap.containsKey("con_klipper_heat_target_temp")) klipperHeatTargetTemp = dataMap.getInt("con_klipper_heat_target_temp")
         dataMap.getString("con_klipper_heat_gcode_on")?.let  { klipperChamberHeatGcodeOn  = it }
         dataMap.getString("con_klipper_heat_gcode_off")?.let { klipperChamberHeatGcodeOff = it }
         dataMap.getString("con_klipper_heat_label")?.let     { klipperHeatLabel           = it }

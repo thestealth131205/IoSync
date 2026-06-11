@@ -175,6 +175,53 @@ object WatchKlipperClient {
         }.onFailure { Log.e(TAG, "queryBoolField($objectName/$field) fehlgeschlagen: ${it.message}") }
     }
 
+    /**
+     * Liest den aktuellen Status eines Moonraker-Power-Geräts (z.B. Tasmota).
+     * Gibt true (on) oder false (off) zurück.
+     * API: GET /machine/device_power/status?<deviceName>
+     */
+    suspend fun queryPowerDeviceStatus(
+        host: String,
+        port: Int,
+        deviceName: String,
+        apiKey: String = ""
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        runCatching {
+            val enc = deviceName.replace(" ", "%20")
+            val url = buildUrl(host, port, "/machine/device_power/status?$enc")
+            val response = okHttpClient.newCall(
+                Request.Builder().url(url).apiKeyHeader(apiKey).get().build()
+            ).execute()
+            check(response.isSuccessful) { "HTTP ${response.code}" }
+            val body = response.body!!.string()
+            val result = JSONObject(body).getJSONObject("result")
+            result.getString(deviceName) == "on"
+        }.onFailure { Log.e(TAG, "queryPowerDeviceStatus($deviceName) fehlgeschlagen: ${it.message}") }
+    }
+
+    /**
+     * Schaltet ein Moonraker-Power-Gerät ein oder aus.
+     * API: POST /machine/device_power/device?device=<name>&action=on|off
+     */
+    suspend fun setPowerDevice(
+        host: String,
+        port: Int,
+        deviceName: String,
+        on: Boolean,
+        apiKey: String = ""
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val enc = deviceName.replace(" ", "%20")
+            val action = if (on) "on" else "off"
+            val url = buildUrl(host, port, "/machine/device_power/device?device=$enc&action=$action")
+            val response = okHttpClient.newCall(
+                Request.Builder().url(url).apiKeyHeader(apiKey)
+                    .post("".toRequestBody(null)).build()
+            ).execute()
+            check(response.isSuccessful) { "HTTP ${response.code}" }
+        }.onFailure { Log.e(TAG, "setPowerDevice($deviceName, on=$on) fehlgeschlagen: ${it.message}") }
+    }
+
     private fun buildUrl(host: String, port: Int, path: String): String {
         val h = host.trim().trimEnd('/')
         return if (h.startsWith("http://") || h.startsWith("https://")) {

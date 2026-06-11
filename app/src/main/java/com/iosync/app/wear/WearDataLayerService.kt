@@ -632,10 +632,15 @@ class WearDataLayerService @Inject constructor(
         p3PillField: String = "value",
         p3PillGcodeOn: String = "",
         p3PillGcodeOff: String = "",
+        klipperLedType: String = "gcode",
         klipperLedObject: String = "",
         klipperLedField: String = "value",
         klipperLedGcodeOn: String = "",
         klipperLedGcodeOff: String = "",
+        klipperLedPowerDevice: String = "",
+        klipperHeatType: String = "gcode",
+        klipperHeatHeaterName: String = "chamber",
+        klipperHeatTargetTemp: Int = 50,
         klipperHeatGcodeOn: String = "",
         klipperHeatGcodeOff: String = "",
         klipperLedLabel: String = "Led",
@@ -685,10 +690,15 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString("con_p3_pill_gcode_on", p3PillGcodeOn)
                     dataMap.putString("con_p3_pill_gcode_off", p3PillGcodeOff)
                     // Seite 3 – LED-Button + Chamber-Heater-Button
+                    dataMap.putString("con_klipper_led_type", klipperLedType)
                     dataMap.putString("con_klipper_led_object", klipperLedObject)
                     dataMap.putString("con_klipper_led_field", klipperLedField)
                     dataMap.putString("con_klipper_led_gcode_on", klipperLedGcodeOn)
                     dataMap.putString("con_klipper_led_gcode_off", klipperLedGcodeOff)
+                    dataMap.putString("con_klipper_led_power_device", klipperLedPowerDevice)
+                    dataMap.putString("con_klipper_heat_type", klipperHeatType)
+                    dataMap.putString("con_klipper_heat_heater_name", klipperHeatHeaterName)
+                    dataMap.putInt("con_klipper_heat_target_temp", klipperHeatTargetTemp)
                     dataMap.putString("con_klipper_heat_gcode_on", klipperHeatGcodeOn)
                     dataMap.putString("con_klipper_heat_gcode_off", klipperHeatGcodeOff)
                     dataMap.putString("con_klipper_led_label", klipperLedLabel)

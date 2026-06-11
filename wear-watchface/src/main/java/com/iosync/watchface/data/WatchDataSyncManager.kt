@@ -353,22 +353,32 @@ object WatchDataSyncManager {
         }
     }
 
-    /** LED-Button (Seite 3) schalten. */
+    /** LED-Button (Seite 3) schalten. Unterstützt G-Code und Moonraker Power-API (Tasmota). */
     fun toggleKlipperLed() {
         val c = WatchFaceConfigCache
         if (c.klipperHost.isBlank()) return
-        val gcode = if (c.klipperLedState) c.klipperLedGcodeOff else c.klipperLedGcodeOn
-        if (gcode.isBlank()) return
         val newState = !c.klipperLedState
         c.klipperLedState = newState
         invalidate?.invoke()
         scope?.launch {
-            WatchKlipperClient.sendGcode(c.klipperHost, c.klipperPort, gcode, c.klipperApiKey)
-                .onFailure {
-                    Log.e(TAG, "Klipper-LED-G-Code fehlgeschlagen: ${it.message}")
-                    c.klipperLedState = !newState
-                    invalidate?.invoke()
-                }
+            if (c.klipperLedType == "tasmota_power") {
+                if (c.klipperLedPowerDevice.isBlank()) { c.klipperLedState = !newState; invalidate?.invoke(); return@launch }
+                WatchKlipperClient.setPowerDevice(c.klipperHost, c.klipperPort, c.klipperLedPowerDevice, newState, c.klipperApiKey)
+                    .onFailure {
+                        Log.e(TAG, "LED-Power-API fehlgeschlagen: ${it.message}")
+                        c.klipperLedState = !newState
+                        invalidate?.invoke()
+                    }
+            } else {
+                val gcode = if (newState) c.klipperLedGcodeOn else c.klipperLedGcodeOff
+                if (gcode.isBlank()) { c.klipperLedState = !newState; invalidate?.invoke(); return@launch }
+                WatchKlipperClient.sendGcode(c.klipperHost, c.klipperPort, gcode, c.klipperApiKey)
+                    .onFailure {
+                        Log.e(TAG, "Klipper-LED-G-Code fehlgeschlagen: ${it.message}")
+                        c.klipperLedState = !newState
+                        invalidate?.invoke()
+                    }
+            }
         }
     }
 
@@ -376,7 +386,12 @@ object WatchDataSyncManager {
     fun toggleKlipperChamberHeat() {
         val c = WatchFaceConfigCache
         if (c.klipperHost.isBlank()) return
-        val gcode = if (c.klipperChamberHeatState) c.klipperChamberHeatGcodeOff else c.klipperChamberHeatGcodeOn
+        val gcode = if (c.klipperHeatType == "heater_generic") {
+            val target = if (c.klipperChamberHeatState) 0 else c.klipperHeatTargetTemp
+            "SET_HEATER_TEMPERATURE HEATER=${c.klipperHeatHeaterName} TARGET=$target"
+        } else {
+            if (c.klipperChamberHeatState) c.klipperChamberHeatGcodeOff else c.klipperChamberHeatGcodeOn
+        }
         if (gcode.isBlank()) return
         val newState = !c.klipperChamberHeatState
         c.klipperChamberHeatState = newState
@@ -475,7 +490,12 @@ object WatchDataSyncManager {
                     if (c.p3PillState != state) { c.p3PillState = state; changed = true }
                 }.onFailure { Log.w(TAG, "Klipper-P3-Pille fehlgeschlagen: ${it.message}") }
         }
-        if (c.klipperLedObject.isNotBlank()) {
+        if (c.klipperLedType == "tasmota_power" && c.klipperLedPowerDevice.isNotBlank()) {
+            WatchKlipperClient.queryPowerDeviceStatus(c.klipperHost, c.klipperPort, c.klipperLedPowerDevice, c.klipperApiKey)
+                .onSuccess { state ->
+                    if (c.klipperLedState != state) { c.klipperLedState = state; changed = true }
+                }.onFailure { Log.w(TAG, "LED-Power-Status fehlgeschlagen: ${it.message}") }
+        } else if (c.klipperLedObject.isNotBlank()) {
             WatchKlipperClient.queryBoolField(c.klipperHost, c.klipperPort, c.klipperLedObject, c.klipperLedField, c.klipperApiKey)
                 .onSuccess { state ->
                     if (c.klipperLedState != state) { c.klipperLedState = state; changed = true }

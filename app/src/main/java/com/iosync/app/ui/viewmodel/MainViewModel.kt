@@ -289,12 +289,19 @@ data class MainUiState(
     val p3PillGcodeOff: String = "",
     val p3PillState: Boolean = false,
     // ── Seite 3 – LED-Button ──────────────────────────────────────────────────
+    /** "gcode" = Moonraker G-Code; "tasmota_power" = Moonraker Power-API */
+    val klipperLedType: String = "gcode",
     val klipperLedGcodeOn: String = "",
     val klipperLedGcodeOff: String = "",
     val klipperLedObject: String = "",
     val klipperLedField: String = "value",
+    val klipperLedPowerDevice: String = "",
     val klipperLedLabel: String = "Led",
     // ── Seite 3 – Chamber-Heater-Button ───────────────────────────────────────
+    /** "gcode" = manuelle G-Code-Befehle; "heater_generic" = Moonraker heater_generic */
+    val klipperHeatType: String = "gcode",
+    val klipperHeatHeaterName: String = "chamber",
+    val klipperHeatTargetTemp: Int = 50,
     val klipperChamberHeatGcodeOn: String = "",
     val klipperChamberHeatGcodeOff: String = "",
     val klipperHeatLabel: String = "Heater",
@@ -529,15 +536,20 @@ class MainViewModel @Inject constructor(
         val KEY_CUSTOM_SLOT4_KLIPPER_SOURCE     = stringPreferencesKey("custom_slot4_klipper_source")
         val KEY_CUSTOM_SLOT4_KLIPPER_COLOR_ACT  = stringPreferencesKey("custom_slot4_klipper_color_active")
         // Seite 3 – LED-Button
-        val KEY_KLIPPER_LED_GCODE_ON  = stringPreferencesKey("klipper_led_gcode_on")
-        val KEY_KLIPPER_LED_GCODE_OFF = stringPreferencesKey("klipper_led_gcode_off")
-        val KEY_KLIPPER_LED_OBJECT    = stringPreferencesKey("klipper_led_object")
-        val KEY_KLIPPER_LED_FIELD     = stringPreferencesKey("klipper_led_field")
-        val KEY_KLIPPER_LED_LABEL     = stringPreferencesKey("klipper_led_label")
+        val KEY_KLIPPER_LED_TYPE         = stringPreferencesKey("klipper_led_type")
+        val KEY_KLIPPER_LED_GCODE_ON     = stringPreferencesKey("klipper_led_gcode_on")
+        val KEY_KLIPPER_LED_GCODE_OFF    = stringPreferencesKey("klipper_led_gcode_off")
+        val KEY_KLIPPER_LED_OBJECT       = stringPreferencesKey("klipper_led_object")
+        val KEY_KLIPPER_LED_FIELD        = stringPreferencesKey("klipper_led_field")
+        val KEY_KLIPPER_LED_POWER_DEVICE = stringPreferencesKey("klipper_led_power_device")
+        val KEY_KLIPPER_LED_LABEL        = stringPreferencesKey("klipper_led_label")
         // Seite 3 – Chamber-Heater-Button
-        val KEY_KLIPPER_HEAT_GCODE_ON  = stringPreferencesKey("klipper_heat_gcode_on")
-        val KEY_KLIPPER_HEAT_GCODE_OFF = stringPreferencesKey("klipper_heat_gcode_off")
-        val KEY_KLIPPER_HEAT_LABEL     = stringPreferencesKey("klipper_heat_label")
+        val KEY_KLIPPER_HEAT_TYPE        = stringPreferencesKey("klipper_heat_type")
+        val KEY_KLIPPER_HEAT_HEATER_NAME = stringPreferencesKey("klipper_heat_heater_name")
+        val KEY_KLIPPER_HEAT_TARGET_TEMP = intPreferencesKey("klipper_heat_target_temp")
+        val KEY_KLIPPER_HEAT_GCODE_ON    = stringPreferencesKey("klipper_heat_gcode_on")
+        val KEY_KLIPPER_HEAT_GCODE_OFF   = stringPreferencesKey("klipper_heat_gcode_off")
+        val KEY_KLIPPER_HEAT_LABEL       = stringPreferencesKey("klipper_heat_label")
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -752,12 +764,17 @@ class MainViewModel @Inject constructor(
             val p3PillGcodeOff   = prefs[KEY_P3_PILL_GCODE_OFF]   ?: ""
             val p3PillState      = prefs[KEY_P3_PILL_STATE]       ?: false
             // Seite 3 – LED-Button
-            val klipperLedGcodeOn  = prefs[KEY_KLIPPER_LED_GCODE_ON]  ?: ""
-            val klipperLedGcodeOff = prefs[KEY_KLIPPER_LED_GCODE_OFF] ?: ""
-            val klipperLedObject   = prefs[KEY_KLIPPER_LED_OBJECT]    ?: ""
-            val klipperLedField    = prefs[KEY_KLIPPER_LED_FIELD]     ?: "value"
-            val klipperLedLabel    = prefs[KEY_KLIPPER_LED_LABEL]    ?: "Led"
+            val klipperLedType         = prefs[KEY_KLIPPER_LED_TYPE]         ?: "gcode"
+            val klipperLedGcodeOn      = prefs[KEY_KLIPPER_LED_GCODE_ON]     ?: ""
+            val klipperLedGcodeOff     = prefs[KEY_KLIPPER_LED_GCODE_OFF]    ?: ""
+            val klipperLedObject       = prefs[KEY_KLIPPER_LED_OBJECT]       ?: ""
+            val klipperLedField        = prefs[KEY_KLIPPER_LED_FIELD]        ?: "value"
+            val klipperLedPowerDevice  = prefs[KEY_KLIPPER_LED_POWER_DEVICE] ?: ""
+            val klipperLedLabel        = prefs[KEY_KLIPPER_LED_LABEL]        ?: "Led"
             // Seite 3 – Chamber-Heater-Button
+            val klipperHeatType        = prefs[KEY_KLIPPER_HEAT_TYPE]        ?: "gcode"
+            val klipperHeatHeaterName  = prefs[KEY_KLIPPER_HEAT_HEATER_NAME] ?: "chamber"
+            val klipperHeatTargetTemp  = prefs[KEY_KLIPPER_HEAT_TARGET_TEMP] ?: 50
             val klipperHeatGcodeOn  = prefs[KEY_KLIPPER_HEAT_GCODE_ON]  ?: ""
             val klipperHeatGcodeOff = prefs[KEY_KLIPPER_HEAT_GCODE_OFF] ?: ""
             val klipperHeatLabel    = prefs[KEY_KLIPPER_HEAT_LABEL]     ?: "Heater"
@@ -961,11 +978,16 @@ class MainViewModel @Inject constructor(
                     p3PillGcodeOn     = p3PillGcodeOn,
                     p3PillGcodeOff    = p3PillGcodeOff,
                     p3PillState       = p3PillState,
-                    klipperLedGcodeOn  = klipperLedGcodeOn,
-                    klipperLedGcodeOff = klipperLedGcodeOff,
-                    klipperLedObject   = klipperLedObject,
-                    klipperLedField    = klipperLedField,
-                    klipperLedLabel    = klipperLedLabel,
+                    klipperLedType         = klipperLedType,
+                    klipperLedGcodeOn      = klipperLedGcodeOn,
+                    klipperLedGcodeOff     = klipperLedGcodeOff,
+                    klipperLedObject       = klipperLedObject,
+                    klipperLedField        = klipperLedField,
+                    klipperLedPowerDevice  = klipperLedPowerDevice,
+                    klipperLedLabel        = klipperLedLabel,
+                    klipperHeatType        = klipperHeatType,
+                    klipperHeatHeaterName  = klipperHeatHeaterName,
+                    klipperHeatTargetTemp  = klipperHeatTargetTemp,
                     klipperChamberHeatGcodeOn  = klipperHeatGcodeOn,
                     klipperChamberHeatGcodeOff = klipperHeatGcodeOff,
                     klipperHeatLabel   = klipperHeatLabel,
@@ -1343,12 +1365,17 @@ class MainViewModel @Inject constructor(
             p3PillField      = prefs[KEY_P3_PILL_FIELD]       ?: "value",
             p3PillGcodeOn    = prefs[KEY_P3_PILL_GCODE_ON]    ?: "",
             p3PillGcodeOff   = prefs[KEY_P3_PILL_GCODE_OFF]   ?: "",
-            klipperLedObject   = prefs[KEY_KLIPPER_LED_OBJECT]    ?: "",
-            klipperLedField    = prefs[KEY_KLIPPER_LED_FIELD]     ?: "value",
-            klipperLedGcodeOn  = prefs[KEY_KLIPPER_LED_GCODE_ON]  ?: "",
-            klipperLedGcodeOff = prefs[KEY_KLIPPER_LED_GCODE_OFF] ?: "",
-            klipperHeatGcodeOn  = prefs[KEY_KLIPPER_HEAT_GCODE_ON]  ?: "",
-            klipperHeatGcodeOff = prefs[KEY_KLIPPER_HEAT_GCODE_OFF] ?: "",
+            klipperLedType         = prefs[KEY_KLIPPER_LED_TYPE]         ?: "gcode",
+            klipperLedObject       = prefs[KEY_KLIPPER_LED_OBJECT]       ?: "",
+            klipperLedField        = prefs[KEY_KLIPPER_LED_FIELD]        ?: "value",
+            klipperLedGcodeOn      = prefs[KEY_KLIPPER_LED_GCODE_ON]     ?: "",
+            klipperLedGcodeOff     = prefs[KEY_KLIPPER_LED_GCODE_OFF]    ?: "",
+            klipperLedPowerDevice  = prefs[KEY_KLIPPER_LED_POWER_DEVICE] ?: "",
+            klipperHeatType        = prefs[KEY_KLIPPER_HEAT_TYPE]        ?: "gcode",
+            klipperHeatHeaterName  = prefs[KEY_KLIPPER_HEAT_HEATER_NAME] ?: "chamber",
+            klipperHeatTargetTemp  = prefs[KEY_KLIPPER_HEAT_TARGET_TEMP] ?: 50,
+            klipperHeatGcodeOn     = prefs[KEY_KLIPPER_HEAT_GCODE_ON]    ?: "",
+            klipperHeatGcodeOff    = prefs[KEY_KLIPPER_HEAT_GCODE_OFF]   ?: "",
             klipperLedLabel  = prefs[KEY_KLIPPER_LED_LABEL]  ?: "Led",
             klipperHeatLabel = prefs[KEY_KLIPPER_HEAT_LABEL] ?: "Heater",
             p3FontScale      = prefs[KEY_P3_FONT_SCALE]      ?: 100
@@ -1819,10 +1846,15 @@ class MainViewModel @Inject constructor(
         p3PillField: String,
         p3PillGcodeOn: String,
         p3PillGcodeOff: String,
+        klipperLedType: String = "gcode",
         klipperLedGcodeOn: String,
         klipperLedGcodeOff: String,
         klipperLedObject: String,
         klipperLedField: String,
+        klipperLedPowerDevice: String = "",
+        klipperHeatType: String = "gcode",
+        klipperHeatHeaterName: String = "chamber",
+        klipperHeatTargetTemp: Int = 50,
         klipperChamberHeatGcodeOn: String,
         klipperChamberHeatGcodeOff: String,
         klipperLedLabel: String = "Led",
@@ -1844,10 +1876,15 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_P3_PILL_FIELD]       = p3PillField
                 prefs[KEY_P3_PILL_GCODE_ON]    = p3PillGcodeOn
                 prefs[KEY_P3_PILL_GCODE_OFF]   = p3PillGcodeOff
-                prefs[KEY_KLIPPER_LED_GCODE_ON]  = klipperLedGcodeOn
-                prefs[KEY_KLIPPER_LED_GCODE_OFF] = klipperLedGcodeOff
-                prefs[KEY_KLIPPER_LED_OBJECT]    = klipperLedObject
-                prefs[KEY_KLIPPER_LED_FIELD]     = klipperLedField
+                prefs[KEY_KLIPPER_LED_TYPE]         = klipperLedType
+                prefs[KEY_KLIPPER_LED_GCODE_ON]     = klipperLedGcodeOn
+                prefs[KEY_KLIPPER_LED_GCODE_OFF]    = klipperLedGcodeOff
+                prefs[KEY_KLIPPER_LED_OBJECT]       = klipperLedObject
+                prefs[KEY_KLIPPER_LED_FIELD]        = klipperLedField
+                prefs[KEY_KLIPPER_LED_POWER_DEVICE] = klipperLedPowerDevice
+                prefs[KEY_KLIPPER_HEAT_TYPE]        = klipperHeatType
+                prefs[KEY_KLIPPER_HEAT_HEATER_NAME] = klipperHeatHeaterName
+                prefs[KEY_KLIPPER_HEAT_TARGET_TEMP] = klipperHeatTargetTemp
                 prefs[KEY_KLIPPER_HEAT_GCODE_ON]  = klipperChamberHeatGcodeOn
                 prefs[KEY_KLIPPER_HEAT_GCODE_OFF] = klipperChamberHeatGcodeOff
                 prefs[KEY_KLIPPER_LED_LABEL]  = klipperLedLabel
@@ -1869,10 +1906,15 @@ class MainViewModel @Inject constructor(
                     p3PillField       = p3PillField,
                     p3PillGcodeOn     = p3PillGcodeOn,
                     p3PillGcodeOff    = p3PillGcodeOff,
-                    klipperLedGcodeOn  = klipperLedGcodeOn,
-                    klipperLedGcodeOff = klipperLedGcodeOff,
-                    klipperLedObject   = klipperLedObject,
-                    klipperLedField    = klipperLedField,
+                    klipperLedType         = klipperLedType,
+                    klipperLedGcodeOn      = klipperLedGcodeOn,
+                    klipperLedGcodeOff     = klipperLedGcodeOff,
+                    klipperLedObject       = klipperLedObject,
+                    klipperLedField        = klipperLedField,
+                    klipperLedPowerDevice  = klipperLedPowerDevice,
+                    klipperHeatType        = klipperHeatType,
+                    klipperHeatHeaterName  = klipperHeatHeaterName,
+                    klipperHeatTargetTemp  = klipperHeatTargetTemp,
                     klipperChamberHeatGcodeOn  = klipperChamberHeatGcodeOn,
                     klipperChamberHeatGcodeOff = klipperChamberHeatGcodeOff,
                     klipperLedLabel  = klipperLedLabel,

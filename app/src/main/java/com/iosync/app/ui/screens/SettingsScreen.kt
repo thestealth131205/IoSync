@@ -254,10 +254,15 @@ fun SettingsScreen(
     var klipperEnabled           by remember(uiState.klipperEnabled)           { mutableStateOf(uiState.klipperEnabled) }
     var klipperChamberObject     by remember(uiState.klipperChamberObject)     { mutableStateOf(uiState.klipperChamberObject) }
     var klipperIntervalSec       by remember(uiState.klipperIntervalSec)       { mutableStateOf(uiState.klipperIntervalSec.toString()) }
+    var klipperLedType           by remember(uiState.klipperLedType)           { mutableStateOf(uiState.klipperLedType) }
     var klipperLedGcodeOn        by remember(uiState.klipperLedGcodeOn)        { mutableStateOf(uiState.klipperLedGcodeOn) }
     var klipperLedGcodeOff       by remember(uiState.klipperLedGcodeOff)       { mutableStateOf(uiState.klipperLedGcodeOff) }
     var klipperLedObject         by remember(uiState.klipperLedObject)         { mutableStateOf(uiState.klipperLedObject) }
     var klipperLedField          by remember(uiState.klipperLedField)          { mutableStateOf(uiState.klipperLedField) }
+    var klipperLedPowerDevice    by remember(uiState.klipperLedPowerDevice)    { mutableStateOf(uiState.klipperLedPowerDevice) }
+    var klipperHeatType            by remember(uiState.klipperHeatType)            { mutableStateOf(uiState.klipperHeatType) }
+    var klipperHeatHeaterName      by remember(uiState.klipperHeatHeaterName)      { mutableStateOf(uiState.klipperHeatHeaterName) }
+    var klipperHeatTargetTemp      by remember(uiState.klipperHeatTargetTemp)      { mutableStateOf(uiState.klipperHeatTargetTemp.toString()) }
     var klipperChamberHeatGcodeOn  by remember(uiState.klipperChamberHeatGcodeOn)  { mutableStateOf(uiState.klipperChamberHeatGcodeOn) }
     var klipperChamberHeatGcodeOff by remember(uiState.klipperChamberHeatGcodeOff) { mutableStateOf(uiState.klipperChamberHeatGcodeOff) }
     var klipperLedLabel            by remember(uiState.klipperLedLabel)            { mutableStateOf(uiState.klipperLedLabel) }
@@ -2191,56 +2196,126 @@ fun SettingsScreen(
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("LED-Button (Seite 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Der LED-Button auf Seite 3 sendet einen festen G-Code-Befehl.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = klipperLedLabel, onValueChange = { klipperLedLabel = it },
                     label = { Text("Kachel-Beschriftung") }, placeholder = { Text("Led") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
-                OutlinedTextField(
-                    value = klipperLedObject, onValueChange = { klipperLedObject = it },
-                    label = { Text("LED-Objekt (zum Lesen des Status)") }, placeholder = { Text("output_pin my_led") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
-                OutlinedTextField(
-                    value = klipperLedField, onValueChange = { klipperLedField = it },
-                    label = { Text("LED-Feld") }, placeholder = { Text("value") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
-                OutlinedTextField(
-                    value = klipperLedGcodeOn, onValueChange = { klipperLedGcodeOn = it },
-                    label = { Text("G-Code LED einschalten") }, placeholder = { Text("SET_PIN PIN=my_led VALUE=1") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
-                OutlinedTextField(
-                    value = klipperLedGcodeOff, onValueChange = { klipperLedGcodeOff = it },
-                    label = { Text("G-Code LED ausschalten") }, placeholder = { Text("SET_PIN PIN=my_led VALUE=0") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
+                // Steuerungstyp-Auswahl
+                Text("Steuerungstyp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = klipperLedType == "gcode",
+                        onClick  = { klipperLedType = "gcode" },
+                        label    = { Text("G-Code", style = MaterialTheme.typography.labelSmall) },
+                        colors   = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NeonYellow,
+                            selectedLabelColor     = Color(0xFF1A1A00)
+                        )
+                    )
+                    FilterChip(
+                        selected = klipperLedType == "tasmota_power",
+                        onClick  = { klipperLedType = "tasmota_power" },
+                        label    = { Text("Tasmota (Moonraker Power)", style = MaterialTheme.typography.labelSmall) },
+                        colors   = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NeonYellow,
+                            selectedLabelColor     = Color(0xFF1A1A00)
+                        )
+                    )
+                }
+                if (klipperLedType == "tasmota_power") {
+                    OutlinedTextField(
+                        value = klipperLedPowerDevice, onValueChange = { klipperLedPowerDevice = it },
+                        label = { Text("Moonraker-Power-Gerätename") }, placeholder = { Text("LED") },
+                        supportingText = { Text("Name aus [power LED] in moonraker.conf") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = klipperLedObject, onValueChange = { klipperLedObject = it },
+                        label = { Text("LED-Objekt (zum Lesen des Status)") }, placeholder = { Text("output_pin my_led") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = klipperLedField, onValueChange = { klipperLedField = it },
+                        label = { Text("LED-Feld") }, placeholder = { Text("value") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = klipperLedGcodeOn, onValueChange = { klipperLedGcodeOn = it },
+                        label = { Text("G-Code LED einschalten") }, placeholder = { Text("SET_PIN PIN=my_led VALUE=1") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = klipperLedGcodeOff, onValueChange = { klipperLedGcodeOff = it },
+                        label = { Text("G-Code LED ausschalten") }, placeholder = { Text("SET_PIN PIN=my_led VALUE=0") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                }
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Chamber-Heater-Button (Seite 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Der Heater-Button sendet feste G-Code-Befehle zum Ein-/Ausschalten der Kammer-Heizung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = klipperHeatLabel, onValueChange = { klipperHeatLabel = it },
                     label = { Text("Kachel-Beschriftung") }, placeholder = { Text("Heater") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
-                OutlinedTextField(
-                    value = klipperChamberObject, onValueChange = { klipperChamberObject = it },
-                    label = { Text("Chamber-Objekt (zum Lesen des Status)") }, placeholder = { Text("heater_generic chamber") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
-                OutlinedTextField(
-                    value = klipperChamberHeatGcodeOn, onValueChange = { klipperChamberHeatGcodeOn = it },
-                    label = { Text("G-Code Heizung einschalten") }, placeholder = { Text("SET_HEATER_TEMPERATURE HEATER=chamber TARGET=50") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
-                OutlinedTextField(
-                    value = klipperChamberHeatGcodeOff, onValueChange = { klipperChamberHeatGcodeOff = it },
-                    label = { Text("G-Code Heizung ausschalten") }, placeholder = { Text("SET_HEATER_TEMPERATURE HEATER=chamber TARGET=0") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
+                Text("Steuerungstyp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = klipperHeatType == "heater_generic",
+                        onClick  = { klipperHeatType = "heater_generic" },
+                        label    = { Text("heater_generic", style = MaterialTheme.typography.labelSmall) },
+                        colors   = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NeonYellow,
+                            selectedLabelColor     = Color(0xFF1A1A00)
+                        )
+                    )
+                    FilterChip(
+                        selected = klipperHeatType == "gcode",
+                        onClick  = { klipperHeatType = "gcode" },
+                        label    = { Text("G-Code", style = MaterialTheme.typography.labelSmall) },
+                        colors   = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NeonYellow,
+                            selectedLabelColor     = Color(0xFF1A1A00)
+                        )
+                    )
+                }
+                if (klipperHeatType == "heater_generic") {
+                    OutlinedTextField(
+                        value = klipperHeatHeaterName, onValueChange = { klipperHeatHeaterName = it },
+                        label = { Text("Heater-Name") }, placeholder = { Text("chamber") },
+                        supportingText = { Text("Name aus [heater_generic chamber] → \"chamber\"") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = klipperHeatTargetTemp, onValueChange = { klipperHeatTargetTemp = it },
+                        label = { Text("Zieltemperatur (°C, beim Einschalten)") }, placeholder = { Text("50") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = klipperChamberObject, onValueChange = { klipperChamberObject = it },
+                        label = { Text("Chamber-Objekt (Status-Abfrage)") }, placeholder = { Text("heater_generic chamber") },
+                        supportingText = { Text("Wird für Temperaturanzeige und ON/OFF-Status verwendet") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = klipperChamberObject, onValueChange = { klipperChamberObject = it },
+                        label = { Text("Chamber-Objekt (zum Lesen des Status)") }, placeholder = { Text("heater_generic chamber") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = klipperChamberHeatGcodeOn, onValueChange = { klipperChamberHeatGcodeOn = it },
+                        label = { Text("G-Code Heizung einschalten") }, placeholder = { Text("SET_HEATER_TEMPERATURE HEATER=chamber TARGET=50") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = klipperChamberHeatGcodeOff, onValueChange = { klipperChamberHeatGcodeOff = it },
+                        label = { Text("G-Code Heizung ausschalten") }, placeholder = { Text("SET_HEATER_TEMPERATURE HEATER=chamber TARGET=0") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                }
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Schriftgröße Seite 3", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2275,10 +2350,15 @@ fun SettingsScreen(
                             p3PillField             = p3PillField.trim(),
                             p3PillGcodeOn           = p3PillGcodeOn.trim(),
                             p3PillGcodeOff          = p3PillGcodeOff.trim(),
+                            klipperLedType          = klipperLedType,
                             klipperLedGcodeOn       = klipperLedGcodeOn.trim(),
                             klipperLedGcodeOff      = klipperLedGcodeOff.trim(),
                             klipperLedObject        = klipperLedObject.trim(),
                             klipperLedField         = klipperLedField.trim(),
+                            klipperLedPowerDevice   = klipperLedPowerDevice.trim(),
+                            klipperHeatType        = klipperHeatType,
+                            klipperHeatHeaterName  = klipperHeatHeaterName.trim().ifBlank { "chamber" },
+                            klipperHeatTargetTemp  = klipperHeatTargetTemp.toIntOrNull()?.coerceIn(0, 200) ?: 50,
                             klipperChamberHeatGcodeOn  = klipperChamberHeatGcodeOn.trim(),
                             klipperChamberHeatGcodeOff = klipperChamberHeatGcodeOff.trim(),
                             klipperLedLabel  = klipperLedLabel.trim().ifBlank { "Led" },

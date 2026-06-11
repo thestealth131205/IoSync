@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.7.1",
+        date = "11.06.2026",
+        changes = listOf(
+            "Page 3: LED-Kachel unterstützt Tasmota Power-Geräte (Moonraker Power API)",
+            "Page 3: Chamber-Heater-Kachel hinzugefügt (heater_generic)",
+            "Page 3: Chamber-Heater-Symbol als Flamme (grau/orange-rot)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.7.0",
         date = "11.06.2026",
         changes = listOf(

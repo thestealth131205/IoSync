@@ -3245,15 +3245,16 @@ class IoSyncWatchFaceRenderer(
         canvas.drawText(pctStr, cx, pctTextY, pctPaint)
 
         // ── Temperatur-Anzeigen ────────────────────────────────────────────────
+        val fontScale = WatchFaceConfigCache.p3FontScale / 100f
         val tempLabelPaint = Paint().apply {
             isAntiAlias = true; color = Color.parseColor("#888888")
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            textSize = radius * 0.068f; textAlign = Paint.Align.CENTER
+            textSize = radius * 0.068f * fontScale; textAlign = Paint.Align.CENTER
         }
         val tempValuePaint = Paint().apply {
             isAntiAlias = true; color = Color.parseColor("#E8E8E8")
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = radius * 0.090f; textAlign = Paint.Align.CENTER
+            textSize = radius * 0.090f * fontScale; textAlign = Paint.Align.CENTER
         }
         val tempRowY1 = cy - radius * 0.22f
         val tempRowY2 = cy - radius * 0.22f + radius * 0.16f
@@ -3312,7 +3313,7 @@ class IoSyncWatchFaceRenderer(
         val heatIsOn = config.klipperChamberHeatState
         val heatPressed = p3HeatBtnPressed && (System.currentTimeMillis() - p3HeatBtnPressedAt < PILL_PRESS_DURATION_MS)
         drawP3Tile(canvas, tileCx, heatTileCy, tileW, tileH, config.klipperHeatLabel.ifBlank { "Heater" }, heatIsOn, heatPressed,
-                   Color.parseColor("#FF6A00"), "flame")
+                   Color.parseColor("#FF4500"), "flame")
         p3HeatBtnBounds.set(tileCx - tileW / 2f, heatTileCy - tileH / 2f, tileCx + tileW / 2f, heatTileCy + tileH / 2f)
 
         // Hinweis: Die 6-Uhr-Pille wird auf Seite 3 NICHT mehr gezeichnet
@@ -3519,14 +3520,34 @@ class IoSyncWatchFaceRenderer(
             p.color = Color.argb(50, Color.red(color), Color.green(color), Color.blue(color))
             canvas.drawCircle(cx, cy, r * 1.3f, p)
         }
+        // Äußere Flamme: Spitze oben, Seiten bauchig, gerundete Basis
         p.color = color
-        val path = android.graphics.Path().apply {
-            moveTo(cx, cy - r)
-            cubicTo(cx + r * 1.1f, cy - r * 0.1f, cx + r * 0.55f, cy + r, cx, cy + r)
-            cubicTo(cx - r * 0.55f, cy + r, cx - r * 1.1f, cy - r * 0.1f, cx, cy - r)
+        val outer = android.graphics.Path().apply {
+            moveTo(cx, cy - r)                                            // Spitze oben
+            cubicTo(cx + r * 0.9f, cy - r * 0.3f,                       // rechts-oben-Bogen
+                    cx + r * 0.8f, cy + r * 0.45f,
+                    cx + r * 0.45f, cy + r * 0.82f)                      // rechte Basis
+            quadTo(cx, cy + r, cx - r * 0.45f, cy + r * 0.82f)          // Basisrundung
+            cubicTo(cx - r * 0.8f, cy + r * 0.45f,                      // links-Bogen
+                    cx - r * 0.9f, cy - r * 0.3f,
+                    cx, cy - r)                                            // zurück zur Spitze
             close()
         }
-        canvas.drawPath(path, p)
+        canvas.drawPath(outer, p)
+        // Innere Flamme: semi-transparentes Highlight
+        val innerAlpha = if (glow) 150 else 55
+        p.color = Color.argb(innerAlpha, 255, 255, 180)
+        val inner = android.graphics.Path().apply {
+            moveTo(cx, cy - r * 0.32f)                                   // innere Spitze
+            cubicTo(cx + r * 0.33f, cy - r * 0.02f,
+                    cx + r * 0.28f, cy + r * 0.48f,
+                    cx, cy + r * 0.62f)                                   // innere Basis
+            cubicTo(cx - r * 0.28f, cy + r * 0.48f,
+                    cx - r * 0.33f, cy - r * 0.02f,
+                    cx, cy - r * 0.32f)
+            close()
+        }
+        canvas.drawPath(inner, p)
     }
 
     override fun onDestroy() {
