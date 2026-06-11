@@ -637,7 +637,10 @@ class WearDataLayerService @Inject constructor(
         klipperLedGcodeOn: String = "",
         klipperLedGcodeOff: String = "",
         klipperHeatGcodeOn: String = "",
-        klipperHeatGcodeOff: String = ""
+        klipperHeatGcodeOff: String = "",
+        klipperLedLabel: String = "Led",
+        klipperHeatLabel: String = "Heater",
+        p3FontScale: Int = 100
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -688,6 +691,9 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString("con_klipper_led_gcode_off", klipperLedGcodeOff)
                     dataMap.putString("con_klipper_heat_gcode_on", klipperHeatGcodeOn)
                     dataMap.putString("con_klipper_heat_gcode_off", klipperHeatGcodeOff)
+                    dataMap.putString("con_klipper_led_label", klipperLedLabel)
+                    dataMap.putString("con_klipper_heat_label", klipperHeatLabel)
+                    dataMap.putInt("con_p3_font_scale", p3FontScale)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

@@ -24,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -258,6 +260,9 @@ fun SettingsScreen(
     var klipperLedField          by remember(uiState.klipperLedField)          { mutableStateOf(uiState.klipperLedField) }
     var klipperChamberHeatGcodeOn  by remember(uiState.klipperChamberHeatGcodeOn)  { mutableStateOf(uiState.klipperChamberHeatGcodeOn) }
     var klipperChamberHeatGcodeOff by remember(uiState.klipperChamberHeatGcodeOff) { mutableStateOf(uiState.klipperChamberHeatGcodeOff) }
+    var klipperLedLabel            by remember(uiState.klipperLedLabel)            { mutableStateOf(uiState.klipperLedLabel) }
+    var klipperHeatLabel           by remember(uiState.klipperHeatLabel)           { mutableStateOf(uiState.klipperHeatLabel) }
+    var p3FontScale                by remember(uiState.p3FontScale)                { mutableStateOf(uiState.p3FontScale) }
     var sectionKlipper           by remember { mutableStateOf(false) }
 
     // NTP-Zeitkorrektur
@@ -2188,6 +2193,11 @@ fun SettingsScreen(
                 Text("LED-Button (Seite 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Der LED-Button auf Seite 3 sendet einen festen G-Code-Befehl.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
+                    value = klipperLedLabel, onValueChange = { klipperLedLabel = it },
+                    label = { Text("Kachel-Beschriftung") }, placeholder = { Text("Led") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
                     value = klipperLedObject, onValueChange = { klipperLedObject = it },
                     label = { Text("LED-Objekt (zum Lesen des Status)") }, placeholder = { Text("output_pin my_led") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
@@ -2212,6 +2222,11 @@ fun SettingsScreen(
                 Text("Chamber-Heater-Button (Seite 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Der Heater-Button sendet feste G-Code-Befehle zum Ein-/Ausschalten der Kammer-Heizung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
+                    value = klipperHeatLabel, onValueChange = { klipperHeatLabel = it },
+                    label = { Text("Kachel-Beschriftung") }, placeholder = { Text("Heater") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
                     value = klipperChamberObject, onValueChange = { klipperChamberObject = it },
                     label = { Text("Chamber-Objekt (zum Lesen des Status)") }, placeholder = { Text("heater_generic chamber") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
@@ -2226,6 +2241,22 @@ fun SettingsScreen(
                     label = { Text("G-Code Heizung ausschalten") }, placeholder = { Text("SET_HEATER_TEMPERATURE HEATER=chamber TARGET=0") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Schriftgröße Seite 3", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(100 to "Standard", 105 to "+5%", 110 to "+10%", 115 to "+15%", 120 to "+20%").forEach { (value, label) ->
+                        FilterChip(
+                            selected = p3FontScale == value,
+                            onClick  = { p3FontScale = value },
+                            label    = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            colors   = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = NeonYellow,
+                                selectedLabelColor     = Color(0xFF1A1A00)
+                            )
+                        )
+                    }
+                }
 
                 Spacer(Modifier.height(8.dp))
                 Button(
@@ -2249,7 +2280,10 @@ fun SettingsScreen(
                             klipperLedObject        = klipperLedObject.trim(),
                             klipperLedField         = klipperLedField.trim(),
                             klipperChamberHeatGcodeOn  = klipperChamberHeatGcodeOn.trim(),
-                            klipperChamberHeatGcodeOff = klipperChamberHeatGcodeOff.trim()
+                            klipperChamberHeatGcodeOff = klipperChamberHeatGcodeOff.trim(),
+                            klipperLedLabel  = klipperLedLabel.trim().ifBlank { "Led" },
+                            klipperHeatLabel = klipperHeatLabel.trim().ifBlank { "Heater" },
+                            p3FontScale      = p3FontScale
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),

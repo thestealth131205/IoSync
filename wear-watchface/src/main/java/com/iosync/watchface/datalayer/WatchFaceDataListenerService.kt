@@ -638,11 +638,14 @@ object WatchFaceConfigCache {
     @Volatile var klipperLedObject: String = ""  // Objekt zum Ablesen des LED-Status
     @Volatile var klipperLedField: String = "value"
     @Volatile var klipperLedState: Boolean = false
+    @Volatile var klipperLedLabel: String = "Led"
 
     // ── Seite 3 – Chamber-Heater-Button ───────────────────────────────────────
     @Volatile var klipperChamberHeatGcodeOn: String = ""
     @Volatile var klipperChamberHeatGcodeOff: String = ""
     @Volatile var klipperChamberHeatState: Boolean = false
+    @Volatile var klipperHeatLabel: String = "Heater"
+    @Volatile var p3FontScale: Int = 100
 
     // ── Seite 3 – Live-Druckdaten (direkt von Moonraker abgerufen) ────────────
     @Volatile var klipperIsActive: Boolean = false   // true wenn Drucker aktiv druckt
@@ -737,9 +740,12 @@ object WatchFaceConfigCache {
         dataMap.getString("con_klipper_led_gcode_off")?.let { klipperLedGcodeOff = it }
         dataMap.getString("con_klipper_led_object")?.let    { klipperLedObject   = it }
         dataMap.getString("con_klipper_led_field")?.let     { klipperLedField    = it }
+        dataMap.getString("con_klipper_led_label")?.let     { klipperLedLabel    = it }
         // Seite 3 – Chamber-Heater-Button
         dataMap.getString("con_klipper_heat_gcode_on")?.let  { klipperChamberHeatGcodeOn  = it }
         dataMap.getString("con_klipper_heat_gcode_off")?.let { klipperChamberHeatGcodeOff = it }
+        dataMap.getString("con_klipper_heat_label")?.let     { klipperHeatLabel           = it }
+        if (dataMap.containsKey("con_p3_font_scale")) p3FontScale = dataMap.getInt("con_p3_font_scale")
     }
 
     fun updateFromDataMap(dataMap: DataMap) {

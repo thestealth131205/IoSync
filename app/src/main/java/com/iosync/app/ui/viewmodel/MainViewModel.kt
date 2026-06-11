@@ -293,9 +293,13 @@ data class MainUiState(
     val klipperLedGcodeOff: String = "",
     val klipperLedObject: String = "",
     val klipperLedField: String = "value",
+    val klipperLedLabel: String = "Led",
     // ── Seite 3 – Chamber-Heater-Button ───────────────────────────────────────
     val klipperChamberHeatGcodeOn: String = "",
-    val klipperChamberHeatGcodeOff: String = ""
+    val klipperChamberHeatGcodeOff: String = "",
+    val klipperHeatLabel: String = "Heater",
+    // ── Seite 3 – Schriftgröße ────────────────────────────────────────────────
+    val p3FontScale: Int = 100
 )
 
 @HiltViewModel
@@ -519,6 +523,7 @@ class MainViewModel @Inject constructor(
         val KEY_P3_PILL_GCODE_ON     = stringPreferencesKey("p3_pill_gcode_on")
         val KEY_P3_PILL_GCODE_OFF    = stringPreferencesKey("p3_pill_gcode_off")
         val KEY_P3_PILL_STATE        = booleanPreferencesKey("p3_pill_state")
+        val KEY_P3_FONT_SCALE        = intPreferencesKey("p3_font_scale")
         // Slot 4 – Klipper-Override
         val KEY_CUSTOM_SLOT4_USE_KLIPPER        = booleanPreferencesKey("custom_slot4_use_klipper")
         val KEY_CUSTOM_SLOT4_KLIPPER_SOURCE     = stringPreferencesKey("custom_slot4_klipper_source")
@@ -528,9 +533,11 @@ class MainViewModel @Inject constructor(
         val KEY_KLIPPER_LED_GCODE_OFF = stringPreferencesKey("klipper_led_gcode_off")
         val KEY_KLIPPER_LED_OBJECT    = stringPreferencesKey("klipper_led_object")
         val KEY_KLIPPER_LED_FIELD     = stringPreferencesKey("klipper_led_field")
+        val KEY_KLIPPER_LED_LABEL     = stringPreferencesKey("klipper_led_label")
         // Seite 3 – Chamber-Heater-Button
         val KEY_KLIPPER_HEAT_GCODE_ON  = stringPreferencesKey("klipper_heat_gcode_on")
         val KEY_KLIPPER_HEAT_GCODE_OFF = stringPreferencesKey("klipper_heat_gcode_off")
+        val KEY_KLIPPER_HEAT_LABEL     = stringPreferencesKey("klipper_heat_label")
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -749,9 +756,12 @@ class MainViewModel @Inject constructor(
             val klipperLedGcodeOff = prefs[KEY_KLIPPER_LED_GCODE_OFF] ?: ""
             val klipperLedObject   = prefs[KEY_KLIPPER_LED_OBJECT]    ?: ""
             val klipperLedField    = prefs[KEY_KLIPPER_LED_FIELD]     ?: "value"
+            val klipperLedLabel    = prefs[KEY_KLIPPER_LED_LABEL]    ?: "Led"
             // Seite 3 – Chamber-Heater-Button
             val klipperHeatGcodeOn  = prefs[KEY_KLIPPER_HEAT_GCODE_ON]  ?: ""
             val klipperHeatGcodeOff = prefs[KEY_KLIPPER_HEAT_GCODE_OFF] ?: ""
+            val klipperHeatLabel    = prefs[KEY_KLIPPER_HEAT_LABEL]     ?: "Heater"
+            val p3FontScale         = prefs[KEY_P3_FONT_SCALE]          ?: 100
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -955,8 +965,11 @@ class MainViewModel @Inject constructor(
                     klipperLedGcodeOff = klipperLedGcodeOff,
                     klipperLedObject   = klipperLedObject,
                     klipperLedField    = klipperLedField,
+                    klipperLedLabel    = klipperLedLabel,
                     klipperChamberHeatGcodeOn  = klipperHeatGcodeOn,
-                    klipperChamberHeatGcodeOff = klipperHeatGcodeOff
+                    klipperChamberHeatGcodeOff = klipperHeatGcodeOff,
+                    klipperHeatLabel   = klipperHeatLabel,
+                    p3FontScale        = p3FontScale
                 )
             }
     }
@@ -1335,7 +1348,10 @@ class MainViewModel @Inject constructor(
             klipperLedGcodeOn  = prefs[KEY_KLIPPER_LED_GCODE_ON]  ?: "",
             klipperLedGcodeOff = prefs[KEY_KLIPPER_LED_GCODE_OFF] ?: "",
             klipperHeatGcodeOn  = prefs[KEY_KLIPPER_HEAT_GCODE_ON]  ?: "",
-            klipperHeatGcodeOff = prefs[KEY_KLIPPER_HEAT_GCODE_OFF] ?: ""
+            klipperHeatGcodeOff = prefs[KEY_KLIPPER_HEAT_GCODE_OFF] ?: "",
+            klipperLedLabel  = prefs[KEY_KLIPPER_LED_LABEL]  ?: "Led",
+            klipperHeatLabel = prefs[KEY_KLIPPER_HEAT_LABEL] ?: "Heater",
+            p3FontScale      = prefs[KEY_P3_FONT_SCALE]      ?: 100
         )
     }
 
@@ -1808,7 +1824,10 @@ class MainViewModel @Inject constructor(
         klipperLedObject: String,
         klipperLedField: String,
         klipperChamberHeatGcodeOn: String,
-        klipperChamberHeatGcodeOff: String
+        klipperChamberHeatGcodeOff: String,
+        klipperLedLabel: String = "Led",
+        klipperHeatLabel: String = "Heater",
+        p3FontScale: Int = 100
     ) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -1831,6 +1850,9 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_KLIPPER_LED_FIELD]     = klipperLedField
                 prefs[KEY_KLIPPER_HEAT_GCODE_ON]  = klipperChamberHeatGcodeOn
                 prefs[KEY_KLIPPER_HEAT_GCODE_OFF] = klipperChamberHeatGcodeOff
+                prefs[KEY_KLIPPER_LED_LABEL]  = klipperLedLabel
+                prefs[KEY_KLIPPER_HEAT_LABEL] = klipperHeatLabel
+                prefs[KEY_P3_FONT_SCALE]      = p3FontScale
             }
             _uiState.update {
                 it.copy(
@@ -1852,7 +1874,10 @@ class MainViewModel @Inject constructor(
                     klipperLedObject   = klipperLedObject,
                     klipperLedField    = klipperLedField,
                     klipperChamberHeatGcodeOn  = klipperChamberHeatGcodeOn,
-                    klipperChamberHeatGcodeOff = klipperChamberHeatGcodeOff
+                    klipperChamberHeatGcodeOff = klipperChamberHeatGcodeOff,
+                    klipperLedLabel  = klipperLedLabel,
+                    klipperHeatLabel = klipperHeatLabel,
+                    p3FontScale      = p3FontScale
                 )
             }
             try {

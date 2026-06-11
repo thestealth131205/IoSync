@@ -3275,12 +3275,12 @@ class IoSyncWatchFaceRenderer(
 
         // ── Kachel-Geometrie (links: Tempo/Lüfter, rechts: LED/Heater) ────────
         // Kacheln füllen den Raum bis kurz vor den runden Display-Rand aus.
-        val tileW   = radius * 0.66f
-        val tileH   = radius * 0.205f
+        val tileW   = radius * 0.76f
+        val tileH   = radius * 0.265f
         val tileCx  = cx + radius * 0.40f
         val leftTileCx = cx - radius * 0.40f
-        val ledTileCy  = cy + radius * 0.17f
-        val heatTileCy = cy + radius * 0.40f
+        val ledTileCy  = cy + radius * 0.20f
+        val heatTileCy = cy + radius * 0.475f
 
         // ── Tempo-Kachel + Lüfter-Kachel (links, gestapelt) ───────────────────
         // Info-Kacheln im selben Stil wie LED/Heater, zeigen reine Werte an.
@@ -3305,13 +3305,13 @@ class IoSyncWatchFaceRenderer(
 
         val ledIsOn = config.klipperLedState
         val ledPressed = p3LedBtnPressed && (System.currentTimeMillis() - p3LedBtnPressedAt < PILL_PRESS_DURATION_MS)
-        drawP3Tile(canvas, tileCx, ledTileCy, tileW, tileH, "Led", ledIsOn, ledPressed,
+        drawP3Tile(canvas, tileCx, ledTileCy, tileW, tileH, config.klipperLedLabel.ifBlank { "Led" }, ledIsOn, ledPressed,
                    Color.parseColor("#FFC400"), "lamp")
         p3LedBtnBounds.set(tileCx - tileW / 2f, ledTileCy - tileH / 2f, tileCx + tileW / 2f, ledTileCy + tileH / 2f)
 
         val heatIsOn = config.klipperChamberHeatState
         val heatPressed = p3HeatBtnPressed && (System.currentTimeMillis() - p3HeatBtnPressedAt < PILL_PRESS_DURATION_MS)
-        drawP3Tile(canvas, tileCx, heatTileCy, tileW, tileH, "Heater", heatIsOn, heatPressed,
+        drawP3Tile(canvas, tileCx, heatTileCy, tileW, tileH, config.klipperHeatLabel.ifBlank { "Heater" }, heatIsOn, heatPressed,
                    Color.parseColor("#FF6A00"), "flame")
         p3HeatBtnBounds.set(tileCx - tileW / 2f, heatTileCy - tileH / 2f, tileCx + tileW / 2f, heatTileCy + tileH / 2f)
 
@@ -3387,16 +3387,17 @@ class IoSyncWatchFaceRenderer(
         pillFillPaint.color = if (pressed) Color.parseColor("#3A3A3A") else Color.parseColor("#26262B")
         canvas.drawRoundRect(rect, corner, corner, pillFillPaint)
 
+        val fontScale = WatchFaceConfigCache.p3FontScale / 100f
         val textX = rect.left + tileH * 0.45f
         val labelPaint = Paint().apply {
             isAntiAlias = true; color = Color.WHITE
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = tileH * 0.34f; textAlign = Paint.Align.LEFT
+            textSize = tileH * 0.34f * fontScale; textAlign = Paint.Align.LEFT
         }
         val statusPaint = Paint().apply {
             isAntiAlias = true; color = Color.parseColor("#999999")
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            textSize = tileH * 0.28f; textAlign = Paint.Align.LEFT
+            textSize = tileH * 0.28f * fontScale; textAlign = Paint.Align.LEFT
         }
         canvas.drawText(label, textX, tileCy - tileH * 0.06f, labelPaint)
         canvas.drawText(if (isOn) "An" else "Aus", textX, tileCy + tileH * 0.30f, statusPaint)
@@ -3418,16 +3419,17 @@ class IoSyncWatchFaceRenderer(
         pillFillPaint.color = Color.parseColor("#26262B")
         canvas.drawRoundRect(rect, corner, corner, pillFillPaint)
 
+        val fontScale = WatchFaceConfigCache.p3FontScale / 100f
         val textX = rect.left + tileH * 0.45f
         val labelPaint = Paint().apply {
             isAntiAlias = true; color = Color.parseColor("#999999")
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            textSize = tileH * 0.28f; textAlign = Paint.Align.LEFT
+            textSize = tileH * 0.28f * fontScale; textAlign = Paint.Align.LEFT
         }
         val valuePaint = Paint().apply {
             isAntiAlias = true; color = Color.WHITE
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = tileH * 0.34f; textAlign = Paint.Align.LEFT
+            textSize = tileH * 0.34f * fontScale; textAlign = Paint.Align.LEFT
         }
         canvas.drawText(label, textX, tileCy - tileH * 0.06f, labelPaint)
         canvas.drawText(valueText, textX, tileCy + tileH * 0.30f, valuePaint)

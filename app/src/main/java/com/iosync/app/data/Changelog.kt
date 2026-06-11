@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.7.0",
+        date = "11.06.2026",
+        changes = listOf(
+            "Page 3: Kacheln vergrößert",
+            "Page 3: Beschriftung für LED- und Heater-Kacheln konfigurierbar",
+            "Page 3: Schriftgröße per Stufen (+5%/+10%/+15%/+20%) anpassbar"
+        )
+    ),
+    ChangelogEntry(
         version = "4.6.9",
         date = "10.06.2026",
         changes = listOf(
