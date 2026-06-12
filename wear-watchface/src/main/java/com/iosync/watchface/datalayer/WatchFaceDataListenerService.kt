@@ -33,6 +33,7 @@ private const val KEY_WF_SECONDS_NUMBER_COLOR = "wf_seconds_number_color"
 
 // ── Gesundheits-/Wetter-Anzeige-Keys ─────────────────────────────────────────
 private const val KEY_WF_SHOW_WEATHER     = "wf_show_weather"
+private const val KEY_WF_SHOW_SUNRISE     = "wf_show_sunrise"
 private const val KEY_WF_SHOW_HEART_RATE  = "wf_show_heart_rate"
 private const val KEY_WF_SHOW_OXYGEN      = "wf_show_oxygen"
 private const val KEY_WF_SHOW_CALORIES    = "wf_show_calories"
@@ -416,6 +417,7 @@ object WatchFaceConfigCache {
     @Volatile var secondsNumberColorId: String = "dim_time"
     // Gesundheits- und Wetter-Anzeige
     @Volatile var showWeather: Boolean = true
+    @Volatile var showSunrise: Boolean = true
     @Volatile var showHeartRate: Boolean = true
     @Volatile var showOxygen: Boolean = false
     @Volatile var showCalories: Boolean = true
@@ -776,6 +778,7 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_WF_SECONDS_GLOW_WIDTH))  secondsGlowWidth  = dataMap.getInt(KEY_WF_SECONDS_GLOW_WIDTH)
         dataMap.getString(KEY_WF_SECONDS_NUMBER_COLOR)?.let { secondsNumberColorId = it }
         if (dataMap.containsKey(KEY_WF_SHOW_WEATHER))      showWeather    = dataMap.getBoolean(KEY_WF_SHOW_WEATHER)
+        if (dataMap.containsKey(KEY_WF_SHOW_SUNRISE))      showSunrise    = dataMap.getBoolean(KEY_WF_SHOW_SUNRISE)
         if (dataMap.containsKey(KEY_WF_SHOW_HEART_RATE))   showHeartRate  = dataMap.getBoolean(KEY_WF_SHOW_HEART_RATE)
         if (dataMap.containsKey(KEY_WF_SHOW_OXYGEN))       showOxygen     = dataMap.getBoolean(KEY_WF_SHOW_OXYGEN)
         if (dataMap.containsKey(KEY_WF_SHOW_CALORIES))     showCalories   = dataMap.getBoolean(KEY_WF_SHOW_CALORIES)

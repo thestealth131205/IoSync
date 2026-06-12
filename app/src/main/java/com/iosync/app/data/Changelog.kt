@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.7.3",
+        date = "12.06.2026",
+        changes = listOf(
+            "Watchface Seite 1: Anzeige für Sonnenauf-/-untergang ein-/ausschaltbar"
+        )
+    ),
+    ChangelogEntry(
         version = "4.7.2",
         date = "12.06.2026",
         changes = listOf(

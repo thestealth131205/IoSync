@@ -110,6 +110,7 @@ fun SettingsScreen(
 
     // Wetter & Gesundheitsdaten
     var wfShowWeather   by remember(uiState.wfShowWeather)   { mutableStateOf(uiState.wfShowWeather) }
+    var wfShowSunrise   by remember(uiState.wfShowSunrise)   { mutableStateOf(uiState.wfShowSunrise) }
     var wfShowHeartRate by remember(uiState.wfShowHeartRate) { mutableStateOf(uiState.wfShowHeartRate) }
     var wfShowOxygen    by remember(uiState.wfShowOxygen)    { mutableStateOf(uiState.wfShowOxygen) }
     var wfShowCalories  by remember(uiState.wfShowCalories)  { mutableStateOf(uiState.wfShowCalories) }
@@ -334,7 +335,7 @@ fun SettingsScreen(
         wfTimeColor, wfDateColor, wfShowSeconds, wfShowTicks, wfShowWeekday,
         wfShowPhoneBattery, wfShowIoBrokerData, wfShowSecondsRing, wfSecondsRingColor,
         wfSecondsRingWidth, wfSecondsGlowWidth, wfSecondsNumberColor,
-        wfShowWeather, wfShowHeartRate, wfShowOxygen, wfShowCalories, wfShowSteps,
+        wfShowWeather, wfShowSunrise, wfShowHeartRate, wfShowOxygen, wfShowCalories, wfShowSteps,
         wfHrTextScale, wfKcalTextScale, wfStepsTextScale, wfWeatherTextScale, wfSunriseTextScale, wfWatchBatteryTextScale,
         wfBatteryRingColor1, wfBatteryRingColor2, wfBatteryRingStrokeScale,
         wfBatteryWarn1Color, wfBatteryWarn1Threshold, wfBatteryWarn2Color, wfBatteryWarn2Threshold,
@@ -358,6 +359,7 @@ fun SettingsScreen(
             secondsGlowWidth   = wfSecondsGlowWidth.toInt(),
             secondsNumberColor = wfSecondsNumberColor,
             showWeather        = wfShowWeather,
+            showSunrise        = wfShowSunrise,
             showHeartRate      = wfShowHeartRate,
             showOxygen         = wfShowOxygen,
             showCalories       = wfShowCalories,
@@ -1014,6 +1016,13 @@ fun SettingsScreen(
             }
 
             WatchFaceToggleRow(
+                text = "Sonnenauf-/-untergang anzeigen",
+                subText = "Komplikation links mit Sonnenauf- und -untergangszeit",
+                checked = wfShowSunrise,
+                onCheckedChange = { wfShowSunrise = it }
+            )
+
+            WatchFaceToggleRow(
                 text = "Puls anzeigen",
                 subText = "Herzfrequenz auf dem Watchface",
                 checked = wfShowHeartRate,
@@ -1583,6 +1592,7 @@ fun SettingsScreen(
                         secondsGlowWidth   = wfSecondsGlowWidth.toInt(),
                         secondsNumberColor = wfSecondsNumberColor,
                         showWeather        = wfShowWeather,
+                        showSunrise        = wfShowSunrise,
                         showHeartRate      = wfShowHeartRate,
                         showOxygen         = wfShowOxygen,
                         showCalories       = wfShowCalories,

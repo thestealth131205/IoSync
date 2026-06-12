@@ -2313,6 +2313,8 @@ class IoSyncWatchFaceRenderer(
         // bleibt aktiv, damit der System-Schrittzähler weiter Daten liefert.
         complicationSlotsManager.complicationSlots.forEach { (id, slot) ->
             if (id == 6) return@forEach
+            // Slot 2 = Sonnenauf-/-untergang: nur zeichnen, wenn in der App aktiviert
+            if (id == 2 && !WatchFaceConfigCache.showSunrise) return@forEach
             if (slot.enabled) slot.render(canvas, zonedDateTime, renderParameters)
         }
     }

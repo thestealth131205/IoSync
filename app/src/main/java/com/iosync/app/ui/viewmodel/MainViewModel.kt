@@ -91,6 +91,7 @@ data class MainUiState(
     val actionPillState: Boolean = false,
     // Watchface: Wetter & Gesundheitsanzeige
     val wfShowWeather: Boolean = true,
+    val wfShowSunrise: Boolean = true,
     val wfShowHeartRate: Boolean = true,
     val wfShowOxygen: Boolean = false,
     val wfShowCalories: Boolean = true,
@@ -354,6 +355,7 @@ class MainViewModel @Inject constructor(
 
         // Wetter & Gesundheit
         val KEY_WF_SHOW_WEATHER     = booleanPreferencesKey("wf_show_weather")
+        val KEY_WF_SHOW_SUNRISE     = booleanPreferencesKey("wf_show_sunrise")
         val KEY_WF_SHOW_HEART_RATE  = booleanPreferencesKey("wf_show_heart_rate")
         val KEY_WF_SHOW_OXYGEN      = booleanPreferencesKey("wf_show_oxygen")
         val KEY_WF_SHOW_CALORIES    = booleanPreferencesKey("wf_show_calories")
@@ -593,6 +595,7 @@ class MainViewModel @Inject constructor(
             val actionPillFixedValue = prefs[KEY_ACTION_PILL_FIXED_VALUE] ?: ""
             val actionPillState      = prefs[KEY_ACTION_PILL_STATE]       ?: false
             val wfShowWeather     = prefs[KEY_WF_SHOW_WEATHER]     ?: true
+            val wfShowSunrise     = prefs[KEY_WF_SHOW_SUNRISE]     ?: true
             val wfShowHeartRate   = prefs[KEY_WF_SHOW_HEART_RATE]  ?: true
             val wfShowOxygen      = prefs[KEY_WF_SHOW_OXYGEN]      ?: false
             val wfShowCalories    = prefs[KEY_WF_SHOW_CALORIES]    ?: true
@@ -815,6 +818,7 @@ class MainViewModel @Inject constructor(
                     actionPillFixedValue = actionPillFixedValue,
                     actionPillState      = actionPillState,
                     wfShowWeather     = wfShowWeather,
+                    wfShowSunrise     = wfShowSunrise,
                     wfShowHeartRate   = wfShowHeartRate,
                     wfShowOxygen      = wfShowOxygen,
                     wfShowCalories    = wfShowCalories,
@@ -1269,6 +1273,7 @@ class MainViewModel @Inject constructor(
             showBackground = s.wfShowBackground,
             hrColor = s.wfHrColor, kcalColor = s.wfKcalColor, oxygenColor = s.wfOxygenColor,
             stepsColor = s.wfStepsColor, sleepColor = s.wfSleepColor,
+            showSunrise = s.wfShowSunrise,
             sunriseColor = s.wfSunriseColor, slotColor = s.wfSlotColor,
             weatherTempSource = s.wfWeatherTempSource, weatherIoBrokerId = s.wfWeatherIoBrokerId,
             // Dynamische Überschrift + Format-Einheit der frei wählbaren Health-Slots
@@ -1430,6 +1435,7 @@ class MainViewModel @Inject constructor(
         secondsGlowWidth: Int = 100,
         secondsNumberColor: String = _uiState.value.wfSecondsNumberColor,
         showWeather: Boolean,
+        showSunrise: Boolean = _uiState.value.wfShowSunrise,
         showHeartRate: Boolean,
         showOxygen: Boolean,
         showCalories: Boolean,
@@ -1477,6 +1483,7 @@ class MainViewModel @Inject constructor(
                     wfSecondsGlowWidth  = secondsGlowWidth,
                     wfSecondsNumberColor = secondsNumberColor,
                     wfShowWeather       = showWeather,
+                    wfShowSunrise       = showSunrise,
                     wfShowHeartRate    = showHeartRate,
                     wfShowOxygen       = showOxygen,
                     wfShowCalories     = showCalories,
@@ -1548,6 +1555,7 @@ class MainViewModel @Inject constructor(
         secondsGlowWidth: Int = 100,
         secondsNumberColor: String = _uiState.value.wfSecondsNumberColor,
         showWeather: Boolean,
+        showSunrise: Boolean = _uiState.value.wfShowSunrise,
         showHeartRate: Boolean,
         showOxygen: Boolean,
         showCalories: Boolean,
@@ -1608,6 +1616,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_WF_SECONDS_GLOW_WIDTH]   = secondsGlowWidth
                 prefs[KEY_WF_SECONDS_NUMBER_COLOR] = secondsNumberColor
                 prefs[KEY_WF_SHOW_WEATHER]         = showWeather
+                prefs[KEY_WF_SHOW_SUNRISE]         = showSunrise
                 prefs[KEY_WF_SHOW_HEART_RATE]     = showHeartRate
                 prefs[KEY_WF_SHOW_OXYGEN]         = showOxygen
                 prefs[KEY_WF_SHOW_CALORIES]       = showCalories
@@ -1656,6 +1665,7 @@ class MainViewModel @Inject constructor(
                     wfSecondsGlowWidth  = secondsGlowWidth,
                     wfSecondsNumberColor = secondsNumberColor,
                     wfShowWeather       = showWeather,
+                    wfShowSunrise       = showSunrise,
                     wfShowHeartRate    = showHeartRate,
                     wfShowOxygen       = showOxygen,
                     wfShowCalories     = showCalories,

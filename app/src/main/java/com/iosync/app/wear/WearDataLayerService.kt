@@ -76,6 +76,7 @@ private const val KEY_WF_SECONDS_NUMBER_COLOR = "wf_seconds_number_color"
 
 // ── Gesundheits-/Wetter-Konfigurationsschlüssel ──────────────────────────────
 private const val KEY_WF_SHOW_WEATHER     = "wf_show_weather"
+private const val KEY_WF_SHOW_SUNRISE     = "wf_show_sunrise"
 private const val KEY_WF_SHOW_HEART_RATE  = "wf_show_heart_rate"
 private const val KEY_WF_SHOW_OXYGEN      = "wf_show_oxygen"
 private const val KEY_WF_SHOW_CALORIES    = "wf_show_calories"
@@ -358,6 +359,7 @@ class WearDataLayerService @Inject constructor(
         actionPillFixedValue: String = "",
         actionPillState: Boolean = false,
         showWeather: Boolean = true,
+        showSunrise: Boolean = true,
         showHeartRate: Boolean = true,
         showOxygen: Boolean = false,
         showCalories: Boolean = true,
@@ -465,6 +467,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt(KEY_WF_SECONDS_GLOW_WIDTH, secondsGlowWidth)
                     dataMap.putString(KEY_WF_SECONDS_NUMBER_COLOR, secondsNumberColor)
                     dataMap.putBoolean(KEY_WF_SHOW_WEATHER, showWeather)
+                    dataMap.putBoolean(KEY_WF_SHOW_SUNRISE, showSunrise)
                     dataMap.putBoolean(KEY_WF_SHOW_HEART_RATE, showHeartRate)
                     dataMap.putBoolean(KEY_WF_SHOW_OXYGEN, showOxygen)
                     dataMap.putBoolean(KEY_WF_SHOW_CALORIES, showCalories)
