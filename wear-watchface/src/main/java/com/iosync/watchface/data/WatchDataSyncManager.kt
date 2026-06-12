@@ -53,6 +53,10 @@ object WatchDataSyncManager {
     @Volatile private var running = false
     @Volatile private var pushSignature = ""
 
+    // Klipper-Abruf nur bei aktivem (eingeschaltetem) Display – spart Akku/Traffic,
+    // wenn das Watchface aus oder im Ambient-Modus ist.
+    @Volatile private var displayActive = true
+
     // Diagnose-Status (für die selbst-versteckende Diagnose-Anzeige im Renderer).
     @Volatile var lastFetchOk = false
     @Volatile var lastFetchError = ""
@@ -81,6 +85,14 @@ object WatchDataSyncManager {
             pushJob?.cancel(); pushDebounceJob?.cancel(); klipperJob?.cancel()
         }
         scope = null
+    }
+
+    /**
+     * Display-Zustand melden. Bei ausgeschaltetem/ambient Display ruht der
+     * Klipper-Abruf; beim Einschalten wird sofort einmal frisch abgerufen ([syncNow]).
+     */
+    fun setDisplayActive(active: Boolean) {
+        displayActive = active
     }
 
     /** Sofortiger Einmal-Abruf (z.B. wenn das Display aktiviert wird). */
@@ -447,7 +459,8 @@ object WatchDataSyncManager {
     private suspend fun klipperLoop() {
         while (running) {
             try {
-                runKlipperFetch()
+                // Bei ausgeschaltetem Display keine Klipper-Daten abrufen.
+                if (displayActive) runKlipperFetch()
                 val interval = WatchFaceConfigCache.klipperIntervalSec.coerceAtLeast(3)
                 delay(interval * 1_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {

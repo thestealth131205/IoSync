@@ -2116,6 +2116,13 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
+                Button(
+                    onClick = {
+                        viewModel.setKlipperInterval(klipperIntervalSec.toIntOrNull()?.coerceAtLeast(3) ?: 15)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A2A), contentColor = Color(0xFFEAFF00))
+                ) { Text("Intervall speichern & übertragen", style = MaterialTheme.typography.labelSmall) }
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Pille (6 Uhr, Seite 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

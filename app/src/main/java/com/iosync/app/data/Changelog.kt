@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.7.2",
+        date = "12.06.2026",
+        changes = listOf(
+            "Klipper: eigener \"Intervall speichern & übertragen\"-Button im Klipper-Bereich",
+            "Watchface: Klipper-Daten werden bei ausgeschaltetem Display nicht mehr abgerufen (spart Akku)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.7.1",
         date = "11.06.2026",
         changes = listOf(

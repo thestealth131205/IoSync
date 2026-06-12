@@ -1932,6 +1932,24 @@ class MainViewModel @Inject constructor(
     }
 
     /**
+     * Speichert ausschließlich das zentrale Klipper-Abruf-Intervall und überträgt
+     * die Connection-Config ans Watchface (eigener Speichern-Button).
+     */
+    fun setKlipperInterval(klipperIntervalSec: Int) {
+        viewModelScope.launch {
+            val interval = klipperIntervalSec.coerceAtLeast(3)
+            dataStore.edit { prefs -> prefs[KEY_KLIPPER_INTERVAL] = interval }
+            _uiState.update { it.copy(klipperIntervalSec = interval) }
+            try {
+                pushConnectionConfigToWear()
+                _uiState.update { it.copy(wearSyncLog = "Klipper-Intervall übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+        }
+    }
+
+    /**
      * Ruft die verfügbaren Drucker-Objekte von Moonraker ab (für die UI-Auswahl).
      */
     fun loadKlipperObjects(host: String, port: Int, apiKey: String = "") {

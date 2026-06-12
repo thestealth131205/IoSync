@@ -566,6 +566,8 @@ class IoSyncWatchFaceRenderer(
             combine(watchState.isVisible, watchState.isAmbient) { visible, ambient ->
                 visible == true && ambient != true
             }.distinctUntilChanged().collect { active ->
+                // Klipper-Abruf nur bei aktivem Display laufen lassen (Akku/Traffic sparen).
+                WatchDataSyncManager.setDisplayActive(active)
                 if (active) {
                     // Pillen beim Aufwachen deaktiviert anzeigen, bis frische Abrufe
                     // (ioBroker/Klipper) den echten Zustand bestätigen.
