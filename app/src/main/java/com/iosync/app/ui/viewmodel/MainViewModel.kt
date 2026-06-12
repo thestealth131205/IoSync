@@ -1255,7 +1255,7 @@ class MainViewModel @Inject constructor(
             s.wfSecondsRingColor, s.wfSecondsRingWidth, s.wfSecondsGlowWidth, s.wfSecondsNumberColor,
             s.actionPillEnabled, s.actionPillColorTrue, s.actionPillColorFalse,
             s.actionPillIoBrokerId, s.actionPillValueMode, s.actionPillFixedValue, s.actionPillState,
-            s.wfShowWeather, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories, s.wfShowSteps,
+            s.wfShowWeather, s.wfShowSunrise, s.wfShowHeartRate, s.wfShowOxygen, s.wfShowCalories, s.wfShowSteps,
             s.showCustomSlots, s.customSlot1Label, s.customSlot2Label,
             s.customSlot3Label, s.customSlot4Label, s.customSlot4BarColor, s.customSlot4BarMin, s.customSlot4BarMax,
             s.customSlot4BarShowLabel, s.customSlot4BarIsSlider,
@@ -1273,7 +1273,6 @@ class MainViewModel @Inject constructor(
             showBackground = s.wfShowBackground,
             hrColor = s.wfHrColor, kcalColor = s.wfKcalColor, oxygenColor = s.wfOxygenColor,
             stepsColor = s.wfStepsColor, sleepColor = s.wfSleepColor,
-            showSunrise = s.wfShowSunrise,
             sunriseColor = s.wfSunriseColor, slotColor = s.wfSlotColor,
             weatherTempSource = s.wfWeatherTempSource, weatherIoBrokerId = s.wfWeatherIoBrokerId,
             // Dynamische Überschrift + Format-Einheit der frei wählbaren Health-Slots
