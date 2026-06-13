@@ -8,6 +8,24 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.7.5",
+        date = "13.06.2026",
+        changes = listOf(
+            "Akkuoptimierung: Klipper-Anfragen gebündelt (4 → 1 HTTP-Request pro Zyklus)",
+            "Akkuoptimierung: Puls-Sensor periodisch statt live (konfigurierbar, Standard 10 min)",
+            "Klipper: Abruf bei inaktivem Drucker automatisch gedrosselt (4× langsamer)"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.7.4",
+        date = "13.06.2026",
+        changes = listOf(
+            "Akku: Puls wird nicht mehr live gemessen, sondern nur periodisch (Standard alle 10 min) – Sensor zwischen den Messungen aus",
+            "Neue Einstellung \"Puls-Mess-Intervall (Uhr)\" im Bereich Wetter & Gesundheitsdaten",
+            "Akku: Klipper-Abruf bei stillstehendem Drucker deutlich seltener (4× langsamer, mind. 60 s), eingestelltes Druck-Intervall bleibt erhalten"
+        )
+    ),
+    ChangelogEntry(
         version = "4.7.3",
         date = "12.06.2026",
         changes = listOf(

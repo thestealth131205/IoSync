@@ -21,6 +21,7 @@ class HealthPassiveDataService : PassiveListenerService() {
             val hr = point.value.toInt()
             if (hr > 0) {
                 HealthDataCache.heartRate = hr
+                HealthDataCache.lastHeartRateTimestamp = System.currentTimeMillis()
                 Log.d(TAG, "Puls: $hr bpm")
             }
         }

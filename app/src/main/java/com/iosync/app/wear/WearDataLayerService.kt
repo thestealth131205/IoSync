@@ -620,6 +620,7 @@ class WearDataLayerService @Inject constructor(
         slotIntervalSec: Int,
         page2IntervalSec: Int,
         weatherIntervalSec: Int,
+        heartRateIntervalSec: Int = 600,
         bc1Id: String = "",
         bc2Id: String = "",
         klipperEnabled: Boolean = false,
@@ -676,6 +677,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putInt(KEY_CON_SLOT_INTERVAL, slotIntervalSec)
                     dataMap.putInt(KEY_CON_PAGE2_INTERVAL, page2IntervalSec)
                     dataMap.putInt(KEY_CON_WEATHER_INTERVAL, weatherIntervalSec)
+                    dataMap.putInt("con_hr_interval", heartRateIntervalSec)
                     dataMap.putString(KEY_CON_BC1_ID, bc1Id)
                     dataMap.putString(KEY_CON_BC2_ID, bc2Id)
                     // Klipper + Seite 3 Pille

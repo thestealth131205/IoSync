@@ -39,6 +39,11 @@ private const val TAG = "WatchDataSyncManager"
  */
 object WatchDataSyncManager {
 
+    // Idle-Drosselung des Klipper-Pollings: steht der Drucker still, wird das
+    // eingestellte Druck-Intervall mit diesem Faktor gestreckt (mind. KLIPPER_IDLE_MIN_SEC).
+    private const val KLIPPER_IDLE_FACTOR = 4
+    private const val KLIPPER_IDLE_MIN_SEC = 60
+
     private var scope: CoroutineScope? = null
     private var fetchJob: Job? = null
     private var weatherJob: Job? = null
@@ -254,17 +259,42 @@ object WatchDataSyncManager {
     // ── Health-Spiegelung (lokale Sensoren → phone*-Felder) ───────────────────
 
     private suspend fun healthMirrorLoop() {
+        var lastSeenHrTimestamp = 0L
         while (running) {
             try {
                 val c = WatchFaceConfigCache
-                c.phoneHeartRate = HealthDataCache.heartRate
-                c.phoneCalories  = HealthDataCache.calories
-                c.phoneSpO2      = HealthDataCache.spO2
-                // Schlaf: ioBroker-Quelle hat in resolveAll Vorrang
-                if (c.sleepSource != "iobroker") {
-                    c.phoneSleepMinutes = HealthDataCache.sleepMinutes
+                var needsInvalidate = false
+
+                // Herzfrequenz: nur bei neu eingetroffenen Werten (Passive Listener ~alle 10 min).
+                // MeasureClient (kontinuierliche Messung) ist deaktiviert → kein Akku-Drain.
+                val hrTs = HealthDataCache.lastHeartRateTimestamp
+                if (hrTs != lastSeenHrTimestamp) {
+                    lastSeenHrTimestamp = hrTs
+                    c.phoneHeartRate = HealthDataCache.heartRate
+                    needsInvalidate = true
                 }
-                c.phoneHealthLastReceived = System.currentTimeMillis()
+
+                // Kalorien, SpO2, Schlaf: ändern sich selten, trotzdem regelmäßig synchron halten.
+                val newCal  = HealthDataCache.calories
+                val newSpO2 = HealthDataCache.spO2
+                if (c.phoneCalories != newCal || c.phoneSpO2 != newSpO2) {
+                    c.phoneCalories = newCal
+                    c.phoneSpO2     = newSpO2
+                    needsInvalidate = true
+                }
+                if (c.sleepSource != "iobroker") {
+                    val newSleep = HealthDataCache.sleepMinutes
+                    if (c.phoneSleepMinutes != newSleep) {
+                        c.phoneSleepMinutes = newSleep
+                        needsInvalidate = true
+                    }
+                }
+
+                if (needsInvalidate) {
+                    c.phoneHealthLastReceived = System.currentTimeMillis()
+                    invalidate?.invoke()
+                }
+
                 delay(30_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -461,7 +491,16 @@ object WatchDataSyncManager {
             try {
                 // Bei ausgeschaltetem Display keine Klipper-Daten abrufen.
                 if (displayActive) runKlipperFetch()
-                val interval = WatchFaceConfigCache.klipperIntervalSec.coerceAtLeast(3)
+                // Nur während eines aktiven Drucks im eingestellten Intervall pollen.
+                // Steht der Drucker still (kein Druck), deutlich seltener abfragen
+                // (Faktor 4, mind. 60 s) – spart Akku/Radio-Wachzeit, ohne die
+                // einstellbare Druck-Intervall-Einstellung zu verlieren.
+                val baseInterval = WatchFaceConfigCache.klipperIntervalSec.coerceAtLeast(3)
+                val interval = if (WatchFaceConfigCache.klipperIsActive) {
+                    baseInterval
+                } else {
+                    (baseInterval * KLIPPER_IDLE_FACTOR).coerceAtLeast(KLIPPER_IDLE_MIN_SEC)
+                }
                 delay(interval * 1_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -478,49 +517,60 @@ object WatchDataSyncManager {
 
         var changed = false
 
-        // ── Druckdaten (Fortschritt, Temps, Geschwindigkeit, Lüfter) ──────────
-        WatchKlipperClient.queryPrinterStatus(c.klipperHost, c.klipperPort, c.klipperChamberObject, c.klipperApiKey)
-            .onSuccess { st ->
-                c.klipperIsActive      = st.isActive
-                c.klipperPrintProgress = st.progress
-                c.klipperNozzleTemp    = st.nozzleTemp
-                c.klipperNozzleTarget  = st.nozzleTarget
-                c.klipperBedTemp       = st.bedTemp
-                c.klipperBedTarget     = st.bedTarget
-                c.klipperChamberTemp   = st.chamberTemp
-                c.klipperSpeedMms      = st.speedMms
-                c.klipperFanPercent    = st.fanPercent
-                changed = true
-            }.onFailure {
-                Log.w(TAG, "Klipper-Druckdaten fehlgeschlagen: ${it.message}")
+        // ── Alle Printer-Objekte in EINER kombinierten HTTP-Anfrage ───────────
+        // (Druckdaten, Chamber-Target, P3-Pille, G-Code-LED – alles zusammen)
+        val ledObjForCombined = if (c.klipperLedType != "tasmota_power") c.klipperLedObject else ""
+        val ledFieldForCombined = if (c.klipperLedType != "tasmota_power") c.klipperLedField else ""
+
+        WatchKlipperClient.queryCombined(
+            host          = c.klipperHost,
+            port          = c.klipperPort,
+            chamberObject = c.klipperChamberObject,
+            p3PillObject  = if (c.p3PillEnabled) c.p3PillObject else "",
+            p3PillField   = if (c.p3PillEnabled) c.p3PillField else "",
+            ledObject     = ledObjForCombined,
+            ledField      = ledFieldForCombined,
+            apiKey        = c.klipperApiKey
+        ).onSuccess { data ->
+            c.klipperIsActive      = data.isActive
+            c.klipperPrintProgress = data.progress
+            c.klipperNozzleTemp    = data.nozzleTemp
+            c.klipperNozzleTarget  = data.nozzleTarget
+            c.klipperBedTemp       = data.bedTemp
+            c.klipperBedTarget     = data.bedTarget
+            c.klipperChamberTemp   = data.chamberTemp
+            c.klipperSpeedMms      = data.speedMms
+            c.klipperFanPercent    = data.fanPercent
+            changed = true
+
+            // Chamber-Heater-Status direkt aus derselben Antwort
+            if (c.klipperChamberObject.isNotBlank()) {
+                val on = data.chamberHeatTarget > 0f
+                if (c.klipperChamberHeatState != on) { c.klipperChamberHeatState = on; }
             }
 
-        // ── Pillen-Status (LED + P3-Pille) ────────────────────────────────────
-        if (c.p3PillEnabled && c.p3PillObject.isNotBlank()) {
-            WatchKlipperClient.queryObjectField(c.klipperHost, c.klipperPort, c.p3PillObject, c.p3PillField, c.klipperApiKey)
-                .onSuccess { raw ->
-                    val state = raw == "true" || raw == "1" || raw == "1.0"
-                    if (c.p3PillState != state) { c.p3PillState = state; changed = true }
-                }.onFailure { Log.w(TAG, "Klipper-P3-Pille fehlgeschlagen: ${it.message}") }
+            // P3-Pille
+            data.p3PillValue?.let { raw ->
+                val state = raw == "true" || raw == "1" || raw == "1.0"
+                if (c.p3PillState != state) c.p3PillState = state
+            }
+
+            // G-Code-LED (nicht Tasmota)
+            data.ledValue?.let { raw ->
+                val state = raw == "true" || raw == "1" || raw == "1.0" ||
+                            raw.toDoubleOrNull()?.let { it > 0 } == true
+                if (c.klipperLedState != state) c.klipperLedState = state
+            }
+        }.onFailure {
+            Log.w(TAG, "Klipper-Kombiniert-Abruf fehlgeschlagen: ${it.message}")
         }
+
+        // ── Tasmota Power-Device: eigener Endpunkt, bleibt separate Anfrage ──
         if (c.klipperLedType == "tasmota_power" && c.klipperLedPowerDevice.isNotBlank()) {
             WatchKlipperClient.queryPowerDeviceStatus(c.klipperHost, c.klipperPort, c.klipperLedPowerDevice, c.klipperApiKey)
                 .onSuccess { state ->
                     if (c.klipperLedState != state) { c.klipperLedState = state; changed = true }
                 }.onFailure { Log.w(TAG, "LED-Power-Status fehlgeschlagen: ${it.message}") }
-        } else if (c.klipperLedObject.isNotBlank()) {
-            WatchKlipperClient.queryBoolField(c.klipperHost, c.klipperPort, c.klipperLedObject, c.klipperLedField, c.klipperApiKey)
-                .onSuccess { state ->
-                    if (c.klipperLedState != state) { c.klipperLedState = state; changed = true }
-                }.onFailure { Log.w(TAG, "Klipper-LED-Status fehlgeschlagen: ${it.message}") }
-        }
-        // Chamber-Heater-Status: target > 0 = aktiv
-        if (c.klipperChamberObject.isNotBlank()) {
-            WatchKlipperClient.queryObjectField(c.klipperHost, c.klipperPort, c.klipperChamberObject, "target", c.klipperApiKey)
-                .onSuccess { raw ->
-                    val on = raw.toDoubleOrNull()?.let { it > 0.0 } ?: false
-                    if (c.klipperChamberHeatState != on) { c.klipperChamberHeatState = on; changed = true }
-                }.onFailure { Log.w(TAG, "Klipper-Heater-Status fehlgeschlagen: ${it.message}") }
         }
 
         if (changed) invalidate?.invoke()

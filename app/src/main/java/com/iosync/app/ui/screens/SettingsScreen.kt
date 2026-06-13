@@ -177,6 +177,7 @@ fun SettingsScreen(
     var batteryPollInterval by remember(uiState.batteryPollIntervalSec) { mutableStateOf(uiState.batteryPollIntervalSec) }
     var slotPollInterval   by remember(uiState.slotPollIntervalSec)    { mutableStateOf(uiState.slotPollIntervalSec) }
     var healthPollInterval by remember(uiState.healthPollIntervalSec)  { mutableStateOf(uiState.healthPollIntervalSec) }
+    var heartRateInterval  by remember(uiState.heartRateIntervalSec)   { mutableStateOf(uiState.heartRateIntervalSec) }
     var page2SyncInterval  by remember(uiState.page2SyncIntervalSec)   { mutableStateOf(uiState.page2SyncIntervalSec) }
 
     // Hintergrundbild
@@ -1120,6 +1121,35 @@ fun SettingsScreen(
                     onSelect = { healthPollInterval = it },
                     modifier = Modifier.width(120.dp),
                     options = HEALTH_INTERVAL_OPTIONS_SEC
+                )
+            }
+
+            // Puls-Mess-Intervall der Uhr: wie oft der optische Sensor kurz für
+            // eine Einzelmessung eingeschaltet wird (statt dauerhaft → spart Akku).
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Puls-Mess-Intervall (Uhr)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White
+                    )
+                    Text(
+                        "Sensor nur periodisch aktiv – spart Akku",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IntervalDropdown(
+                    selected = heartRateInterval,
+                    onSelect = {
+                        heartRateInterval = it
+                        viewModel.setHeartRateInterval(it)
+                    },
+                    modifier = Modifier.width(120.dp),
+                    options = HEART_RATE_INTERVAL_OPTIONS_SEC
                 )
             }
 
@@ -3285,6 +3315,10 @@ private val INTERVAL_OPTIONS_SEC = listOf(30, 60, 180, 300, 600, 900, 1800, 3600
 private val PAGE_SYNC_INTERVAL_OPTIONS_SEC = listOf(30, 60, 120, 240, 360, 600)
 // Intervall-Optionen für Health-Connect-Werte (Puls/Kcal/SpO2)
 private val HEALTH_INTERVAL_OPTIONS_SEC = listOf(15, 30, 120, 240, 600, 900, 1800)
+
+// Intervall-Optionen für die periodische Puls-Messung der Uhr (optischer Sensor).
+// Längere Intervalle = weniger Sensor-/Akkuverbrauch (Standard 10 min).
+private val HEART_RATE_INTERVAL_OPTIONS_SEC = listOf(60, 120, 300, 600, 900, 1800)
 
 private fun formatInterval(sec: Int): String = when {
     sec < 60 -> "$sec s"

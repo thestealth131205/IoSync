@@ -12,13 +12,22 @@ import androidx.health.services.client.data.DataPointContainer
 import androidx.health.services.client.data.DeltaDataType
 import androidx.health.services.client.data.PassiveListenerConfig
 import androidx.health.services.client.data.DataType
+import com.iosync.watchface.datalayer.WatchFaceConfigCache
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "HealthSensorManager"
+
+// Maximale Wartezeit pro Einzelmessung auf einen gültigen Puls-Wert, bevor der
+// Sensor wieder ausgeschaltet wird.
+private const val HR_MEASURE_WINDOW_MS = 30_000L
 
 /**
  * Verwaltet die Registrierung des Health Services Passive Listeners sowie
@@ -57,32 +66,12 @@ class HealthSensorManager private constructor(
     private val wearHealthConnectManager: WearHealthConnectManager? =
         if (!isNoop && context != null) WearHealthConnectManager(context) else null
 
-    // Aktive Puls-Messung (MeasureClient) – liefert kontinuierliche Samples,
-    // im Gegensatz zum Passive Listener (nur sporadisch bei Aktivität).
+    // Periodische Puls-Messung (MeasureClient): Statt den optischen Sensor
+    // dauerhaft laufen zu lassen (Dauer-Akkuverbrauch), wird er nur alle paar
+    // Minuten kurz eingeschaltet, EIN Wert geholt und sofort wieder ausgeschaltet.
+    // Das Intervall liefert WatchFaceConfigCache.heartRateIntervalSec (App-Config).
     @Volatile private var heartRateMeasureActive = false
-    private val heartRateCallback = object : MeasureCallback {
-        override fun onRegistered() {
-            Log.d(TAG, "HR-Measure-Callback registriert")
-        }
-
-        override fun onRegistrationFailed(throwable: Throwable) {
-            Log.e(TAG, "HR-Measure-Registrierung fehlgeschlagen: ${throwable.message}")
-        }
-
-        override fun onAvailabilityChanged(dataType: DeltaDataType<*, *>, availability: Availability) {
-            Log.d(TAG, "HR-Verfügbarkeit: $availability")
-        }
-
-        override fun onDataReceived(data: DataPointContainer) {
-            data.getData(DataType.HEART_RATE_BPM).lastOrNull()?.let { point ->
-                val hr = point.value.toInt()
-                if (hr > 0) {
-                    HealthDataCache.heartRate = hr
-                    Log.d(TAG, "Puls (Measure): $hr bpm")
-                }
-            }
-        }
-    }
+    private var heartRateJob: Job? = null
 
     // Lesezugriff auf den gemeinsamen Cache (für den Renderer)
     val heartRate: Int get() = HealthDataCache.heartRate
@@ -140,11 +129,14 @@ class HealthSensorManager private constructor(
     }
 
     /**
-     * Startet die kontinuierliche Puls-Messung über den MeasureClient.
-     * Sollte nur bei sichtbarem, nicht-ambientem Watchface laufen (Akku schonen).
+     * Startet die periodische Puls-Messung. Sollte nur bei sichtbarem,
+     * nicht-ambientem Watchface laufen. Misst sofort einmal und danach im
+     * Intervall [WatchFaceConfigCache.heartRateIntervalSec]; zwischen den
+     * Messungen bleibt der Sensor aus (Akku schonen).
      */
     fun startHeartRate() {
         if (isNoop || measureClient == null || context == null || heartRateMeasureActive) return
+        val s = scope ?: return
         val hasBodySensors = ContextCompat.checkSelfPermission(
             context, Manifest.permission.BODY_SENSORS
         ) == PackageManager.PERMISSION_GRANTED
@@ -152,25 +144,66 @@ class HealthSensorManager private constructor(
             Log.w(TAG, "BODY_SENSORS-Berechtigung fehlt – HR-Messung wird nicht gestartet")
             return
         }
+        heartRateMeasureActive = true
+        heartRateJob = s.launch {
+            while (heartRateMeasureActive) {
+                measureHeartRateOnce()
+                val intervalSec = WatchFaceConfigCache.heartRateIntervalSec.coerceAtLeast(30)
+                delay(intervalSec * 1_000L)
+            }
+        }
+        Log.d(TAG, "Periodische HR-Messung gestartet")
+    }
+
+    /**
+     * Schaltet den Puls-Sensor kurz ein, wartet auf einen gültigen Wert
+     * (max. [HR_MEASURE_WINDOW_MS]) und schaltet ihn danach wieder aus.
+     */
+    private suspend fun measureHeartRateOnce() {
+        val mc = measureClient ?: return
+        val received = CompletableDeferred<Unit>()
+        val callback = object : MeasureCallback {
+            override fun onRegistered() {}
+
+            override fun onRegistrationFailed(throwable: Throwable) {
+                Log.e(TAG, "HR-Measure-Registrierung fehlgeschlagen: ${throwable.message}")
+                received.complete(Unit)
+            }
+
+            override fun onAvailabilityChanged(dataType: DeltaDataType<*, *>, availability: Availability) {}
+
+            override fun onDataReceived(data: DataPointContainer) {
+                data.getData(DataType.HEART_RATE_BPM).lastOrNull()?.let { point ->
+                    val hr = point.value.toInt()
+                    if (hr > 0) {
+                        HealthDataCache.heartRate = hr
+                        Log.d(TAG, "Puls (Measure, periodisch): $hr bpm")
+                        received.complete(Unit)
+                    }
+                }
+            }
+        }
         try {
-            measureClient.registerMeasureCallback(DataType.HEART_RATE_BPM, heartRateCallback)
-            heartRateMeasureActive = true
-            Log.d(TAG, "HR-Messung (MeasureClient) registriert")
+            mc.registerMeasureCallback(DataType.HEART_RATE_BPM, callback)
+            withTimeoutOrNull(HR_MEASURE_WINDOW_MS) { received.await() }
         } catch (e: Exception) {
-            Log.e(TAG, "HR-Messung-Registrierung fehlgeschlagen: ${e.message}")
+            Log.e(TAG, "HR-Einzelmessung fehlgeschlagen: ${e.message}")
+        } finally {
+            try {
+                mc.unregisterMeasureCallbackAsync(DataType.HEART_RATE_BPM, callback)
+            } catch (e: Exception) {
+                Log.w(TAG, "HR-Messung-Deregistrierung fehlgeschlagen: ${e.message}")
+            }
         }
     }
 
-    /** Stoppt die kontinuierliche Puls-Messung. */
+    /** Stoppt die periodische Puls-Messung. */
     fun stopHeartRate() {
-        if (isNoop || measureClient == null || !heartRateMeasureActive) return
-        try {
-            measureClient.unregisterMeasureCallbackAsync(DataType.HEART_RATE_BPM, heartRateCallback)
-            Log.d(TAG, "HR-Messung (MeasureClient) deregistriert")
-        } catch (e: Exception) {
-            Log.w(TAG, "HR-Messung-Deregistrierung fehlgeschlagen: ${e.message}")
-        }
+        if (!heartRateMeasureActive) return
         heartRateMeasureActive = false
+        heartRateJob?.cancel()
+        heartRateJob = null
+        Log.d(TAG, "Periodische HR-Messung gestoppt")
     }
 
     fun stop() {

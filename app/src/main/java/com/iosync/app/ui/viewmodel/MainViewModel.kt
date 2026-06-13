@@ -229,6 +229,7 @@ data class MainUiState(
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 120,
     val healthPollIntervalSec: Int = 60,
+    val heartRateIntervalSec: Int = 600,
     val page2SyncIntervalSec: Int = 120,
     // Sync-Status-Log für die Konsolenanzeige
     val wearSyncLog: String = "",
@@ -455,6 +456,7 @@ class MainViewModel @Inject constructor(
         val KEY_BATTERY_POLL_INTERVAL  = intPreferencesKey("battery_poll_interval_sec")
         val KEY_SLOT_POLL_INTERVAL     = intPreferencesKey("slot_poll_interval_sec")
         val KEY_HEALTH_POLL_INTERVAL   = intPreferencesKey("health_poll_interval_sec")
+        val KEY_HEART_RATE_INTERVAL    = intPreferencesKey("heart_rate_interval_sec")
         val KEY_PAGE2_SYNC_INTERVAL    = intPreferencesKey("page2_sync_interval_sec")
         // Wetter-Standort
         val KEY_WEATHER_USE_FIXED   = booleanPreferencesKey("weather_use_fixed")
@@ -667,6 +669,7 @@ class MainViewModel @Inject constructor(
             val batteryPollInterval = prefs[KEY_BATTERY_POLL_INTERVAL] ?: 60
             val slotPollInterval   = prefs[KEY_SLOT_POLL_INTERVAL]   ?: 120
             val healthPollInterval = prefs[KEY_HEALTH_POLL_INTERVAL] ?: 60
+            val heartRateInterval  = prefs[KEY_HEART_RATE_INTERVAL]  ?: 600
             val page2SyncInterval  = prefs[KEY_PAGE2_SYNC_INTERVAL]  ?: 120
             // Seite 2 Slots
             val p2Slot1Id     = prefs[KEY_P2_SLOT1_ID]     ?: ""
@@ -885,6 +888,7 @@ class MainViewModel @Inject constructor(
                     batteryPollIntervalSec = batteryPollInterval,
                     slotPollIntervalSec    = slotPollInterval,
                     healthPollIntervalSec  = healthPollInterval,
+                    heartRateIntervalSec   = heartRateInterval,
                     page2SyncIntervalSec   = page2SyncInterval,
                     p2Slot1Id     = p2Slot1Id,
                     p2Slot1Label  = p2Slot1Label,
@@ -1354,6 +1358,7 @@ class MainViewModel @Inject constructor(
             slotIntervalSec  = prefs[KEY_SLOT_POLL_INTERVAL] ?: 120,
             page2IntervalSec = prefs[KEY_PAGE2_SYNC_INTERVAL] ?: 120,
             weatherIntervalSec = 600,
+            heartRateIntervalSec = prefs[KEY_HEART_RATE_INTERVAL] ?: 600,
             bc1Id = prefs[KEY_WF_BC1_ID] ?: "",
             bc2Id = prefs[KEY_WF_BC2_ID] ?: "",
             klipperEnabled   = prefs[KEY_KLIPPER_ENABLED]  ?: false,
@@ -1952,6 +1957,25 @@ class MainViewModel @Inject constructor(
             try {
                 pushConnectionConfigToWear()
                 _uiState.update { it.copy(wearSyncLog = "Klipper-Intervall übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Setzt das Puls-Mess-Intervall (Sekunden) und überträgt es an die Uhr.
+     * Die Uhr schaltet den optischen Sensor nur in diesem Intervall kurz ein
+     * (statt dauerhaft) – das schont den Akku erheblich.
+     */
+    fun setHeartRateInterval(heartRateIntervalSec: Int) {
+        viewModelScope.launch {
+            val interval = heartRateIntervalSec.coerceAtLeast(30)
+            dataStore.edit { prefs -> prefs[KEY_HEART_RATE_INTERVAL] = interval }
+            _uiState.update { it.copy(heartRateIntervalSec = interval) }
+            try {
+                pushConnectionConfigToWear()
+                _uiState.update { it.copy(wearSyncLog = "Puls-Intervall übertragen") }
             } catch (e: Exception) {
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }

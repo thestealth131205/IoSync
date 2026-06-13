@@ -544,16 +544,9 @@ class IoSyncWatchFaceRenderer(
             }
         }
 
-        // Puls-Messung (MeasureClient) nur bei sichtbarem, nicht-ambientem Watchface
-        // aktiv halten → kontinuierliche HR-Samples ohne Dauer-Akkuverbrauch.
-        scope.launch {
-            combine(watchState.isVisible, watchState.isAmbient) { visible, ambient ->
-                visible == true && ambient != true
-            }.collect { active ->
-                if (active) healthSensorManager.startHeartRate()
-                else healthSensorManager.stopHeartRate()
-            }
-        }
+        // Puls kommt ausschließlich über den Passive Listener (HealthPassiveDataService),
+        // der von der Uhr automatisch ~alle 10 Min gefeuert wird. MeasureClient (kontinuierliche
+        // Echtzeit-Messung) entfällt, da er den Sensor dauerhaft aktiv hält und den Akku leert.
 
         // Bei jedem Aktiv-Werden (Handgelenk heben / Aufwachen aus Ambient) die
         // neuesten Data-Layer-Werte erneut einlesen. Der Renderer-Prozess kann im

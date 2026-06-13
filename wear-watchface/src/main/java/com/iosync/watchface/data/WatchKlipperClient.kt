@@ -31,6 +31,25 @@ data class KlipperPrinterStatus(
 )
 
 /**
+ * Kombinierte Abfrage aller IoSync-relevanten Klipper-Daten in einer einzigen HTTP-Anfrage.
+ * Enthält alles aus [KlipperPrinterStatus] plus Chamber-Heater-Target, P3-Pille und LED.
+ */
+data class KlipperCombinedData(
+    val progress: Float,
+    val nozzleTemp: Float,
+    val nozzleTarget: Float,
+    val bedTemp: Float,
+    val bedTarget: Float,
+    val chamberTemp: Float,
+    val chamberHeatTarget: Float,  // target > 0 → Heater aktiv
+    val speedMms: Float,
+    val fanPercent: Float,
+    val isActive: Boolean,
+    val p3PillValue: String?,      // rohes Feld-Value oder null wenn nicht konfiguriert
+    val ledValue: String?          // rohes Feld-Value oder null wenn Tasmota/nicht konfiguriert
+)
+
+/**
  * HTTP-Client für die Moonraker-API des Klipper-3D-Druckers.
  *
  * Ruft Drucker-Objekte ab (GET /printer/objects/query)
@@ -220,6 +239,75 @@ object WatchKlipperClient {
             ).execute()
             check(response.isSuccessful) { "HTTP ${response.code}" }
         }.onFailure { Log.e(TAG, "setPowerDevice($deviceName, on=$on) fehlgeschlagen: ${it.message}") }
+    }
+
+    /**
+     * Bündelt alle IoSync-relevanten Moonraker-Abfragen in **einer** einzigen HTTP-Anfrage
+     * an `/printer/objects/query`.  Nur das optionale Tasmota-Power-Device bleibt wegen des
+     * anderen API-Endpunkts eine separate Anfrage ([queryPowerDeviceStatus]).
+     *
+     * @param chamberObject   Moonraker-Objekt für die Chamber-Temperatur/-Target
+     *                        (z.B. "heater_generic chamber"), leer = überspringen
+     * @param p3PillObject    Objekt für die Seite-3-Pille, leer = nicht abfragen
+     * @param p3PillField     Feld innerhalb von [p3PillObject]
+     * @param ledObject       Objekt für den LED-Status (nur bei G-Code-LED, NICHT Tasmota),
+     *                        leer = nicht abfragen
+     * @param ledField        Feld innerhalb von [ledObject]
+     */
+    suspend fun queryCombined(
+        host: String,
+        port: Int,
+        chamberObject: String = "",
+        p3PillObject: String = "",
+        p3PillField: String = "",
+        ledObject: String = "",
+        ledField: String = "",
+        apiKey: String = ""
+    ): Result<KlipperCombinedData> = withContext(Dispatchers.IO) {
+        runCatching {
+            // Alle benötigten Objekte deduplizieren und zu einem Query-String verbinden.
+            val objects = mutableListOf(
+                "display_status", "print_stats", "extruder",
+                "heater_bed", "fan", "motion_report"
+            )
+            if (chamberObject.isNotBlank() && chamberObject !in objects) objects += chamberObject
+            if (p3PillObject.isNotBlank() && p3PillObject !in objects)   objects += p3PillObject
+            if (ledObject.isNotBlank() && ledObject !in objects)          objects += ledObject
+
+            val query = objects.joinToString("&") { it.replace(" ", "%20") }
+            val url = buildUrl(host, port, "/printer/objects/query?$query")
+            val response = okHttpClient.newCall(
+                Request.Builder().url(url).apiKeyHeader(apiKey).get().build()
+            ).execute()
+            check(response.isSuccessful) { "HTTP ${response.code}" }
+            val status = JSONObject(response.body!!.string())
+                .getJSONObject("result").getJSONObject("status")
+
+            fun objFloat(obj: String, field: String): Float =
+                status.optJSONObject(obj)?.optDouble(field, 0.0)?.toFloat() ?: 0f
+
+            val chamberJson = if (chamberObject.isNotBlank()) status.optJSONObject(chamberObject) else null
+
+            KlipperCombinedData(
+                progress          = objFloat("display_status", "progress"),
+                nozzleTemp        = objFloat("extruder", "temperature"),
+                nozzleTarget      = objFloat("extruder", "target"),
+                bedTemp           = objFloat("heater_bed", "temperature"),
+                bedTarget         = objFloat("heater_bed", "target"),
+                chamberTemp       = chamberJson?.optDouble("temperature", 0.0)?.toFloat() ?: 0f,
+                chamberHeatTarget = chamberJson?.optDouble("target", 0.0)?.toFloat() ?: 0f,
+                speedMms          = objFloat("motion_report", "live_velocity"),
+                fanPercent        = objFloat("fan", "speed") * 100f,
+                isActive          = status.optJSONObject("print_stats")
+                                        ?.optString("state", "standby") == "printing",
+                p3PillValue       = if (p3PillObject.isNotBlank() && p3PillField.isNotBlank())
+                                        status.optJSONObject(p3PillObject)?.opt(p3PillField)?.toString()
+                                    else null,
+                ledValue          = if (ledObject.isNotBlank() && ledField.isNotBlank())
+                                        status.optJSONObject(ledObject)?.opt(ledField)?.toString()
+                                    else null
+            )
+        }.onFailure { Log.e(TAG, "queryCombined fehlgeschlagen: ${it.message}") }
     }
 
     private fun buildUrl(host: String, port: Int, path: String): String {

@@ -695,6 +695,9 @@ object WatchFaceConfigCache {
     @Volatile var page2IntervalSec: Int = 120
     @Volatile var weatherIntervalSec: Int = 600
     @Volatile var klipperIntervalSec: Int = 15
+    // Puls-Mess-Intervall (Sekunden): wie oft der optische Sensor kurz für eine
+    // Einzelmessung eingeschaltet wird (Standard 10 min). Spart Akku ggü. Live-Messung.
+    @Volatile var heartRateIntervalSec: Int = 600
     // Zeitpunkt des letzten Empfangs der Verbindungs-Konfig
     @Volatile var connectionConfigReceivedAt: Long = 0L
 
@@ -727,6 +730,7 @@ object WatchFaceConfigCache {
         if (dataMap.containsKey(KEY_CON_SLOT_INTERVAL)) slotIntervalSec = dataMap.getInt(KEY_CON_SLOT_INTERVAL)
         if (dataMap.containsKey(KEY_CON_PAGE2_INTERVAL)) page2IntervalSec = dataMap.getInt(KEY_CON_PAGE2_INTERVAL)
         if (dataMap.containsKey(KEY_CON_WEATHER_INTERVAL)) weatherIntervalSec = dataMap.getInt(KEY_CON_WEATHER_INTERVAL)
+        if (dataMap.containsKey("con_hr_interval")) heartRateIntervalSec = dataMap.getInt("con_hr_interval")
         dataMap.getString("con_bc1_id")?.let { conBc1Id = it }
         dataMap.getString("con_bc2_id")?.let { conBc2Id = it }
         // Klipper-Verbindung
