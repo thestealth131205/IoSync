@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.7.7",
+        date = "15.06.2026",
+        changes = listOf(
+            "Watchface: Klipper-Daten werden nur noch abgefragt wenn Seite 3 aktiv ist (spart Akku & Traffic)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.7.6",
         date = "15.06.2026",
         changes = listOf(

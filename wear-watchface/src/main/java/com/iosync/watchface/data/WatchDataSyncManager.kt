@@ -62,6 +62,10 @@ object WatchDataSyncManager {
     // wenn das Watchface aus oder im Ambient-Modus ist.
     @Volatile private var displayActive = true
 
+    // Aktuelle Seite des Renderers (0=Haupt, 1=Seite2, 2=Seite3/Klipper).
+    // Klipper-Daten werden nur bei Seite 3 abgerufen.
+    @Volatile private var activePage = 0
+
     // Diagnose-Status (für die selbst-versteckende Diagnose-Anzeige im Renderer).
     @Volatile var lastFetchOk = false
     @Volatile var lastFetchError = ""
@@ -100,12 +104,20 @@ object WatchDataSyncManager {
         displayActive = active
     }
 
+    /**
+     * Aktive Seite melden (0=Haupt, 1=Seite2, 2=Seite3/Klipper).
+     * Klipper-Daten werden nur abgerufen, wenn Seite 3 sichtbar ist.
+     */
+    fun setActivePage(page: Int) {
+        activePage = page
+    }
+
     /** Sofortiger Einmal-Abruf (z.B. wenn das Display aktiviert wird). */
     fun syncNow() {
         scope?.launch {
             runFetch()
             runWeather()
-            runKlipperFetch()
+            if (activePage == 2) runKlipperFetch()
         }
     }
 
@@ -489,8 +501,8 @@ object WatchDataSyncManager {
     private suspend fun klipperLoop() {
         while (running) {
             try {
-                // Bei ausgeschaltetem Display keine Klipper-Daten abrufen.
-                if (displayActive) runKlipperFetch()
+                // Klipper-Daten nur abrufen wenn Display aktiv UND Seite 3 sichtbar.
+                if (displayActive && activePage == 2) runKlipperFetch()
                 // Nur während eines aktiven Drucks im eingestellten Intervall pollen.
                 // Steht der Drucker still (kein Druck), deutlich seltener abfragen
                 // (Faktor 4, mind. 60 s) – spart Akku/Radio-Wachzeit, ohne die

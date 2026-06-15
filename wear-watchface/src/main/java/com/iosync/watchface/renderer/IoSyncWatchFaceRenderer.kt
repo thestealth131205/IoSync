@@ -565,6 +565,7 @@ class IoSyncWatchFaceRenderer(
                     // Ambient-Modus aktiviert → Seite 1 vorwählen, damit beim nächsten
                     // Aufwachen immer die Hauptseite angezeigt wird (nicht Seite 2 oder 3).
                     currentPage = 0
+                    WatchDataSyncManager.setActivePage(0)
                 }
                 if (active) {
                     // Pillen beim Aufwachen deaktiviert anzeigen, bis frische Abrufe
@@ -2344,6 +2345,7 @@ class IoSyncWatchFaceRenderer(
                 if (now - page2LastTapTime <= DOUBLE_TAP_MS) {
                     currentPage = 1 - currentPage
                     page2LastTapTime = 0L
+                    WatchDataSyncManager.setActivePage(currentPage)
                     // Beim Wechsel auf Seite 2 die aktuellsten Data-Layer-Werte
                     // nachladen, damit die 4 Werte sofort frisch sind – auch wenn
                     // zwischenzeitliche onDataChanged-Updates verpasst wurden.
@@ -2363,6 +2365,7 @@ class IoSyncWatchFaceRenderer(
                 if (now - page3LastTapTime <= DOUBLE_TAP_MS) {
                     page3LastTapTime = 0L
                     currentPage = if (currentPage == 1) 2 else 0
+                    WatchDataSyncManager.setActivePage(currentPage)
                     invalidate()
                 } else {
                     page3LastTapTime = now
@@ -2539,6 +2542,7 @@ class IoSyncWatchFaceRenderer(
             config.klipperEnabled && config.klipperIsActive &&
             !slot4BarTapBounds.isEmpty && slot4BarTapBounds.contains(x, y)) {
             currentPage = 2
+            WatchDataSyncManager.setActivePage(2)
             invalidate()
             return
         }
@@ -2885,6 +2889,7 @@ class IoSyncWatchFaceRenderer(
                 } else {
                     // Normalmodus → Einzeltipp wechselt direkt zu Page 3
                     currentPage = 2
+                    WatchDataSyncManager.setActivePage(2)
                     invalidate()
                 }
             }

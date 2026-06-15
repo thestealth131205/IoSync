@@ -1,5 +1,6 @@
 package com.iosync.app.data.geofence
 
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -18,6 +19,12 @@ class GeofenceTransitionReceiver : BroadcastReceiver() {
         val geofencingEvent = GeofencingEvent.fromIntent(intent) ?: return
         if (geofencingEvent.hasError()) {
             Log.e(TAG, "GeofencingEvent Fehler: ${geofencingEvent.errorCode}")
+            return
+        }
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (!notificationManager.isNotificationPolicyAccessGranted) {
+            Log.w(TAG, "Kein DND-Zugriff gewährt – Klingelmodus wird nicht geändert")
             return
         }
 
