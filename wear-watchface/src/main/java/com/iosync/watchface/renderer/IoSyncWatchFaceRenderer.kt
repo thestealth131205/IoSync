@@ -561,6 +561,11 @@ class IoSyncWatchFaceRenderer(
             }.distinctUntilChanged().collect { active ->
                 // Klipper-Abruf nur bei aktivem Display laufen lassen (Akku/Traffic sparen).
                 WatchDataSyncManager.setDisplayActive(active)
+                if (!active) {
+                    // Ambient-Modus aktiviert → Seite 1 vorwählen, damit beim nächsten
+                    // Aufwachen immer die Hauptseite angezeigt wird (nicht Seite 2 oder 3).
+                    currentPage = 0
+                }
                 if (active) {
                     // Pillen beim Aufwachen deaktiviert anzeigen, bis frische Abrufe
                     // (ioBroker/Klipper) den echten Zustand bestätigen.

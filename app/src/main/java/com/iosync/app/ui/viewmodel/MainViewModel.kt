@@ -21,8 +21,10 @@ import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.health.HealthConnectManager
 import com.iosync.app.data.health.HealthConnectStatus
 import com.iosync.app.data.sync.IoSyncSyncService
+import com.iosync.app.data.geofence.GeofenceManager
 import com.iosync.app.data.network.DynamicBaseUrl
 import com.iosync.app.data.network.IoSyncClient
+import com.iosync.app.data.network.NominatimService
 import com.iosync.app.data.network.SmartHomeWebSocketService
 import com.iosync.app.data.network.WeatherService
 import com.iosync.app.data.network.WebSocketStatus
@@ -308,7 +310,16 @@ data class MainUiState(
     val klipperChamberHeatGcodeOff: String = "",
     val klipperHeatLabel: String = "Heater",
     // ── Seite 3 – Schriftgröße ────────────────────────────────────────────────
-    val p3FontScale: Int = 100
+    val p3FontScale: Int = 100,
+    // ── Geofence-Vibration ────────────────────────────────────────────────────
+    val geofenceEnabled: Boolean = false,
+    val geofenceLat: Double = 0.0,
+    val geofenceLon: Double = 0.0,
+    val geofenceRadius: Int = 300,
+    val geofenceAddressDisplay: String = "",
+    val geofenceSearchResults: List<com.iosync.app.data.network.AddressSearchResult> = emptyList(),
+    val geofenceSearching: Boolean = false,
+    val geofenceSearchError: String? = null
 )
 
 @HiltViewModel
@@ -321,7 +332,9 @@ class MainViewModel @Inject constructor(
     private val dynamicBaseUrl: DynamicBaseUrl,
     private val weatherService: WeatherService,
     val healthConnectManager: HealthConnectManager,
-    private val klipperClient: com.iosync.app.data.network.KlipperClient
+    private val klipperClient: com.iosync.app.data.network.KlipperClient,
+    private val nominatimService: NominatimService,
+    private val geofenceManager: GeofenceManager
 ) : ViewModel() {
 
     companion object {
@@ -554,6 +567,12 @@ class MainViewModel @Inject constructor(
         val KEY_KLIPPER_HEAT_GCODE_ON    = stringPreferencesKey("klipper_heat_gcode_on")
         val KEY_KLIPPER_HEAT_GCODE_OFF   = stringPreferencesKey("klipper_heat_gcode_off")
         val KEY_KLIPPER_HEAT_LABEL       = stringPreferencesKey("klipper_heat_label")
+        // Geofence-Vibration
+        val KEY_GEOFENCE_ENABLED         = booleanPreferencesKey("geofence_enabled")
+        val KEY_GEOFENCE_LAT             = stringPreferencesKey("geofence_lat")
+        val KEY_GEOFENCE_LON             = stringPreferencesKey("geofence_lon")
+        val KEY_GEOFENCE_RADIUS          = intPreferencesKey("geofence_radius")
+        val KEY_GEOFENCE_ADDRESS         = stringPreferencesKey("geofence_address")
     }
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -785,6 +804,12 @@ class MainViewModel @Inject constructor(
             val klipperHeatGcodeOff = prefs[KEY_KLIPPER_HEAT_GCODE_OFF] ?: ""
             val klipperHeatLabel    = prefs[KEY_KLIPPER_HEAT_LABEL]     ?: "Heater"
             val p3FontScale         = prefs[KEY_P3_FONT_SCALE]          ?: 100
+            // Geofence-Vibration
+            val geofenceEnabled = prefs[KEY_GEOFENCE_ENABLED] ?: false
+            val geofenceLat     = prefs[KEY_GEOFENCE_LAT]?.toDoubleOrNull() ?: 0.0
+            val geofenceLon     = prefs[KEY_GEOFENCE_LON]?.toDoubleOrNull() ?: 0.0
+            val geofenceRadius  = prefs[KEY_GEOFENCE_RADIUS] ?: 300
+            val geofenceAddress = prefs[KEY_GEOFENCE_ADDRESS] ?: ""
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -998,8 +1023,13 @@ class MainViewModel @Inject constructor(
                     klipperHeatTargetTemp  = klipperHeatTargetTemp,
                     klipperChamberHeatGcodeOn  = klipperHeatGcodeOn,
                     klipperChamberHeatGcodeOff = klipperHeatGcodeOff,
-                    klipperHeatLabel   = klipperHeatLabel,
-                    p3FontScale        = p3FontScale
+                    klipperHeatLabel      = klipperHeatLabel,
+                    p3FontScale           = p3FontScale,
+                    geofenceEnabled       = geofenceEnabled,
+                    geofenceLat           = geofenceLat,
+                    geofenceLon           = geofenceLon,
+                    geofenceRadius        = geofenceRadius,
+                    geofenceAddressDisplay = geofenceAddress
                 )
             }
     }
@@ -3110,5 +3140,78 @@ class MainViewModel @Inject constructor(
             }
         }
         return result
+    }
+
+    // ── Geofence-Vibration ─────────────────────────────────────────────────────
+
+    private var geofenceSearchJob: Job? = null
+
+    /** Sucht Adressen per Nominatim (Straße + Hausnummer, Echtzeit-Vorschläge). */
+    fun searchGeofenceAddress(query: String) {
+        geofenceSearchJob?.cancel()
+        if (query.length < 3) {
+            _uiState.update { it.copy(geofenceSearchResults = emptyList(), geofenceSearching = false, geofenceSearchError = null) }
+            return
+        }
+        _uiState.update { it.copy(geofenceSearching = true, geofenceSearchError = null) }
+        geofenceSearchJob = viewModelScope.launch {
+            delay(400) // Debounce
+            nominatimService.searchAddress(query)
+                .onSuccess { results ->
+                    _uiState.update { it.copy(geofenceSearchResults = results, geofenceSearching = false, geofenceSearchError = null) }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(geofenceSearchResults = emptyList(), geofenceSearching = false, geofenceSearchError = e.message ?: "Unbekannter Fehler") }
+                }
+        }
+    }
+
+    /** Setzt den Geofence-Standort auf die gewählte Adresse. */
+    fun selectGeofenceLocation(lat: Double, lon: Double, displayName: String) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_GEOFENCE_LAT] = lat.toString()
+                prefs[KEY_GEOFENCE_LON] = lon.toString()
+                prefs[KEY_GEOFENCE_ADDRESS] = displayName
+            }
+            val radius = _uiState.value.geofenceRadius
+            _uiState.update { it.copy(
+                geofenceLat = lat,
+                geofenceLon = lon,
+                geofenceAddressDisplay = displayName,
+                geofenceSearchResults = emptyList(),
+                geofenceSearching = false
+            ) }
+            // Geofence sofort neu registrieren, falls aktiv
+            if (_uiState.value.geofenceEnabled) {
+                geofenceManager.addGeofence(lat, lon, radius.toFloat())
+            }
+        }
+    }
+
+    /** Ändert den Geofence-Radius und registriert den Geofence neu. */
+    fun setGeofenceRadius(radiusMeters: Int) {
+        viewModelScope.launch {
+            dataStore.edit { prefs -> prefs[KEY_GEOFENCE_RADIUS] = radiusMeters }
+            _uiState.update { it.copy(geofenceRadius = radiusMeters) }
+            val st = _uiState.value
+            if (st.geofenceEnabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
+                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, radiusMeters.toFloat())
+            }
+        }
+    }
+
+    /** Aktiviert oder deaktiviert die Geofence-Vibrationsfunktion. */
+    fun setGeofenceEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStore.edit { prefs -> prefs[KEY_GEOFENCE_ENABLED] = enabled }
+            _uiState.update { it.copy(geofenceEnabled = enabled) }
+            val st = _uiState.value
+            if (enabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
+                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, st.geofenceRadius.toFloat())
+            } else {
+                geofenceManager.removeGeofence()
+            }
+        }
     }
 }

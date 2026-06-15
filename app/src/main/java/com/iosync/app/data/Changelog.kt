@@ -8,6 +8,16 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.7.6",
+        date = "15.06.2026",
+        changes = listOf(
+            "Neu: Standort-Vibration (Geofence) – Handy schaltet automatisch auf Vibration wenn du einen gespeicherten Standort betrittst",
+            "Adresssuche mit Live-Vorschlägen (Straße + Hausnummer) über OpenStreetMap",
+            "Umkreis wählbar: 150 m, 300 m oder 500 m",
+            "Watchface: Seite 2 / 3 wechselt automatisch zurück zu Seite 1 wenn das Display ausgeht (Ambient-Modus)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.7.5",
         date = "13.06.2026",
         changes = listOf(

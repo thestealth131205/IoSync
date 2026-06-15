@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <!-- Backup-Datei in den Dokumente-Ordner schreiben (nur < Android 10; ab Q via MediaStore ohne Permission) -->
     <uses-permission
@@ -76,6 +78,11 @@
                     android:scheme="wear" />
             </intent-filter>
         </service>
+
+        <!-- Geofence-Übergänge (Betreten/Verlassen → Klingelmodus umschalten) -->
+        <receiver
+            android:name=".data.geofence.GeofenceTransitionReceiver"
+            android:exported="false" />
 
         <!-- WebSocket Background Service -->
         <service

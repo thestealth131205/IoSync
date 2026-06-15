@@ -272,6 +272,10 @@ fun SettingsScreen(
     var p3FontScale                by remember(uiState.p3FontScale)                { mutableStateOf(uiState.p3FontScale) }
     var sectionKlipper           by remember { mutableStateOf(false) }
 
+    // Geofence-Vibration
+    var geofenceSearchQuery by remember { mutableStateOf("") }
+    var sectionGeofence     by remember { mutableStateOf(false) }
+
     // NTP-Zeitkorrektur
     var ntpEnabled by remember(uiState.wfNtpEnabled) { mutableStateOf(uiState.wfNtpEnabled) }
     var ntpServer  by remember(uiState.wfNtpServer)  { mutableStateOf(uiState.wfNtpServer) }
@@ -2788,6 +2792,165 @@ fun SettingsScreen(
             backupStatus?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = NeonYellow)
+            }
+
+            // ── Geofence-Vibration ────────────────────────────────────────────
+            val context = LocalContext.current
+            val locationPermLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestMultiplePermissions()
+            ) { grants ->
+                val fine = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true
+                if (fine && !uiState.geofenceEnabled) {
+                    viewModel.setGeofenceEnabled(true)
+                }
+            }
+            AccordionSection(
+                title = "Standort-Vibration (Geofence)",
+                expanded = sectionGeofence,
+                onToggle = { sectionGeofence = !sectionGeofence }
+            ) {
+                // Aktivierungsschalter
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Vibration am Standort", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Handy vibriert automatisch sobald du den gewählten Standort (Umkreis) betrittst",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = uiState.geofenceEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (hasFine) {
+                                    viewModel.setGeofenceEnabled(true)
+                                } else {
+                                    locationPermLauncher.launch(arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    ))
+                                }
+                            } else {
+                                viewModel.setGeofenceEnabled(false)
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF1A1A00),
+                            checkedTrackColor = NeonYellow
+                        )
+                    )
+                }
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+
+                // Aktuell gespeicherter Standort
+                if (uiState.geofenceAddressDisplay.isNotBlank()) {
+                    Text(
+                        text = "Standort: ${uiState.geofenceAddressDisplay}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = NeonYellow,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                } else {
+                    Text(
+                        text = "Kein Standort gespeichert",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+
+                // Adresssuche
+                OutlinedTextField(
+                    value = geofenceSearchQuery,
+                    onValueChange = { query ->
+                        geofenceSearchQuery = query
+                        viewModel.searchGeofenceAddress(query)
+                    },
+                    label = { Text("Straße, Hausnummer, Ort…") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    trailingIcon = {
+                        if (uiState.geofenceSearching) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        }
+                    }
+                )
+
+                // Suchergebnisse
+                if (uiState.geofenceSearchResults.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF1E1E1E), RoundedCornerShape(8.dp))
+                            .padding(4.dp)
+                    ) {
+                        uiState.geofenceSearchResults.forEachIndexed { index, result ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.selectGeofenceLocation(result.lat, result.lon, result.displayName)
+                                        geofenceSearchQuery = ""
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 10.dp)
+                            ) {
+                                Text(
+                                    text = result.displayName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (index < uiState.geofenceSearchResults.lastIndex) {
+                                HorizontalDivider(color = Color(0xFF333333))
+                            }
+                        }
+                    }
+                } else if (!uiState.geofenceSearching && geofenceSearchQuery.length >= 3) {
+                    Text(
+                        text = if (uiState.geofenceSearchError != null)
+                            "Fehler: ${uiState.geofenceSearchError}" else "Keine Ergebnisse",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (uiState.geofenceSearchError != null) Color(0xFFF44336)
+                        else Color(0xFF888888),
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+
+                // Umkreis-Auswahl
+                Text(
+                    "Umkreis",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(150, 300, 500).forEach { radius ->
+                        Button(
+                            onClick = { viewModel.setGeofenceRadius(radius) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (uiState.geofenceRadius == radius) NeonYellow else Color(0xFF2A2A2A),
+                                contentColor = if (uiState.geofenceRadius == radius) Color(0xFF1A1A00) else Color(0xFFAAAAAA)
+                            )
+                        ) {
+                            Text("${radius}m", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
             }
 
             // ── Changelog ────────────────────────────────────────────────────
