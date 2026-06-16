@@ -44,6 +44,10 @@ object WatchDataSyncManager {
     private const val KLIPPER_IDLE_FACTOR = 4
     private const val KLIPPER_IDLE_MIN_SEC = 60
 
+    // Akku-Sparen im Ambient-Modus: Im Ambient zeigt das Watchface nur Uhr + Wetter.
+    // Datenpunkt-/Health-/Push-Abrufe pausieren, das Wetter-Intervall wird verdoppelt.
+    private const val AMBIENT_INTERVAL_FACTOR = 2
+
     private var scope: CoroutineScope? = null
     private var fetchJob: Job? = null
     private var weatherJob: Job? = null
@@ -101,7 +105,11 @@ object WatchDataSyncManager {
      * Klipper-Abruf; beim Einschalten wird sofort einmal frisch abgerufen ([syncNow]).
      */
     fun setDisplayActive(active: Boolean) {
+        val wasActive = displayActive
         displayActive = active
+        // Beim Aufwachen (Ambient → Aktiv) sofort alle im Ambient pausierten
+        // Abrufe nachholen, statt auf den nächsten Loop-Zyklus zu warten.
+        if (active && !wasActive) syncNow()
     }
 
     /**
@@ -126,8 +134,10 @@ object WatchDataSyncManager {
     private suspend fun fetchLoop() {
         while (running) {
             try {
-                runFetch()
-                val interval = WatchFaceConfigCache.slotIntervalSec.coerceAtLeast(10)
+                // Im Ambient-Modus sind Slots/Pillen/Balken nicht sichtbar → Abruf pausieren.
+                if (displayActive) runFetch()
+                val base = WatchFaceConfigCache.slotIntervalSec.coerceAtLeast(10)
+                val interval = if (displayActive) base else base * AMBIENT_INTERVAL_FACTOR
                 delay(interval * 1_000L)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -236,7 +246,11 @@ object WatchDataSyncManager {
 
     private suspend fun weatherLoop() {
         while (running) {
-            var nextDelay = WatchFaceConfigCache.weatherIntervalSec.coerceAtLeast(60) * 1_000L
+            // Wetter wird auch im Ambient gezeigt → läuft weiter, dort aber mit
+            // verdoppeltem Intervall (Akku sparen).
+            var base = WatchFaceConfigCache.weatherIntervalSec.coerceAtLeast(60)
+            if (!displayActive) base *= AMBIENT_INTERVAL_FACTOR
+            var nextDelay = base * 1_000L
             try {
                 if (!runWeather()) nextDelay = 60_000L
                 delay(nextDelay)
@@ -274,6 +288,12 @@ object WatchDataSyncManager {
         var lastSeenHrTimestamp = 0L
         while (running) {
             try {
+                // Health-Werte sind im Ambient nicht sichtbar → Spiegelung pausieren
+                // und im Ambient mit verdoppeltem Intervall prüfen.
+                if (!displayActive) {
+                    delay(30_000L * AMBIENT_INTERVAL_FACTOR)
+                    continue
+                }
                 val c = WatchFaceConfigCache
                 var needsInvalidate = false
 
@@ -323,7 +343,8 @@ object WatchDataSyncManager {
         while (running) {
             try {
                 val c = WatchFaceConfigCache
-                if (c.ioUseAdapter && c.ioUsePush && c.ioHost.isNotBlank()) {
+                // Echtzeit-Push hält das Funkmodul wach → im Ambient-Modus stoppen.
+                if (displayActive && c.ioUseAdapter && c.ioUsePush && c.ioHost.isNotBlank()) {
                     val sig = "${c.ioHost}|${c.ioPort}|${c.ioUseHttps}|${c.ioUsername}|${c.ioPassword}"
                     if (sig != pushSignature) {
                         pushSignature = sig

@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.7.8",
+        date = "16.06.2026",
+        changes = listOf(
+            "Akkuoptimierung: Im Ambient-Modus pausieren ioBroker-, Health- und Echtzeit-Push-Abrufe komplett",
+            "Akkuoptimierung: Wetter wird im Ambient-Modus nur noch halb so oft abgefragt (Intervall verdoppelt)",
+            "Beim Aufwachen werden alle pausierten Abrufe sofort nachgeholt"
+        )
+    ),
+    ChangelogEntry(
         version = "4.7.7",
         date = "15.06.2026",
         changes = listOf(
