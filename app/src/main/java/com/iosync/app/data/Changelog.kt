@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.8.2",
+        date = "18.06.2026",
+        changes = listOf(
+            "Standort-Vibration: Umkreis lässt sich jetzt per Schritt-Buttons (-100/-50/+50/+100) feinjustieren statt fester Voreinstellungen – aktueller Wert steht in der Mitte, Bereich 100–2000 m"
+        )
+    ),
+    ChangelogEntry(
         version = "4.8.1",
         date = "18.06.2026",
         changes = listOf(

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -3025,29 +3026,82 @@ fun SettingsScreen(
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
 
-                // Umkreis-Auswahl
+                // Umkreis-Auswahl: Intervall-Stepper – der aktuelle Wert steht
+                // hervorgehoben in der Mitte, links/rechts wird in festen
+                // Intervallschritten verkleinert/vergrößert.
                 Text(
                     "Umkreis",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                val minRadius = 100
+                val maxRadius = 2000
+                val currentRadius = uiState.geofenceRadius
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    listOf(150, 300, 500).forEach { radius ->
+                    // Verkleinern-Buttons (linke Seite)
+                    listOf(-100, -50).forEach { step ->
+                        val target = (currentRadius + step).coerceIn(minRadius, maxRadius)
+                        val enabled = target != currentRadius
                         Button(
-                            onClick = { viewModel.setGeofenceRadius(radius) },
+                            onClick = { viewModel.setGeofenceRadius(target) },
+                            enabled = enabled,
                             modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (uiState.geofenceRadius == radius) NeonYellow else Color(0xFF2A2A2A),
-                                contentColor = if (uiState.geofenceRadius == radius) Color(0xFF1A1A00) else Color(0xFFAAAAAA)
+                                containerColor = Color(0xFF2A2A2A),
+                                contentColor = Color(0xFFAAAAAA),
+                                disabledContainerColor = Color(0xFF1A1A1A),
+                                disabledContentColor = Color(0xFF555555)
                             )
                         ) {
-                            Text("${radius}m", style = MaterialTheme.typography.labelMedium)
+                            Text("$step", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    // Mitte: aktueller Wert (hervorgehoben)
+                    Box(
+                        modifier = Modifier
+                            .weight(1.4f)
+                            .background(NeonYellow, RoundedCornerShape(8.dp))
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "${currentRadius}m",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1A1A00)
+                        )
+                    }
+                    // Vergrößern-Buttons (rechte Seite)
+                    listOf(50, 100).forEach { step ->
+                        val target = (currentRadius + step).coerceIn(minRadius, maxRadius)
+                        val enabled = target != currentRadius
+                        Button(
+                            onClick = { viewModel.setGeofenceRadius(target) },
+                            enabled = enabled,
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF2A2A2A),
+                                contentColor = Color(0xFFAAAAAA),
+                                disabledContainerColor = Color(0xFF1A1A1A),
+                                disabledContentColor = Color(0xFF555555)
+                            )
+                        ) {
+                            Text("+$step", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
+                Text(
+                    "Bereich: ${minRadius}–${maxRadius} m",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
 
             // ── Changelog ────────────────────────────────────────────────────
