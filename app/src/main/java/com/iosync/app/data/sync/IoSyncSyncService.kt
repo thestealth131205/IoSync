@@ -19,6 +19,7 @@ import androidx.datastore.preferences.core.Preferences
 import com.iosync.app.MainActivity
 import com.iosync.app.R
 import com.iosync.app.ui.viewmodel.MainViewModel
+import com.iosync.app.data.geofence.GeofenceManager
 import com.iosync.app.wear.WearDataLayerService
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -45,6 +46,7 @@ class IoSyncSyncService : Service() {
 
     @Inject lateinit var wearDataLayerService: WearDataLayerService
     @Inject lateinit var dataStore: DataStore<Preferences>
+    @Inject lateinit var geofenceManager: GeofenceManager
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var batteryJob: Job? = null
@@ -115,6 +117,26 @@ class IoSyncSyncService : Service() {
         loopsRunning = true
         registerBatteryReceiver()
         batteryJob = scope.launch { batteryLoop() }
+        // Geofence nach Neustart / Service-Kill erneut registrieren, da Android
+        // alle Geofences beim Neustart des Geräts oder nach dem App-Kill löscht.
+        scope.launch { reregisterGeofenceIfNeeded() }
+    }
+
+    private suspend fun reregisterGeofenceIfNeeded() {
+        try {
+            val prefs = dataStore.data.first()
+            val enabled = prefs[MainViewModel.KEY_GEOFENCE_ENABLED] ?: false
+            if (!enabled) return
+            val lat = prefs[MainViewModel.KEY_GEOFENCE_LAT]?.toDoubleOrNull() ?: return
+            val lon = prefs[MainViewModel.KEY_GEOFENCE_LON]?.toDoubleOrNull() ?: return
+            if (lat == 0.0 && lon == 0.0) return
+            val radius = (prefs[MainViewModel.KEY_GEOFENCE_RADIUS] ?: 300).toFloat()
+            geofenceManager.addGeofence(lat, lon, radius)
+                .onSuccess { Log.d(TAG, "Geofence nach Service-Start reaktiviert: lat=$lat, lon=$lon, r=${radius}m") }
+                .onFailure { Log.w(TAG, "Geofence-Reaktivierung fehlgeschlagen: ${it.message}") }
+        } catch (e: Exception) {
+            Log.e(TAG, "reregisterGeofenceIfNeeded Fehler: ${e.message}", e)
+        }
     }
 
     // ── Handy-Akku ────────────────────────────────────────────────────────────

@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.8.0",
+        date = "18.06.2026",
+        changes = listOf(
+            "Bugfix Geofence: Vibrations-Zone wird jetzt nach Neustart oder App-Kill automatisch neu registriert – GPS-Abfrage läuft wieder zuverlässig"
+        )
+    ),
+    ChangelogEntry(
         version = "4.7.9",
         date = "18.06.2026",
         changes = listOf(
