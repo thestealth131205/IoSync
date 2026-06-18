@@ -34,7 +34,12 @@ class GeofenceManager @Inject constructor(
         )
     }
 
-    suspend fun addGeofence(lat: Double, lon: Double, radiusMeters: Float): Result<Unit> {
+    suspend fun addGeofence(
+        lat: Double,
+        lon: Double,
+        radiusMeters: Float,
+        responsivenessMs: Int = 60_000
+    ): Result<Unit> {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -45,6 +50,10 @@ class GeofenceManager @Inject constructor(
             .setRequestId(GEOFENCE_ID)
             .setCircularRegion(lat, lon, radiusMeters)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
+            // Steuert, in welchen zeitlichen Intervallen das System prüft, ob sich
+            // das Gerät innerhalb/außerhalb des Bereichs befindet. Größere Werte
+            // sparen Akku (System darf Prüfungen bündeln), kleinere reagieren schneller.
+            .setNotificationResponsiveness(responsivenessMs)
             .setTransitionTypes(
                 Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT
             )

@@ -3102,6 +3102,84 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+
+                // Prüf-Intervall (Responsiveness): in welchen zeitlichen Abständen
+                // das System prüft, ob man sich im Bereich befindet. Gleicher
+                // Stepper-Aufbau wie der Umkreis – aktueller Wert hervorgehoben mittig.
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Prüf-Intervall",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val minRespSec = 30
+                val maxRespSec = 1800
+                val currentRespSec = uiState.geofenceResponsivenessSec
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Verkürzen-Buttons (linke Seite)
+                    listOf(-300, -60).forEach { step ->
+                        val target = (currentRespSec + step).coerceIn(minRespSec, maxRespSec)
+                        val enabled = target != currentRespSec
+                        Button(
+                            onClick = { viewModel.setGeofenceResponsiveness(target) },
+                            enabled = enabled,
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF2A2A2A),
+                                contentColor = Color(0xFFAAAAAA),
+                                disabledContainerColor = Color(0xFF1A1A1A),
+                                disabledContentColor = Color(0xFF555555)
+                            )
+                        ) {
+                            Text("${step / 60}m", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    // Mitte: aktueller Wert (hervorgehoben)
+                    Box(
+                        modifier = Modifier
+                            .weight(1.4f)
+                            .background(NeonYellow, RoundedCornerShape(8.dp))
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            formatInterval(currentRespSec),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1A1A00)
+                        )
+                    }
+                    // Verlängern-Buttons (rechte Seite)
+                    listOf(60, 300).forEach { step ->
+                        val target = (currentRespSec + step).coerceIn(minRespSec, maxRespSec)
+                        val enabled = target != currentRespSec
+                        Button(
+                            onClick = { viewModel.setGeofenceResponsiveness(target) },
+                            enabled = enabled,
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF2A2A2A),
+                                contentColor = Color(0xFFAAAAAA),
+                                disabledContainerColor = Color(0xFF1A1A1A),
+                                disabledContentColor = Color(0xFF555555)
+                            )
+                        ) {
+                            Text("+${step / 60}m", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+                Text(
+                    "Wie oft geprüft wird, ob du im Bereich bist · Bereich: 30 s–30 min · längere Intervalle sparen Akku",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
 
             // ── Changelog ────────────────────────────────────────────────────

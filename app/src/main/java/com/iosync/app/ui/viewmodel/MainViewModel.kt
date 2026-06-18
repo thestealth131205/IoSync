@@ -316,6 +316,7 @@ data class MainUiState(
     val geofenceLat: Double = 0.0,
     val geofenceLon: Double = 0.0,
     val geofenceRadius: Int = 300,
+    val geofenceResponsivenessSec: Int = 60,
     val geofenceAddressDisplay: String = "",
     val geofenceSearchResults: List<com.iosync.app.data.network.AddressSearchResult> = emptyList(),
     val geofenceSearching: Boolean = false,
@@ -572,6 +573,7 @@ class MainViewModel @Inject constructor(
         val KEY_GEOFENCE_LAT             = stringPreferencesKey("geofence_lat")
         val KEY_GEOFENCE_LON             = stringPreferencesKey("geofence_lon")
         val KEY_GEOFENCE_RADIUS          = intPreferencesKey("geofence_radius")
+        val KEY_GEOFENCE_RESPONSIVENESS  = intPreferencesKey("geofence_responsiveness_sec")
         val KEY_GEOFENCE_ADDRESS         = stringPreferencesKey("geofence_address")
     }
 
@@ -809,6 +811,7 @@ class MainViewModel @Inject constructor(
             val geofenceLat     = prefs[KEY_GEOFENCE_LAT]?.toDoubleOrNull() ?: 0.0
             val geofenceLon     = prefs[KEY_GEOFENCE_LON]?.toDoubleOrNull() ?: 0.0
             val geofenceRadius  = prefs[KEY_GEOFENCE_RADIUS] ?: 300
+            val geofenceRespSec = prefs[KEY_GEOFENCE_RESPONSIVENESS] ?: 60
             val geofenceAddress = prefs[KEY_GEOFENCE_ADDRESS] ?: ""
 
             // WeatherService festen Standort konfigurieren
@@ -1029,6 +1032,7 @@ class MainViewModel @Inject constructor(
                     geofenceLat           = geofenceLat,
                     geofenceLon           = geofenceLon,
                     geofenceRadius        = geofenceRadius,
+                    geofenceResponsivenessSec = geofenceRespSec,
                     geofenceAddressDisplay = geofenceAddress
                 )
             }
@@ -3184,7 +3188,7 @@ class MainViewModel @Inject constructor(
             ) }
             // Geofence sofort neu registrieren, falls aktiv
             if (_uiState.value.geofenceEnabled) {
-                geofenceManager.addGeofence(lat, lon, radius.toFloat())
+                geofenceManager.addGeofence(lat, lon, radius.toFloat(), _uiState.value.geofenceResponsivenessSec * 1000)
             }
         }
     }
@@ -3196,7 +3200,23 @@ class MainViewModel @Inject constructor(
             _uiState.update { it.copy(geofenceRadius = radiusMeters) }
             val st = _uiState.value
             if (st.geofenceEnabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
-                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, radiusMeters.toFloat())
+                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, radiusMeters.toFloat(), st.geofenceResponsivenessSec * 1000)
+            }
+        }
+    }
+
+    /**
+     * Ändert das Prüf-Intervall (Responsiveness) des Geofence und registriert ihn neu.
+     * Bestimmt, in welchen zeitlichen Abständen das System prüft, ob man sich im Bereich
+     * befindet. Längere Intervalle sparen Akku, kürzere reagieren schneller.
+     */
+    fun setGeofenceResponsiveness(seconds: Int) {
+        viewModelScope.launch {
+            dataStore.edit { prefs -> prefs[KEY_GEOFENCE_RESPONSIVENESS] = seconds }
+            _uiState.update { it.copy(geofenceResponsivenessSec = seconds) }
+            val st = _uiState.value
+            if (st.geofenceEnabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
+                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, st.geofenceRadius.toFloat(), seconds * 1000)
             }
         }
     }
@@ -3208,7 +3228,7 @@ class MainViewModel @Inject constructor(
             _uiState.update { it.copy(geofenceEnabled = enabled) }
             val st = _uiState.value
             if (enabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
-                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, st.geofenceRadius.toFloat())
+                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, st.geofenceRadius.toFloat(), st.geofenceResponsivenessSec * 1000)
             } else {
                 geofenceManager.removeGeofence()
             }

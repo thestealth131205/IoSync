@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.8.3",
+        date = "18.06.2026",
+        changes = listOf(
+            "Standort-Vibration: Neues Prüf-Intervall per Schritt-Buttons (-5m/-1m/+1m/+5m) – legt fest, in welchen Abständen geprüft wird, ob du im Bereich bist (30 s–30 min); größere Intervalle sparen Akku"
+        )
+    ),
+    ChangelogEntry(
         version = "4.8.2",
         date = "18.06.2026",
         changes = listOf(

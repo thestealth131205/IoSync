@@ -131,7 +131,8 @@ class IoSyncSyncService : Service() {
             val lon = prefs[MainViewModel.KEY_GEOFENCE_LON]?.toDoubleOrNull() ?: return
             if (lat == 0.0 && lon == 0.0) return
             val radius = (prefs[MainViewModel.KEY_GEOFENCE_RADIUS] ?: 300).toFloat()
-            geofenceManager.addGeofence(lat, lon, radius)
+            val responsivenessMs = (prefs[MainViewModel.KEY_GEOFENCE_RESPONSIVENESS] ?: 60) * 1000
+            geofenceManager.addGeofence(lat, lon, radius, responsivenessMs)
                 .onSuccess { Log.d(TAG, "Geofence nach Service-Start reaktiviert: lat=$lat, lon=$lon, r=${radius}m") }
                 .onFailure { Log.w(TAG, "Geofence-Reaktivierung fehlgeschlagen: ${it.message}") }
         } catch (e: Exception) {
