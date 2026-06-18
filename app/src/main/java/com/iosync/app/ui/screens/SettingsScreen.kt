@@ -73,6 +73,14 @@ import com.iosync.app.data.health.HealthConnectStatus
 import com.iosync.app.data.health.HealthDataTypeInfo
 import com.iosync.app.ui.viewmodel.MainUiState
 import com.iosync.app.ui.viewmodel.MainViewModel
+import android.app.NotificationManager
+import android.os.Build
+import android.provider.Settings
+import android.content.Intent
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -2800,12 +2808,43 @@ fun SettingsScreen(
 
             // ── Geofence-Vibration ────────────────────────────────────────────
             val context = LocalContext.current
+            val notifManager = remember(context) {
+                context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as NotificationManager
+            }
+            var hasDndAccess by remember { mutableStateOf(notifManager.isNotificationPolicyAccessGranted) }
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        hasDndAccess = notifManager.isNotificationPolicyAccessGranted
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+            var hasBgLocation by remember {
+                mutableStateOf(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    else true
+                )
+            }
+            val bgLocationLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                hasBgLocation = granted
+                if (granted && !uiState.geofenceEnabled) viewModel.setGeofenceEnabled(true)
+            }
             val locationPermLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { grants ->
                 val fine = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true
-                if (fine && !uiState.geofenceEnabled) {
-                    viewModel.setGeofenceEnabled(true)
+                if (fine) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBgLocation) {
+                        bgLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                    } else if (!uiState.geofenceEnabled) {
+                        viewModel.setGeofenceEnabled(true)
+                    }
                 }
             }
             AccordionSection(
@@ -2834,7 +2873,11 @@ fun SettingsScreen(
                                 val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
                                         android.content.pm.PackageManager.PERMISSION_GRANTED
                                 if (hasFine) {
-                                    viewModel.setGeofenceEnabled(true)
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBgLocation) {
+                                        bgLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                                    } else {
+                                        viewModel.setGeofenceEnabled(true)
+                                    }
                                 } else {
                                     locationPermLauncher.launch(arrayOf(
                                         Manifest.permission.ACCESS_FINE_LOCATION,
@@ -2853,6 +2896,56 @@ fun SettingsScreen(
                 }
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
+
+                // Warnung: Hintergrund-Standort fehlt (Android 10+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBgLocation) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF2A1800), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Hintergrund-Standort fehlt – Geofence funktioniert nicht",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFFFAA00),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Button(
+                            onClick = { bgLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFAA00), contentColor = Color.Black),
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) { Text("Gewähren", style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+
+                // Warnung: DND-Zugriff fehlt
+                if (!hasDndAccess) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF2A1800), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "\"Nicht stören\"-Zugriff fehlt – Klingelmodus kann nicht geändert werden",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFFFAA00),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Button(
+                            onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFAA00), contentColor = Color.Black),
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) { Text("Öffnen", style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
 
                 // Aktuell gespeicherter Standort
                 if (uiState.geofenceAddressDisplay.isNotBlank()) {

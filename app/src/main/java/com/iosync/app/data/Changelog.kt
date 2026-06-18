@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.8.1",
+        date = "18.06.2026",
+        changes = listOf(
+            "Bugfix Geofence: Vibrations-Modus wird beim Betreten des Bereichs jetzt zuverlässig aktiviert und beim Verlassen wieder zurückgesetzt"
+        )
+    ),
+    ChangelogEntry(
         version = "4.8.0",
         date = "18.06.2026",
         changes = listOf(
