@@ -544,9 +544,11 @@ class IoSyncWatchFaceRenderer(
             }
         }
 
-        // Puls kommt ausschließlich über den Passive Listener (HealthPassiveDataService),
-        // der von der Uhr automatisch ~alle 10 Min gefeuert wird. MeasureClient (kontinuierliche
-        // Echtzeit-Messung) entfällt, da er den Sensor dauerhaft aktiv hält und den Akku leert.
+        // Puls wird periodisch über den MeasureClient gemessen (startHeartRate/stopHeartRate),
+        // aber nur bei sichtbarem, nicht-ambientem Watchface. Zwischen den Messungen bleibt der
+        // Sensor aus. Der Passive Listener registriert HEART_RATE_BPM bewusst NICHT mehr, da
+        // passives HR-Monitoring den optischen Sensor dauerhaft aktiv hält (Akku-Drain).
+        // Die Lifecycle-Steuerung (start/stop) erfolgt im Aktiv-Zustand-Collector weiter unten.
 
         // Bei jedem Aktiv-Werden (Handgelenk heben / Aufwachen aus Ambient) die
         // neuesten Data-Layer-Werte erneut einlesen. Der Renderer-Prozess kann im
@@ -562,12 +564,19 @@ class IoSyncWatchFaceRenderer(
                 // Klipper-Abruf nur bei aktivem Display laufen lassen (Akku/Traffic sparen).
                 WatchDataSyncManager.setDisplayActive(active)
                 if (!active) {
+                    // Ambient-Modus aktiviert → periodische Puls-Messung stoppen, damit
+                    // der optische Sensor im Ambient garantiert aus bleibt (Akku sparen).
+                    healthSensorManager.stopHeartRate()
                     // Ambient-Modus aktiviert → Seite 1 vorwählen, damit beim nächsten
                     // Aufwachen immer die Hauptseite angezeigt wird (nicht Seite 2 oder 3).
                     currentPage = 0
                     WatchDataSyncManager.setActivePage(0)
                 }
                 if (active) {
+                    // Bei sichtbarem (nicht-ambient) Watchface den Puls periodisch
+                    // messen: Sensor kurz an, EIN Wert, Sensor wieder aus. So bleibt
+                    // der Sensor zwischen den Messungen aus (kein Dauer-Akkuverbrauch).
+                    healthSensorManager.startHeartRate()
                     // Pillen beim Aufwachen deaktiviert anzeigen, bis frische Abrufe
                     // (ioBroker/Klipper) den echten Zustand bestätigen.
                     WatchFaceConfigCache.actionPillState = false
@@ -909,9 +918,46 @@ class IoSyncWatchFaceRenderer(
         val by = if (isAmbient) burnInOffsetY else 0f
 
         if (isAmbient) {
+            // Ambient-Modus: nur Uhrzeit MIT Sekunden + Wochentag-Abkürzung und Tageszahl.
+            // Alles andere bleibt schwarz (kein Hintergrundbild, keine Komplikationen,
+            // keine Ringe/Health/Wetter) um Energie zu sparen.
+            ambientTimePaint.textAlign = Paint.Align.LEFT
+            ambientTimePaint.textSize  = timeFontSize
+
+            val secStr      = if (stopwatchActive) formatStopwatchCenti(swElapsed)
+                              else secondsFormatter.format(zonedDateTime)
+            val secFontSize = timeFontSize * 0.475f
+
+            val timeWidth = ambientTimePaint.measureText(timeStr)
+            ambientTimePaint.textSize = secFontSize
+            val secWidth  = ambientTimePaint.measureText(secStr)
+            ambientTimePaint.textSize = timeFontSize
+
+            val gap          = radius * 0.025f
+            val startX       = (cx + bx) - (timeWidth + gap + secWidth) / 2f
+            val secX         = startX + timeWidth + gap
+            val timeBaseline = (cy + by) + timeFontSize * 0.30f
+
+            // Stunden:Minuten
+            canvas.drawText(timeStr, startX, timeBaseline, ambientTimePaint)
+
+            // Sekunden (kleiner, rechts neben der Zeit, oben ausgerichtet)
+            val timeFm = ambientTimePaint.fontMetrics
+            ambientTimePaint.textSize = secFontSize
+            val secFm       = ambientTimePaint.fontMetrics
+            val secBaseline = timeBaseline + timeFm.ascent - secFm.ascent
+            canvas.drawText(secStr, secX, secBaseline, ambientTimePaint)
+
+            // Datum "MO 15" (Wochentag-Abk. + Tageszahl) unterhalb der Sekunden
+            val dateStr      = "${weekdayShort(zonedDateTime)} ${zonedDateTime.dayOfMonth}"
+            val dateFontSize = secFontSize * 0.72f
+            ambientTimePaint.textSize = dateFontSize
+            val dateY = secBaseline + (secFm.descent - secFm.ascent) * 0.88f
+            canvas.drawText(dateStr, secX, dateY, ambientTimePaint)
+
+            // Paint für nachfolgende Frames/Modi zurücksetzen
             ambientTimePaint.textSize  = timeFontSize
             ambientTimePaint.textAlign = Paint.Align.CENTER
-            canvas.drawText(timeStr, cx + bx, cy + by + timeFontSize * 0.30f, ambientTimePaint)
         } else {
             val timeColor = colorFromId(config.timeColorId)
             val dateColor = colorFromId(config.dateColorId)
@@ -1032,7 +1078,11 @@ class IoSyncWatchFaceRenderer(
 
         }
 
-        drawComplications(canvas, zonedDateTime, isAmbient)
+        // Im Ambient bleibt alles außer Uhrzeit/Datum schwarz → Komplikationen
+        // nur im aktiven Modus zeichnen (Energie sparen, OLED-Schwarzwert nutzen).
+        if (!isAmbient) {
+            drawComplications(canvas, zonedDateTime, isAmbient)
+        }
 
         // Aktions-Pille nach Komplikationen — liegt visuell und taktil oben
         if (!isAmbient && config.actionPillEnabled) {
@@ -1642,6 +1692,13 @@ class IoSyncWatchFaceRenderer(
                     bc2NumValue = o2?.toFloat() ?: 0f
                     bc2Text     = if (o2 != null && o2 > 0) "$o2%" else "--"
                 }
+                "klipper_progress" -> {
+                    // Druck-Status in Prozent (Moonraker display_status.progress, 0.0–1.0).
+                    // Wird unabhängig von Seite 3 per WebSocket gefüllt (bc2KlipperProgress).
+                    val pct = (config.bc2KlipperProgress.coerceIn(0f, 1f) * 100f)
+                    bc2NumValue = pct
+                    bc2Text     = "${pct.toInt()}%"
+                }
                 else -> {
                     // "bloodpressure" und "training": kein lokaler Sensor → ioBroker-Quelle nutzen
                     bc2NumValue = 0f
@@ -1654,6 +1711,9 @@ class IoSyncWatchFaceRenderer(
             bc2NumValue, config.bc2RingThreshEnabled, config.bc2RingThreshValue,
             config.bc2RingThreshDir, config.bc2RingThreshTarget, config.bc2RingThreshColor
         )
+        // Beim Druck-Status mappt der Ring fest 0–100 % auf 0–360°,
+        // unabhängig von den (für andere Metriken gedachten) Min/Max-Einstellungen.
+        val bc2IsKlipper = !config.bc2UseIoBroker && config.bc2Metric == "klipper_progress"
         drawBottomComp(
             canvas, rightCx, compCy, compRadius,
             label       = config.bc2Label,
@@ -1663,8 +1723,8 @@ class IoSyncWatchFaceRenderer(
             ringEnabled = config.bc2RingEnabled,
             ringColor1  = bc2Col1,
             ringColor2  = bc2Col2,
-            ringMin     = config.bc2RingMin,
-            ringMax     = config.bc2RingMax,
+            ringMin     = if (bc2IsKlipper) 0f   else config.bc2RingMin,
+            ringMax     = if (bc2IsKlipper) 100f else config.bc2RingMax,
             ringWidth   = config.bc2RingWidth,
             textScale   = config.bc2TextScale / 100f
         )

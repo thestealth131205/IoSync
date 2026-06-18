@@ -107,8 +107,14 @@ class HealthSensorManager private constructor(
 
         scope.launch {
             try {
+                // WICHTIG: HEART_RATE_BPM NICHT als passiven DataType registrieren!
+                // Passive Monitoring von HEART_RATE_BPM hält den optischen Puls-Sensor
+                // DAUERHAFT aktiv → permanenter Akku-Verbrauch, auch wenn TicCare-Echtzeit
+                // aus ist. Der Puls wird stattdessen on-demand und nur bei sichtbarem
+                // Watchface periodisch über den MeasureClient gemessen (startHeartRate()):
+                // Sensor kurz an, EIN Wert, Sensor wieder aus.
+                // Kalorien/Schritte sind aggregierte Tages-DataTypes ohne Dauer-Sensor.
                 val dataTypes = mutableSetOf(
-                    DataType.HEART_RATE_BPM,
                     DataType.CALORIES_DAILY,
                     DataType.STEPS_DAILY
                 )
@@ -177,6 +183,7 @@ class HealthSensorManager private constructor(
                     val hr = point.value.toInt()
                     if (hr > 0) {
                         HealthDataCache.heartRate = hr
+                        HealthDataCache.lastHeartRateTimestamp = System.currentTimeMillis()
                         Log.d(TAG, "Puls (Measure, periodisch): $hr bpm")
                         received.complete(Unit)
                     }

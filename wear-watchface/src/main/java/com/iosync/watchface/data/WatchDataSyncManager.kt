@@ -55,12 +55,14 @@ object WatchDataSyncManager {
     private var pushJob: Job? = null
     private var pushDebounceJob: Job? = null
     private var klipperJob: Job? = null
+    private var klipperProgressJob: Job? = null
 
     private var invalidate: (() -> Unit)? = null
     private val fetchMutex = Mutex()
 
     @Volatile private var running = false
     @Volatile private var pushSignature = ""
+    @Volatile private var klipperWsSignature = ""
 
     // Klipper-Abruf nur bei aktivem (eingeschaltetem) Display – spart Akku/Traffic,
     // wenn das Watchface aus oder im Ambient-Modus ist.
@@ -86,16 +88,20 @@ object WatchDataSyncManager {
         healthJob  = s.launch { healthMirrorLoop() }
         pushJob    = s.launch { pushLoop() }
         klipperJob = s.launch { klipperLoop() }
+        klipperProgressJob = s.launch { klipperProgressLoop() }
         Log.d(TAG, "WatchDataSyncManager gestartet")
     }
 
     fun stop() {
         running = false
         WatchIoSyncPushClient.stop()
+        WatchKlipperProgressSocket.stop()
         pushSignature = ""
+        klipperWsSignature = ""
         scope?.let { sc ->
             fetchJob?.cancel(); weatherJob?.cancel(); healthJob?.cancel()
             pushJob?.cancel(); pushDebounceJob?.cancel(); klipperJob?.cancel()
+            klipperProgressJob?.cancel()
         }
         scope = null
     }
@@ -117,7 +123,14 @@ object WatchDataSyncManager {
      * Klipper-Daten werden nur abgerufen, wenn Seite 3 sichtbar ist.
      */
     fun setActivePage(page: Int) {
+        val prev = activePage
         activePage = page
+        // Beim Wechsel AUF Seite 3 sofort einmal abrufen, statt auf den nächsten
+        // klipperLoop-Zyklus zu warten (der bei stillstehendem Drucker bis zu
+        // KLIPPER_IDLE_MIN_SEC schläft → sonst „eingefrorene" Werte beim Öffnen).
+        if (page == 2 && prev != 2 && displayActive) {
+            scope?.launch { runKlipperFetch() }
+        }
     }
 
     /** Sofortiger Einmal-Abruf (z.B. wenn das Display aktiviert wird). */
@@ -607,6 +620,45 @@ object WatchDataSyncManager {
         }
 
         if (changed) invalidate?.invoke()
+    }
+
+    // ── Klipper-Druckfortschritt für Seite-1-Komplikation (WebSocket) ─────────
+    //
+    // Unabhängig vom Seite-3-Polling: sobald die rechte Boden-Komplikation auf
+    // "klipper_progress" steht und ein Klipper-Host konfiguriert ist, wird ein
+    // eigener Moonraker-WebSocket geöffnet, der NUR display_status.progress
+    // abonniert. Im Ambient-Modus (Display aus) wird er geschlossen (Akku sparen).
+    private suspend fun klipperProgressLoop() {
+        while (running) {
+            try {
+                val c = WatchFaceConfigCache
+                val want = displayActive &&
+                    !c.bc2UseIoBroker &&
+                    c.bc2Metric == "klipper_progress" &&
+                    c.klipperHost.isNotBlank()
+                if (want) {
+                    val sig = "${c.klipperHost}|${c.klipperPort}|${c.klipperApiKey}"
+                    if (sig != klipperWsSignature) {
+                        klipperWsSignature = sig
+                        WatchKlipperProgressSocket.start(c.klipperHost, c.klipperPort, c.klipperApiKey) { progress ->
+                            if (c.bc2KlipperProgress != progress) {
+                                c.bc2KlipperProgress = progress
+                                invalidate?.invoke()
+                            }
+                        }
+                    }
+                } else {
+                    WatchKlipperProgressSocket.stop()
+                    klipperWsSignature = ""
+                }
+                delay(30_000L)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "klipperProgressLoop Ausnahme, Neuversuch in 30s: ${e.message}", e)
+                delay(30_000L)
+            }
+        }
     }
 
     private fun sendPillCommand(

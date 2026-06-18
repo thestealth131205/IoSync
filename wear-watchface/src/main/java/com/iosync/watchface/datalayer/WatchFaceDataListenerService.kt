@@ -659,6 +659,10 @@ object WatchFaceConfigCache {
     // ── Seite 3 – Live-Druckdaten (direkt von Moonraker abgerufen) ────────────
     @Volatile var klipperIsActive: Boolean = false   // true wenn Drucker aktiv druckt
     @Volatile var klipperPrintProgress: Float = 0f   // 0.0–1.0
+    // Eigenständiger Druckfortschritt für die Seite-1-Boden-Komplikation (Metrik
+    // "klipper_progress"). Wird über einen separaten Moonraker-WebSocket gefüllt und
+    // ist komplett unabhängig vom Seite-3-Polling (oben). 0.0–1.0.
+    @Volatile var bc2KlipperProgress: Float = 0f
     @Volatile var klipperNozzleTemp: Float = 0f
     @Volatile var klipperNozzleTarget: Float = 0f
     @Volatile var klipperBedTemp: Float = 0f

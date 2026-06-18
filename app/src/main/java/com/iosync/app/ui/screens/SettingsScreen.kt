@@ -2488,15 +2488,19 @@ fun SettingsScreen(
                 Text("Rechts (Kcal oder Oxygen)", style = MaterialTheme.typography.titleSmall, color = NeonYellow)
                 Text("Metrik – Oxygen oder ioBroker ersetzt Kcal an dieser Stelle", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 GenericValueDropdown(
-                    options = listOf("kcal" to "Kalorien (Kcal)", "oxygen" to "Sauerstoff (Oxygen/SpO2)", "iobroker" to "ioBroker-Datenpunkt"),
+                    options = listOf("kcal" to "Kalorien (Kcal)", "oxygen" to "Sauerstoff (Oxygen/SpO2)", "klipper_progress" to "Druck-Status (%)", "iobroker" to "ioBroker-Datenpunkt"),
                     selected = bc2Metric,
                     onSelect = { m ->
                         bc2Metric = m
                         if (m == "oxygen" && (bc2Label.equals("KCAL", true) || bc2Label.isBlank())) bc2Label = "SpO2"
                         if (m == "kcal" && (bc2Label.equals("SpO2", true) || bc2Label.isBlank())) bc2Label = "KCAL"
+                        if (m == "klipper_progress" && (bc2Label.equals("KCAL", true) || bc2Label.equals("SpO2", true) || bc2Label.isBlank())) bc2Label = "DRUCK"
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (bc2Metric == "klipper_progress") {
+                    Text("Druckfortschritt wird live per WebSocket von Moonraker geholt (Klipper-Host aus den Verbindungs-Einstellungen). Funktioniert unabhängig von Seite 3.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (bc2Metric == "iobroker") {
                     Text("Datenpunkt – die Uhr ruft diesen Wert selbst ab", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     DatapointDropdown(selectedId = bc2Id, availableStates = uiState.ioSyncStates.ifEmpty { uiState.states }, onSelect = { bc2Id = it }, modifier = Modifier.fillMaxWidth())

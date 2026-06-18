@@ -8,6 +8,17 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.7.9",
+        date = "18.06.2026",
+        changes = listOf(
+            "Ambient-Modus: zeigt jetzt nur noch Uhrzeit mit Sekunden + Wochentag/Tag, alles andere bleibt schwarz (spart Energie)",
+            "Neu: Rechte Boden-Komplikation kann den Klipper-Druck-Status in % anzeigen – Ring füllt sich von 0–100 % auf 360°",
+            "Druck-Status für Seite 1 wird live per Moonraker-WebSocket geholt und funktioniert unabhängig von Seite 3",
+            "Seite 3 (Klipper): Werte werden beim Öffnen sofort aktualisiert statt erst nach dem nächsten Poll-Zyklus",
+            "Akkufix Puls: optischer Sensor wird nicht mehr dauerhaft aktiv gehalten – Messung nur noch periodisch bei sichtbarem Watchface"
+        )
+    ),
+    ChangelogEntry(
         version = "4.7.8",
         date = "16.06.2026",
         changes = listOf(
