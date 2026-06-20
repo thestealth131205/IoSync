@@ -320,7 +320,8 @@ data class MainUiState(
     val geofenceAddressDisplay: String = "",
     val geofenceSearchResults: List<com.iosync.app.data.network.AddressSearchResult> = emptyList(),
     val geofenceSearching: Boolean = false,
-    val geofenceSearchError: String? = null
+    val geofenceSearchError: String? = null,
+    val geofenceInsideRegion: Boolean? = null
 )
 
 @HiltViewModel
@@ -1054,6 +1055,7 @@ class MainViewModel @Inject constructor(
             // Konfiguration sofort die verfügbaren Datentypen/Quellen kennt – ohne
             // dass der Nutzer erst die Health-Connect-Sektion aufklappen muss.
             refreshHealthConnectStatus()
+            refreshGeofenceStatus()
         }
 
         // NTP-Offset von der Uhr live beobachten (WatchFaceTriggerListenerService schreibt in DataStore)
@@ -3147,6 +3149,18 @@ class MainViewModel @Inject constructor(
     }
 
     // ── Geofence-Vibration ─────────────────────────────────────────────────────
+
+    /** Liest den aktuellen Geofence-Status (drin/draußen) aus den SharedPreferences. */
+    fun refreshGeofenceStatus() {
+        val prefs = context.getSharedPreferences(
+            com.iosync.app.data.geofence.GEOFENCE_PREFS_NAME,
+            android.content.Context.MODE_PRIVATE
+        )
+        val inside = if (prefs.contains(com.iosync.app.data.geofence.KEY_INSIDE_GEOFENCE))
+            prefs.getBoolean(com.iosync.app.data.geofence.KEY_INSIDE_GEOFENCE, false)
+        else null
+        _uiState.update { it.copy(geofenceInsideRegion = inside) }
+    }
 
     private var geofenceSearchJob: Job? = null
 

@@ -12,6 +12,7 @@ import com.google.android.gms.location.GeofencingEvent
 private const val TAG = "GeofenceReceiver"
 const val GEOFENCE_PREFS_NAME = "iosync_geofence_prefs"
 const val KEY_PREVIOUS_RINGER_MODE = "previous_ringer_mode"
+const val KEY_INSIDE_GEOFENCE = "inside_geofence"
 
 class GeofenceTransitionReceiver : BroadcastReceiver() {
 
@@ -34,12 +35,16 @@ class GeofenceTransitionReceiver : BroadcastReceiver() {
         when (geofencingEvent.geofenceTransition) {
             Geofence.GEOFENCE_TRANSITION_ENTER -> {
                 val currentMode = audioManager.ringerMode
-                prefs.edit().putInt(KEY_PREVIOUS_RINGER_MODE, currentMode).apply()
+                prefs.edit()
+                    .putInt(KEY_PREVIOUS_RINGER_MODE, currentMode)
+                    .putBoolean(KEY_INSIDE_GEOFENCE, true)
+                    .apply()
                 audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
                 Log.d(TAG, "Geofence betreten – Klingelmodus auf Vibration (vorher: $currentMode)")
             }
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 val previousMode = prefs.getInt(KEY_PREVIOUS_RINGER_MODE, AudioManager.RINGER_MODE_NORMAL)
+                prefs.edit().putBoolean(KEY_INSIDE_GEOFENCE, false).apply()
                 audioManager.ringerMode = previousMode
                 Log.d(TAG, "Geofence verlassen – Klingelmodus wiederhergestellt: $previousMode")
             }

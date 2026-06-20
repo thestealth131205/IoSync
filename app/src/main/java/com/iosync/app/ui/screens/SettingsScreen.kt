@@ -1621,6 +1621,19 @@ fun SettingsScreen(
 
             Button(
                 onClick = {
+                    // Health-Quellen mit-speichern, damit der Master-Button die pro-Typ
+                    // gewählte Puls-/Kcal-/SpO2-Quelle nicht verwirft (sonst nur über den
+                    // separaten Health-Button persistiert).
+                    viewModel.updateHealthSourceConfig(
+                        hrSource = wfHrSource,
+                        kcalSource = wfKcalSource,
+                        oxygenSource = wfOxygenSource,
+                        hrComplication = wfHrComplication,
+                        kcalComplication = wfKcalComplication,
+                        oxygenComplication = wfOxygenComplication,
+                        kcalMetric = wfKcalMetric,
+                        oxygenMetric = wfOxygenMetric
+                    )
                     viewModel.updateWatchFaceConfig(
                         timeColor          = wfTimeColor,
                         dateColor          = wfDateColor,
@@ -2818,6 +2831,7 @@ fun SettingsScreen(
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
                         hasDndAccess = notifManager.isNotificationPolicyAccessGranted
+                        viewModel.refreshGeofenceStatus()
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
@@ -2948,20 +2962,49 @@ fun SettingsScreen(
                     }
                 }
 
-                // Aktuell gespeicherter Standort
-                if (uiState.geofenceAddressDisplay.isNotBlank()) {
+                // Aktuell gespeicherter Standort + Status-Punkt
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    if (uiState.geofenceEnabled && uiState.geofenceAddressDisplay.isNotBlank()) {
+                        val dotColor = when (uiState.geofenceInsideRegion) {
+                            true  -> Color(0xFF4CAF50)
+                            false -> Color(0xFFF44336)
+                            null  -> Color(0xFF888888)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(dotColor, CircleShape)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
                     Text(
-                        text = "Standort: ${uiState.geofenceAddressDisplay}",
+                        text = if (uiState.geofenceAddressDisplay.isNotBlank())
+                            "Standort: ${uiState.geofenceAddressDisplay}"
+                        else
+                            "Kein Standort gespeichert",
                         style = MaterialTheme.typography.labelSmall,
-                        color = NeonYellow,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        color = if (uiState.geofenceAddressDisplay.isNotBlank()) NeonYellow
+                                else MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                } else {
+                }
+                if (uiState.geofenceEnabled && uiState.geofenceAddressDisplay.isNotBlank()) {
+                    val statusText = when (uiState.geofenceInsideRegion) {
+                        true  -> "Du befindest dich im Bereich"
+                        false -> "Du befindest dich außerhalb des Bereichs"
+                        null  -> "Status unbekannt (noch keine Transition erkannt)"
+                    }
+                    val statusColor = when (uiState.geofenceInsideRegion) {
+                        true  -> Color(0xFF4CAF50)
+                        false -> Color(0xFFF44336)
+                        null  -> Color(0xFF888888)
+                    }
                     Text(
-                        text = "Kein Standort gespeichert",
+                        text = statusText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        color = statusColor
                     )
                 }
 

@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.8.7",
+        date = "21.06.2026",
+        changes = listOf(
+            "Standort-Vibration: Statuspunkt zeigt jetzt grün (im Bereich) bzw. rot (außerhalb) an, ob du dich aktuell im konfigurierten Bereich befindest",
+            "Health-Quellen (Puls/Kalorien/SpO2) werden jetzt auch über den allgemeinen \"Auf Uhr übertragen\"-Button gespeichert – die gewählte Pulsquelle geht nicht mehr verloren",
+            "Aufräumen: redundante Datenwege entfernt"
+        )
+    ),
+    ChangelogEntry(
         version = "4.8.6",
         date = "20.06.2026",
         changes = listOf(

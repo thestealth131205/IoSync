@@ -915,27 +915,6 @@ class WearDataLayerService @Inject constructor(
     }
 
     /**
-     * Überträgt Gesundheitsdaten (vom Smartphone / ioBroker) an das Watchface.
-     */
-    suspend fun syncPhoneHealthToWear(heartRate: Int, spO2: Int, calories: Int, sleepMinutes: Int = 0) {
-        withContext(Dispatchers.IO) {
-            try {
-                val request = PutDataMapRequest.create(PATH_PHONE_HEALTH).apply {
-                    dataMap.putInt(KEY_PHONE_HEART_RATE, heartRate)
-                    dataMap.putInt(KEY_PHONE_SPO2, spO2)
-                    dataMap.putInt(KEY_PHONE_CALORIES, calories)
-                    dataMap.putInt(KEY_PHONE_SLEEP_MINUTES, sleepMinutes)
-                    dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
-                }.asPutDataRequest().setUrgent()
-                dataClient.putDataItem(request).await()
-                Log.d(TAG, "Phone-Health-Daten an Wear OS übertragen: HR=$heartRate, SpO2=$spO2, kcal=$calories, sleep=$sleepMinutes")
-            } catch (e: Exception) {
-                Log.e(TAG, "syncPhoneHealthToWear fehlgeschlagen", e)
-            }
-        }
-    }
-
-    /**
      * Überträgt den aktuellen Handy-Akkustand ans Watchface.
      * @param level      Akkustand in Prozent (0–100)
      * @param isCharging true wenn das Gerät gerade geladen wird
