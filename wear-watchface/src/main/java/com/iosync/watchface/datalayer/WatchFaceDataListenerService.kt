@@ -383,7 +383,10 @@ class WatchFaceDataListenerService : WearableListenerService() {
                 PATH_CONNECTION_CONFIG -> {
                     val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
                     WatchFaceConfigCache.updateConnectionFromDataMap(dataMap)
-                    Log.d(TAG, "Verbindungs-Konfig empfangen (Uhr fragt selbst ab)")
+                    // Sofort in SharedPreferences sichern, damit die Config nach einem
+                    // Watchface-Prozess-Neustart ohne Handy-Verbindung verfügbar ist.
+                    WatchConnectionPrefs.save(applicationContext)
+                    Log.d(TAG, "Verbindungs-Konfig empfangen und gespeichert (Uhr fragt selbst ab)")
                 }
             }
         }

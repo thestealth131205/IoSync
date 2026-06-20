@@ -525,6 +525,13 @@ class IoSyncWatchFaceRenderer(
         // Bestehende Config aus dem Data Layer laden (beim Start)
         loadInitialConfig()
 
+        // Verbindungs-Config aus SharedPreferences laden (Fallback, falls Data Layer
+        // beim Start noch nicht verfügbar ist oder seit dem letzten App-Öffnen geleert
+        // wurde). loadInitialConfig() überschreibt diese Werte sobald das Data Layer
+        // antwortet – hier geht es nur darum, dass der SyncManager beim ersten
+        // fetchLoop-Durchlauf bereits einen gültigen ioHost hat.
+        com.iosync.watchface.datalayer.WatchConnectionPrefs.restore(context)
+
         // Daten-Orchestrator starten: die Uhr fragt ioBroker-Datenpunkte + Wetter
         // ab v5 selbst ab (statt sie vom Handy zu empfangen) und zeichnet bei jedem
         // Update neu.

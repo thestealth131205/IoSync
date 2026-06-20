@@ -8,6 +8,20 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.8.6",
+        date = "20.06.2026",
+        changes = listOf(
+            "Stabilitätsverbesserungen: Watchface-Daten bleiben auch nach längerer App-Inaktivität aktuell"
+        )
+    ),
+    ChangelogEntry(
+        version = "4.8.5",
+        date = "20.06.2026",
+        changes = listOf(
+            "Verbindungs-Config (ioBroker-Host, Ports, Datenpunkt-IDs) wird auf der Uhr dauerhaft gespeichert – Watchface-Daten frieren nicht mehr ein wenn die App längere Zeit nicht geöffnet wurde"
+        )
+    ),
+    ChangelogEntry(
         version = "4.8.4",
         date = "20.06.2026",
         changes = listOf(
