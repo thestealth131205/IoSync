@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.8.4",
+        date = "20.06.2026",
+        changes = listOf(
+            "Handy-Akku friert während eines Drucks nicht mehr ein: Funklast der Uhr bei aktivem Druck entzerrt, damit der Akkustand zuverlässig über Bluetooth durchkommt",
+            "Klipper-Abruf während eines Drucks auf 15 s im Mittel gedrosselt (statt Sekundentakt) – spart Akku und Funkzeit",
+            "ioBroker-Push während eines Drucks gebündelt (max. alle 5 s) und doppelte Abrufe vermieden; Abruf-Zeitpunkte leicht versetzt, um die Bluetooth-Leitung nicht dauerhaft zu belegen"
+        )
+    ),
+    ChangelogEntry(
         version = "4.8.3",
         date = "18.06.2026",
         changes = listOf(

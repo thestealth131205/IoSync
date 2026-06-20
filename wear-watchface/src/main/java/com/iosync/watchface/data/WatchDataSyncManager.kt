@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.Locale
+import kotlin.random.Random
 
 private const val TAG = "WatchDataSyncManager"
 
@@ -44,9 +45,24 @@ object WatchDataSyncManager {
     private const val KLIPPER_IDLE_FACTOR = 4
     private const val KLIPPER_IDLE_MIN_SEC = 60
 
+    // Mindest-Intervall des Klipper-Pollings WÄHREND eines aktiven Drucks (im Mittel).
+    // Drucker und Uhr teilen sich EINE Bluetooth-Companion-Leitung; pollt die Uhr im
+    // Sekundentakt, verdrängt sie den niedrig-prioren Handy-Akku-Push. 15 s im Mittel
+    // entlasten die Leitung deutlich, ohne den Druckfortschritt spürbar zu verzögern.
+    private const val KLIPPER_ACTIVE_MIN_SEC = 15
+
     // Akku-Sparen im Ambient-Modus: Im Ambient zeigt das Watchface nur Uhr + Wetter.
     // Datenpunkt-/Health-/Push-Abrufe pausieren, das Wetter-Intervall wird verdoppelt.
     private const val AMBIENT_INTERVAL_FACTOR = 2
+
+    // Maximaler Aufschub des Push-Debounce: auch bei Dauer-Events wird spätestens nach
+    // dieser Zeit garantiert ein runFetch ausgelöst.
+    private const val PUSH_MAX_WAIT_MS = 1_000L
+    // Während eines Drucks feuert der SSE-Stream im Sekundentakt (Drucker spiegelt
+    // laufend Temperaturen/Fortschritt nach ioBroker). Die für die Uhr relevanten Slots
+    // ändern sich dabei kaum → den erzwungenen runFetch auf max. alle 5 s bündeln, um die
+    // BT-Leitung für den Handy-Akku-Push freizuhalten (Traffic entzerren).
+    private const val PUSH_MAX_WAIT_PRINTING_MS = 5_000L
 
     private var scope: CoroutineScope? = null
     private var fetchJob: Job? = null
@@ -54,6 +70,8 @@ object WatchDataSyncManager {
     private var healthJob: Job? = null
     private var pushJob: Job? = null
     private var pushDebounceJob: Job? = null
+    // Zeitpunkt des letzten über den Push ausgelösten runFetch (für die Max-Wait-Garantie).
+    @Volatile private var lastPushFetchAt = 0L
     private var klipperJob: Job? = null
     private var klipperProgressJob: Job? = null
 
@@ -147,11 +165,18 @@ object WatchDataSyncManager {
     private suspend fun fetchLoop() {
         while (running) {
             try {
-                // Im Ambient-Modus sind Slots/Pillen/Balken nicht sichtbar → Abruf pausieren.
-                if (displayActive) runFetch()
                 val base = WatchFaceConfigCache.slotIntervalSec.coerceAtLeast(10)
+                // Im Ambient-Modus sind Slots/Pillen/Balken nicht sichtbar → Abruf pausieren.
+                if (displayActive) {
+                    // Läuft der Echtzeit-Push und hat er innerhalb des Intervalls bereits
+                    // frisch abgerufen, den periodischen Abruf überspringen → kein doppelter
+                    // BT-Verkehr (relevant während eines Drucks, wenn der Push oft feuert).
+                    val pushFresh = pushSignature.isNotEmpty() &&
+                        System.currentTimeMillis() - lastPushFetchAt < base * 1_000L
+                    if (!pushFresh) runFetch()
+                }
                 val interval = if (displayActive) base else base * AMBIENT_INTERVAL_FACTOR
-                delay(interval * 1_000L)
+                delay(withJitter(interval * 1_000L, 0.2))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -382,9 +407,24 @@ object WatchDataSyncManager {
 
     @Synchronized
     private fun onPushEventDebounced() {
-        pushDebounceJob?.cancel()
+        // Trailing-Debounce (150 ms Ruhe nach dem letzten Event) MIT Max-Wait-Garantie:
+        // Während eines Drucks spiegelt der Drucker laufend wechselnde Datenpunkte nach
+        // ioBroker → der SSE-Stream feuert schneller als 150 ms und der reine Debounce
+        // würde nie auslaufen ("eingefrorene" Werte). Liegt der letzte Push-Fetch länger
+        // als PUSH_MAX_WAIT_MS zurück, wird der wartende Job NICHT mehr zurückgesetzt,
+        // sodass spätestens nach ~1 s garantiert ein runFetch läuft.
+        val now = System.currentTimeMillis()
+        // Während eines Drucks die SSE-Flut stärker bündeln (5 s statt 1 s), damit der
+        // erzwungene Abruf die BT-Leitung nicht dauernd belegt.
+        val maxWait = if (WatchFaceConfigCache.klipperIsActive)
+            PUSH_MAX_WAIT_PRINTING_MS else PUSH_MAX_WAIT_MS
+        if (pushDebounceJob?.isActive == true && now - lastPushFetchAt < maxWait) {
+            pushDebounceJob?.cancel()
+        }
+        if (pushDebounceJob?.isActive == true) return
         pushDebounceJob = scope?.launch {
             delay(150L)
+            lastPushFetchAt = System.currentTimeMillis()
             runFetch()
         }
     }
@@ -537,17 +577,19 @@ object WatchDataSyncManager {
             try {
                 // Klipper-Daten nur abrufen wenn Display aktiv UND Seite 3 sichtbar.
                 if (displayActive && activePage == 2) runKlipperFetch()
-                // Nur während eines aktiven Drucks im eingestellten Intervall pollen.
-                // Steht der Drucker still (kein Druck), deutlich seltener abfragen
-                // (Faktor 4, mind. 60 s) – spart Akku/Radio-Wachzeit, ohne die
-                // einstellbare Druck-Intervall-Einstellung zu verlieren.
+                // Während eines aktiven Drucks mindestens KLIPPER_ACTIVE_MIN_SEC (15 s)
+                // pollen – nicht im Sekundentakt –, um die gemeinsame BT-Leitung für den
+                // Handy-Akku-Push freizuhalten. Steht der Drucker still, noch deutlich
+                // seltener (Faktor 4, mind. 60 s).
                 val baseInterval = WatchFaceConfigCache.klipperIntervalSec.coerceAtLeast(3)
                 val interval = if (WatchFaceConfigCache.klipperIsActive) {
-                    baseInterval
+                    baseInterval.coerceAtLeast(KLIPPER_ACTIVE_MIN_SEC)
                 } else {
                     (baseInterval * KLIPPER_IDLE_FACTOR).coerceAtLeast(KLIPPER_IDLE_MIN_SEC)
                 }
-                delay(interval * 1_000L)
+                // ±20 % Jitter (im Mittel = interval), damit der Klipper-Abruf nicht
+                // dauerhaft mit Datenpunkt-/Wetter-Abruf zusammenfällt.
+                delay(withJitter(interval * 1_000L, 0.2))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -659,6 +701,17 @@ object WatchDataSyncManager {
                 delay(30_000L)
             }
         }
+    }
+
+    /**
+     * Streut [ms] zufällig um ±[fraction] (Mittelwert bleibt [ms]). Verhindert, dass
+     * Klipper-, Datenpunkt- und Wetter-Abruf während eines Drucks im selben Moment
+     * auf die gemeinsame BT-Leitung gehen (Traffic entzerren).
+     */
+    private fun withJitter(ms: Long, fraction: Double): Long {
+        val delta = (ms * fraction).toLong()
+        if (delta <= 0) return ms
+        return ms - delta + Random.nextLong(2 * delta + 1)
     }
 
     private fun sendPillCommand(
