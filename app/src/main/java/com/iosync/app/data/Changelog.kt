@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.9.2",
+        date = "22.06.2026",
+        changes = listOf(
+            "Versionsaktualisierung und Stabilitätsverbesserungen"
+        )
+    ),
+    ChangelogEntry(
         version = "4.9.1",
         date = "22.06.2026",
         changes = listOf(
