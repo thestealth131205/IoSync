@@ -9,63 +9,97 @@ import android.content.pm.ServiceInfo
 import android.location.Location
 import android.os.Build
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 /**
  * Foreground-Service, der die Standort-Vibration (Geofence) am Laufen hält.
  *
- * Zwei Mechanismen greifen ineinander:
- *  1. Die System-Geofencing-API ([GeofenceManager]) liefert sofortige Übergänge an
- *     den [GeofenceTransitionReceiver] – ist aber stark akku-optimiert und fragt den
- *     Standort NICHT zuverlässig im eingestellten Intervall ab.
- *  2. Dieser Service fragt den GPS-Standort daher zusätzlich AKTIV im konfigurierten
- *     Intervall via [com.google.android.gms.location.FusedLocationProviderClient] ab,
- *     vergleicht ihn koordinatenbasiert mit dem Zielbereich und stößt selbst die
- *     Notifications + den Klingelmodus-Wechsel an. So wird der Standort garantiert im
- *     gewählten Intervall geprüft.
+ * Nutzt [com.google.android.gms.location.FusedLocationProviderClient.requestLocationUpdates]
+ * mit einem [LocationCallback] – zuverlässiger als einzelne getCurrentLocation()-Aufrufe,
+ * die im Doze-Modus oder bei inaktivem GPS häufig null liefern.
+ *
+ * Die Config (lat/lon/radius/interval/address) wird in SharedPreferences gespeichert, damit
+ * der Service nach einem System-Neustart via START_STICKY die Parameter wiederherstellen kann
+ * (intent ist dann null und die Extras fehlen sonst).
  */
 class GeofenceService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var pollJob: Job? = null
     private val fusedClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
 
+    private var targetLat = Double.NaN
+    private var targetLon = Double.NaN
+    private var targetRadius = 0f
+    private var targetAddress = ""
+
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            val location = result.lastLocation ?: return
+            handleLocation(location)
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP -> {
-                pollJob?.cancel()
-                stopForeground(STOP_FOREGROUND_REMOVE)
+        if (intent?.action == ACTION_STOP) {
+            fusedClient.removeLocationUpdates(locationCallback)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        // Intent-Extras auslesen (null bei START_STICKY-Neustart durch das System)
+        val intentLat = intent?.getDoubleExtra(EXTRA_LAT, Double.NaN) ?: Double.NaN
+        val intentLon = intent?.getDoubleExtra(EXTRA_LON, Double.NaN) ?: Double.NaN
+        val intentRadius = intent?.getFloatExtra(EXTRA_RADIUS, 0f) ?: 0f
+        val intentInterval = intent?.getIntExtra(EXTRA_INTERVAL_SEC, 0) ?: 0
+        val intentAddress = intent?.getStringExtra(EXTRA_ADDRESS) ?: ""
+
+        val hasIntentConfig = !intentLat.isNaN() && !intentLon.isNaN() && intentRadius > 0f
+
+        if (hasIntentConfig) {
+            // Neue Config aus Intent → in Prefs persistieren damit START_STICKY-Neustart klappt
+            prefs.edit()
+                .putLong(PREF_LAT, intentLat.toBits())
+                .putLong(PREF_LON, intentLon.toBits())
+                .putFloat(PREF_RADIUS, intentRadius)
+                .putInt(PREF_INTERVAL, intentInterval.coerceAtLeast(15))
+                .putString(PREF_ADDRESS, intentAddress)
+                .apply()
+            targetLat = intentLat
+            targetLon = intentLon
+            targetRadius = intentRadius
+            targetAddress = intentAddress
+            startForegroundCompat(intentAddress)
+            startLocationUpdates(intentInterval)
+        } else {
+            // START_STICKY-Neustart: Config aus Prefs wiederherstellen
+            val savedLat = Double.fromBits(prefs.getLong(PREF_LAT, Double.NaN.toBits()))
+            val savedLon = Double.fromBits(prefs.getLong(PREF_LON, Double.NaN.toBits()))
+            val savedRadius = prefs.getFloat(PREF_RADIUS, 0f)
+            val savedInterval = prefs.getInt(PREF_INTERVAL, 60)
+            val savedAddress = prefs.getString(PREF_ADDRESS, "") ?: ""
+
+            if (!savedLat.isNaN() && !savedLon.isNaN() && savedRadius > 0f) {
+                targetLat = savedLat
+                targetLon = savedLon
+                targetRadius = savedRadius
+                targetAddress = savedAddress
+                startForegroundCompat(savedAddress)
+                startLocationUpdates(savedInterval)
+                Log.d(TAG, "Service nach Neustart wiederhergestellt: lat=$savedLat, lon=$savedLon, r=${savedRadius}m, intervall=${savedInterval}s")
+            } else {
+                // Keine gespeicherte Config – Service beenden
+                Log.w(TAG, "Kein gespeicherter Geofence – Service beendet")
                 stopSelf()
-            }
-            else -> {
-                val address = intent?.getStringExtra(EXTRA_ADDRESS) ?: ""
-                val lat = intent?.getDoubleExtra(EXTRA_LAT, Double.NaN) ?: Double.NaN
-                val lon = intent?.getDoubleExtra(EXTRA_LON, Double.NaN) ?: Double.NaN
-                val radius = intent?.getFloatExtra(EXTRA_RADIUS, 0f) ?: 0f
-                val intervalSec = intent?.getIntExtra(EXTRA_INTERVAL_SEC, 60) ?: 60
-                try {
-                    startForegroundCompat(address)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Foreground-Start fehlgeschlagen: ${e.message}")
-                    stopSelf()
-                    return START_STICKY
-                }
-                if (!lat.isNaN() && !lon.isNaN() && radius > 0f) {
-                    startPolling(lat, lon, radius, intervalSec, address)
-                }
+                return START_NOT_STICKY
             }
         }
         return START_STICKY
@@ -74,59 +108,45 @@ class GeofenceService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        pollJob?.cancel()
-        scope.cancel()
+        fusedClient.removeLocationUpdates(locationCallback)
         super.onDestroy()
     }
 
-    /** Startet die aktive, intervallbasierte Standortabfrage. */
-    private fun startPolling(
-        lat: Double,
-        lon: Double,
-        radius: Float,
-        intervalSec: Int,
-        address: String
-    ) {
-        pollJob?.cancel()
-        val intervalMs = intervalSec.coerceAtLeast(15) * 1000L
-        pollJob = scope.launch {
-            while (isActive) {
-                pollOnce(lat, lon, radius, address)
-                delay(intervalMs)
-            }
-        }
-    }
-
-    /** Fordert EINEN frischen GPS-Fix an und gleicht ihn mit dem Zielbereich ab. */
-    private suspend fun pollOnce(lat: Double, lon: Double, radius: Float, address: String) {
+    /**
+     * Registriert wiederkehrende Standort-Updates über den FusedLocationProviderClient.
+     * Im Gegensatz zu einzelnen getCurrentLocation()-Aufrufen liefert requestLocationUpdates
+     * auch im Hintergrund und bei inaktivem GPS-Chip zuverlässig Ergebnisse (Netz-/Wifi-Fix).
+     */
+    private fun startLocationUpdates(intervalSec: Int) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            Log.w(TAG, "Standort-Berechtigung fehlt – Polling übersprungen")
+            Log.w(TAG, "Standort-Berechtigung fehlt – Service beendet")
+            stopSelf()
             return
         }
-        val location: Location? = try {
-            fusedClient.getCurrentLocation(
-                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                CancellationTokenSource().token
-            ).await()
+        val intervalMs = intervalSec.coerceAtLeast(15) * 1000L
+        val request = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, intervalMs)
+            .setMinUpdateIntervalMillis(intervalMs / 2)
+            .setMaxUpdateDelayMillis(intervalMs * 2)
+            .build()
+        try {
+            fusedClient.removeLocationUpdates(locationCallback)
+            fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
+            Log.d(TAG, "LocationUpdates registriert: Intervall=${intervalSec}s")
         } catch (e: SecurityException) {
-            Log.w(TAG, "Standortabfrage ohne Berechtigung: ${e.message}")
-            null
-        } catch (e: Exception) {
-            Log.w(TAG, "Standortabfrage fehlgeschlagen: ${e.message}")
-            null
+            Log.e(TAG, "SecurityException bei requestLocationUpdates: ${e.message}")
+            stopSelf()
         }
-        if (location == null) return
+    }
 
-        // Notification 2: der GPS-Standort wurde gerade neu abgeglichen.
-        GeofenceNotifications.notifyLocationUpdated(this, address)
-
+    private fun handleLocation(location: Location) {
+        GeofenceNotifications.notifyLocationUpdated(this, targetAddress)
         val results = FloatArray(1)
-        Location.distanceBetween(location.latitude, location.longitude, lat, lon, results)
-        val inside = results[0] <= radius
-        Log.d(TAG, "Polling: Distanz=${results[0].toInt()}m, Radius=${radius.toInt()}m, drin=$inside")
-        GeofenceVibration.applyState(this, inside, address)
+        Location.distanceBetween(location.latitude, location.longitude, targetLat, targetLon, results)
+        val inside = results[0] <= targetRadius
+        Log.d(TAG, "Standort: Distanz=${results[0].toInt()}m, Radius=${targetRadius.toInt()}m, drin=$inside")
+        GeofenceVibration.applyState(this, inside, targetAddress)
     }
 
     private fun startForegroundCompat(address: String) {
@@ -144,6 +164,13 @@ class GeofenceService : Service() {
 
     companion object {
         private const val TAG = "GeofenceService"
+        private const val PREFS_NAME = "geofence_service_prefs"
+        private const val PREF_LAT = "lat_bits"
+        private const val PREF_LON = "lon_bits"
+        private const val PREF_RADIUS = "radius"
+        private const val PREF_INTERVAL = "interval_sec"
+        private const val PREF_ADDRESS = "address"
+
         const val ACTION_START = "com.iosync.app.START_GEOFENCE"
         const val ACTION_STOP = "com.iosync.app.STOP_GEOFENCE"
         const val EXTRA_ADDRESS = "geofence_address"

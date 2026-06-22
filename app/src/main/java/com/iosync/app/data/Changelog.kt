@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.9.0",
+        date = "22.06.2026",
+        changes = listOf(
+            "Standort-Intervall-Bug behoben: Standort wird jetzt zuverlässig im eingestellten Intervall abgefragt – auch wenn die App im Hintergrund läuft oder der Bildschirm aus ist",
+            "Geofence-Service nutzt nun requestLocationUpdates (kontinuierliche Updates) statt einzelner getCurrentLocation()-Aufrufe, die im Doze-Modus häufig null lieferten",
+            "Config (Koordinaten, Radius, Intervall) wird persistent gespeichert – der Service arbeitet nach einem Systemkill/Neustart korrekt weiter ohne Datenverlust"
+        )
+    ),
+    ChangelogEntry(
         version = "4.8.9",
         date = "22.06.2026",
         changes = listOf(
