@@ -11,7 +11,6 @@ import com.google.android.gms.location.GeofencingEvent
 
 private const val TAG = "GeofenceReceiver"
 const val GEOFENCE_PREFS_NAME = "iosync_geofence_prefs"
-const val KEY_PREVIOUS_RINGER_MODE = "previous_ringer_mode"
 const val KEY_INSIDE_GEOFENCE = "inside_geofence"
 const val KEY_GEOFENCE_ADDRESS_DISPLAY = "geofence_address_display"
 
@@ -44,24 +43,18 @@ object GeofenceVibration {
 
         if (inside) {
             if (hasDndAccess) {
-                val currentMode = audioManager.ringerMode
-                prefs.edit()
-                    .putInt(KEY_PREVIOUS_RINGER_MODE, currentMode)
-                    .putBoolean(KEY_INSIDE_GEOFENCE, true)
-                    .apply()
+                prefs.edit().putBoolean(KEY_INSIDE_GEOFENCE, true).apply()
                 audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
-                Log.d(TAG, "Geofence betreten – Klingelmodus auf Vibration (vorher: $currentMode)")
+                Log.d(TAG, "Geofence betreten – Klingelmodus auf Vibration")
             } else {
                 prefs.edit().putBoolean(KEY_INSIDE_GEOFENCE, true).apply()
             }
             GeofenceNotifications.notifyRegionStatus(context, inside = true, address = address)
         } else {
             if (hasDndAccess) {
-                val previousMode =
-                    prefs.getInt(KEY_PREVIOUS_RINGER_MODE, AudioManager.RINGER_MODE_NORMAL)
                 prefs.edit().putBoolean(KEY_INSIDE_GEOFENCE, false).apply()
-                audioManager.ringerMode = previousMode
-                Log.d(TAG, "Geofence verlassen – Klingelmodus wiederhergestellt: $previousMode")
+                audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
+                Log.d(TAG, "Geofence verlassen – Klingelmodus auf Normal")
             } else {
                 prefs.edit().putBoolean(KEY_INSIDE_GEOFENCE, false).apply()
             }

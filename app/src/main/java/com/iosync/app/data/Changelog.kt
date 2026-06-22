@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.9.3",
+        date = "22.06.2026",
+        changes = listOf(
+            "Geofence: Verlassen setzt Modus auf Normal (statt vorherigen Modus)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.9.2",
         date = "22.06.2026",
         changes = listOf(
