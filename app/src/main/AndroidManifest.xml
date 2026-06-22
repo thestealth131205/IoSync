@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -84,6 +85,12 @@
         <receiver
             android:name=".data.geofence.GeofenceTransitionReceiver"
             android:exported="false" />
+
+        <!-- Persistente Standort-Überwachung (hält die Geofence-Funktion am Laufen) -->
+        <service
+            android:name=".data.geofence.GeofenceService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <!-- WebSocket Background Service -->
         <service

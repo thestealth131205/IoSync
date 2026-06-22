@@ -132,8 +132,13 @@ class IoSyncSyncService : Service() {
             if (lat == 0.0 && lon == 0.0) return
             val radius = (prefs[MainViewModel.KEY_GEOFENCE_RADIUS] ?: 300).toFloat()
             val responsivenessMs = (prefs[MainViewModel.KEY_GEOFENCE_RESPONSIVENESS] ?: 60) * 1000
+            val address = prefs[MainViewModel.KEY_GEOFENCE_ADDRESS] ?: ""
             geofenceManager.addGeofence(lat, lon, radius, responsivenessMs)
-                .onSuccess { Log.d(TAG, "Geofence nach Service-Start reaktiviert: lat=$lat, lon=$lon, r=${radius}m") }
+                .onSuccess {
+                    Log.d(TAG, "Geofence nach Service-Start reaktiviert: lat=$lat, lon=$lon, r=${radius}m")
+                    // Persistente Standort-Notification wieder starten (z.B. nach Boot).
+                    com.iosync.app.data.geofence.GeofenceService.start(this, address)
+                }
                 .onFailure { Log.w(TAG, "Geofence-Reaktivierung fehlgeschlagen: ${it.message}") }
         } catch (e: Exception) {
             Log.e(TAG, "reregisterGeofenceIfNeeded Fehler: ${e.message}", e)

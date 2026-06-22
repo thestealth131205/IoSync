@@ -3200,9 +3200,12 @@ class MainViewModel @Inject constructor(
                 geofenceSearchResults = emptyList(),
                 geofenceSearching = false
             ) }
+            persistGeofenceAddressDisplay(displayName)
             // Geofence sofort neu registrieren, falls aktiv
             if (_uiState.value.geofenceEnabled) {
                 geofenceManager.addGeofence(lat, lon, radius.toFloat(), _uiState.value.geofenceResponsivenessSec * 1000)
+                // Persistente Notification mit neuer Adresse aktualisieren
+                com.iosync.app.data.geofence.GeofenceService.start(context, displayName)
             }
         }
     }
@@ -3242,10 +3245,29 @@ class MainViewModel @Inject constructor(
             _uiState.update { it.copy(geofenceEnabled = enabled) }
             val st = _uiState.value
             if (enabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
+                persistGeofenceAddressDisplay(st.geofenceAddressDisplay)
                 geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, st.geofenceRadius.toFloat(), st.geofenceResponsivenessSec * 1000)
+                // Persistente Notification starten, die die Überwachung am Laufen hält.
+                com.iosync.app.data.geofence.GeofenceService.start(context, st.geofenceAddressDisplay)
             } else {
                 geofenceManager.removeGeofence()
+                com.iosync.app.data.geofence.GeofenceService.stop(context)
             }
         }
+    }
+
+    /**
+     * Schreibt die angezeigte Adresse in die Geofence-SharedPreferences, damit der
+     * [com.iosync.app.data.geofence.GeofenceTransitionReceiver] sie für seine
+     * Notifications lesen kann (läuft auch bei geschlossener App).
+     */
+    private fun persistGeofenceAddressDisplay(address: String) {
+        context.getSharedPreferences(
+            com.iosync.app.data.geofence.GEOFENCE_PREFS_NAME,
+            android.content.Context.MODE_PRIVATE
+        ).edit().putString(
+            com.iosync.app.data.geofence.KEY_GEOFENCE_ADDRESS_DISPLAY,
+            address
+        ).apply()
     }
 }

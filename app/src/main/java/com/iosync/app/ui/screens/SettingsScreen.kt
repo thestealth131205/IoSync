@@ -284,6 +284,9 @@ fun SettingsScreen(
     // Geofence-Vibration
     var geofenceSearchQuery by remember { mutableStateOf("") }
     var sectionGeofence     by remember { mutableStateOf(false) }
+    var geofenceManualCoords by remember { mutableStateOf(false) }
+    var geofenceLatInput    by remember { mutableStateOf("") }
+    var geofenceLonInput    by remember { mutableStateOf("") }
 
     // NTP-Zeitkorrektur
     var ntpEnabled by remember(uiState.wfNtpEnabled) { mutableStateOf(uiState.wfNtpEnabled) }
@@ -3065,6 +3068,91 @@ fun SettingsScreen(
                         else Color(0xFF888888),
                         modifier = Modifier.padding(start = 4.dp)
                     )
+                }
+
+                // Umschalter: Adresssuche vs. direkte Koordinaten-Eingabe.
+                // Die Adresse wird per Geocoding (Nominatim) ohnehin in Koordinaten
+                // umgewandelt – hier kann man die Koordinaten alternativ direkt setzen.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { geofenceManualCoords = !geofenceManualCoords }
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Koordinaten direkt eingeben",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Switch(
+                        checked = geofenceManualCoords,
+                        onCheckedChange = { geofenceManualCoords = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF1A1A00),
+                            checkedTrackColor = NeonYellow
+                        )
+                    )
+                }
+
+                if (geofenceManualCoords) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = geofenceLatInput,
+                            onValueChange = { geofenceLatInput = it },
+                            label = { Text("Breite (lat)") },
+                            placeholder = { Text("z.B. 52.5200") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = geofenceLonInput,
+                            onValueChange = { geofenceLonInput = it },
+                            label = { Text("Länge (lon)") },
+                            placeholder = { Text("z.B. 13.4050") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    val parsedLat = geofenceLatInput.trim().replace(',', '.').toDoubleOrNull()
+                    val parsedLon = geofenceLonInput.trim().replace(',', '.').toDoubleOrNull()
+                    val coordsValid = parsedLat != null && parsedLon != null &&
+                            parsedLat in -90.0..90.0 && parsedLon in -180.0..180.0
+                    Button(
+                        onClick = {
+                            if (parsedLat != null && parsedLon != null) {
+                                viewModel.selectGeofenceLocation(
+                                    parsedLat, parsedLon,
+                                    "Koordinaten: %.5f, %.5f".format(parsedLat, parsedLon)
+                                )
+                                geofenceLatInput = ""
+                                geofenceLonInput = ""
+                            }
+                        },
+                        enabled = coordsValid,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NeonYellow,
+                            contentColor = Color(0xFF1A1A00),
+                            disabledContainerColor = Color(0xFF2A2A2A),
+                            disabledContentColor = Color(0xFF555555)
+                        )
+                    ) {
+                        Text("Koordinaten übernehmen")
+                    }
+                    if (!coordsValid && (geofenceLatInput.isNotBlank() || geofenceLonInput.isNotBlank())) {
+                        Text(
+                            "Ungültige Koordinaten (lat: -90…90, lon: -180…180)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFF44336),
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
                 }
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
