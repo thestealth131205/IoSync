@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.8.9",
+        date = "22.06.2026",
+        changes = listOf(
+            "Standort-Vibration prüft den GPS-Standort jetzt aktiv im eingestellten Intervall (eigene Abfrage), statt nur auf die akku-optimierten System-Geofence-Übergänge zu warten – der Standort wird zuverlässig im gewählten Takt abgeglichen",
+            "Die \"Standort aktualisiert\"-Benachrichtigung erscheint nun bei jeder Intervall-Prüfung"
+        )
+    ),
+    ChangelogEntry(
         version = "4.8.8",
         date = "22.06.2026",
         changes = listOf(

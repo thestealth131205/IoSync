@@ -3203,9 +3203,12 @@ class MainViewModel @Inject constructor(
             persistGeofenceAddressDisplay(displayName)
             // Geofence sofort neu registrieren, falls aktiv
             if (_uiState.value.geofenceEnabled) {
-                geofenceManager.addGeofence(lat, lon, radius.toFloat(), _uiState.value.geofenceResponsivenessSec * 1000)
-                // Persistente Notification mit neuer Adresse aktualisieren
-                com.iosync.app.data.geofence.GeofenceService.start(context, displayName)
+                val intervalSec = _uiState.value.geofenceResponsivenessSec
+                geofenceManager.addGeofence(lat, lon, radius.toFloat(), intervalSec * 1000)
+                // Persistente Notification + aktives Standort-Polling mit neuen Daten neu starten
+                com.iosync.app.data.geofence.GeofenceService.start(
+                    context, displayName, lat, lon, radius.toFloat(), intervalSec
+                )
             }
         }
     }
@@ -3218,6 +3221,11 @@ class MainViewModel @Inject constructor(
             val st = _uiState.value
             if (st.geofenceEnabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
                 geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, radiusMeters.toFloat(), st.geofenceResponsivenessSec * 1000)
+                // Polling mit neuem Radius neu starten
+                com.iosync.app.data.geofence.GeofenceService.start(
+                    context, st.geofenceAddressDisplay, st.geofenceLat, st.geofenceLon,
+                    radiusMeters.toFloat(), st.geofenceResponsivenessSec
+                )
             }
         }
     }
@@ -3234,6 +3242,11 @@ class MainViewModel @Inject constructor(
             val st = _uiState.value
             if (st.geofenceEnabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
                 geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, st.geofenceRadius.toFloat(), seconds * 1000)
+                // Polling mit neuem Intervall neu starten
+                com.iosync.app.data.geofence.GeofenceService.start(
+                    context, st.geofenceAddressDisplay, st.geofenceLat, st.geofenceLon,
+                    st.geofenceRadius.toFloat(), seconds
+                )
             }
         }
     }
@@ -3247,8 +3260,11 @@ class MainViewModel @Inject constructor(
             if (enabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
                 persistGeofenceAddressDisplay(st.geofenceAddressDisplay)
                 geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, st.geofenceRadius.toFloat(), st.geofenceResponsivenessSec * 1000)
-                // Persistente Notification starten, die die Überwachung am Laufen hält.
-                com.iosync.app.data.geofence.GeofenceService.start(context, st.geofenceAddressDisplay)
+                // Persistente Notification + aktives Standort-Polling starten.
+                com.iosync.app.data.geofence.GeofenceService.start(
+                    context, st.geofenceAddressDisplay, st.geofenceLat, st.geofenceLon,
+                    st.geofenceRadius.toFloat(), st.geofenceResponsivenessSec
+                )
             } else {
                 geofenceManager.removeGeofence()
                 com.iosync.app.data.geofence.GeofenceService.stop(context)
