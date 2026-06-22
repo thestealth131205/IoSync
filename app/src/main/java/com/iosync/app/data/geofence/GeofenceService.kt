@@ -14,8 +14,8 @@ import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.google.android.gms.location.CancellationToken
-import com.google.android.gms.location.CancellationTokenSource
+import com.google.android.gms.tasks.CancellationToken
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 
