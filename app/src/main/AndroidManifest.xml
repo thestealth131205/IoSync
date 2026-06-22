@@ -86,6 +86,15 @@
             android:name=".data.geofence.GeofenceTransitionReceiver"
             android:exported="false" />
 
+        <!-- Weckt den GeofenceService im konfigurierten Intervall auf (funktioniert im Doze-Modus) -->
+        <receiver
+            android:name=".data.geofence.GeofenceAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.iosync.app.CHECK_GEOFENCE_LOCATION" />
+            </intent-filter>
+        </receiver>
+
         <!-- Persistente Standort-Überwachung (hält die Geofence-Funktion am Laufen) -->
         <service
             android:name=".data.geofence.GeofenceService"

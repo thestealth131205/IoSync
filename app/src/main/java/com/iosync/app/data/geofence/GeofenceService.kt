@@ -1,6 +1,8 @@
 package com.iosync.app.data.geofence
 
 import android.Manifest
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -9,45 +11,42 @@ import android.content.pm.ServiceInfo
 import android.location.Location
 import android.os.Build
 import android.os.IBinder
-import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.CancellationToken
+import com.google.android.gms.location.CancellationTokenSource
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 
 /**
  * Foreground-Service, der die Standort-Vibration (Geofence) am Laufen hält.
  *
- * Nutzt [com.google.android.gms.location.FusedLocationProviderClient.requestLocationUpdates]
- * mit einem [LocationCallback] – zuverlässiger als einzelne getCurrentLocation()-Aufrufe,
- * die im Doze-Modus oder bei inaktivem GPS häufig null liefern.
+ * Nutzt [AlarmManager.setExactAndAllowWhileIdle] um das Gerät auch im Doze-Modus
+ * zuverlässig in den konfigurierten Intervallen aufzuwecken. Passive
+ * requestLocationUpdates()-Ansätze funktionieren im Doze nicht, da der FusedLocation-
+ * Provider ohne aktive GPS-Nutzung anderer Apps keine Events liefert.
  *
- * Die Config (lat/lon/radius/interval/address) wird in SharedPreferences gespeichert, damit
- * der Service nach einem System-Neustart via START_STICKY die Parameter wiederherstellen kann
- * (intent ist dann null und die Extras fehlen sonst).
+ * Ablauf:
+ * 1. Service startet → liest Config, zeigt persistente Notification, plant ersten Alarm
+ * 2. Alarm feuert → GeofenceAlarmReceiver → ACTION_CHECK_LOCATION an diesen Service
+ * 3. Service holt einmalig aktuellen Standort (HIGH_ACCURACY), prüft Geofence, plant nächsten Alarm
  */
 class GeofenceService : Service() {
 
     private val fusedClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
+    private var cancellationTokenSource: CancellationTokenSource? = null
 
     private var targetLat = Double.NaN
     private var targetLon = Double.NaN
     private var targetRadius = 0f
     private var targetAddress = ""
-
-    private val locationCallback = object : LocationCallback() {
-        override fun onLocationResult(result: LocationResult) {
-            val location = result.lastLocation ?: return
-            handleLocation(location)
-        }
-    }
+    private var intervalSec = 60
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            fusedClient.removeLocationUpdates(locationCallback)
+            cancelAlarm()
+            cancellationTokenSource?.cancel()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -55,7 +54,32 @@ class GeofenceService : Service() {
 
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-        // Intent-Extras auslesen (null bei START_STICKY-Neustart durch das System)
+        if (intent?.action == ACTION_CHECK_LOCATION) {
+            // Alarm ausgelöst → Config aus Prefs laden und Standort prüfen
+            val savedLat = Double.fromBits(prefs.getLong(PREF_LAT, Double.NaN.toBits()))
+            val savedLon = Double.fromBits(prefs.getLong(PREF_LON, Double.NaN.toBits()))
+            val savedRadius = prefs.getFloat(PREF_RADIUS, 0f)
+            val savedInterval = prefs.getInt(PREF_INTERVAL, 60)
+            val savedAddress = prefs.getString(PREF_ADDRESS, "") ?: ""
+
+            if (!savedLat.isNaN() && savedRadius > 0f) {
+                targetLat = savedLat
+                targetLon = savedLon
+                targetRadius = savedRadius
+                intervalSec = savedInterval
+                targetAddress = savedAddress
+                // Sicherstellen dass Foreground läuft (bei START_STICKY-Neustart wichtig)
+                startForegroundCompat(savedAddress)
+                checkLocationOnce()
+                scheduleNextAlarm(savedInterval)
+            } else {
+                Log.w(TAG, "Keine gespeicherte Config bei Alarm → Service beendet")
+                stopSelf()
+            }
+            return START_STICKY
+        }
+
+        // Normaler Start (Intent mit Config-Extras oder START_STICKY-Neustart)
         val intentLat = intent?.getDoubleExtra(EXTRA_LAT, Double.NaN) ?: Double.NaN
         val intentLon = intent?.getDoubleExtra(EXTRA_LON, Double.NaN) ?: Double.NaN
         val intentRadius = intent?.getFloatExtra(EXTRA_RADIUS, 0f) ?: 0f
@@ -65,38 +89,42 @@ class GeofenceService : Service() {
         val hasIntentConfig = !intentLat.isNaN() && !intentLon.isNaN() && intentRadius > 0f
 
         if (hasIntentConfig) {
-            // Neue Config aus Intent → in Prefs persistieren damit START_STICKY-Neustart klappt
+            val clampedInterval = intentInterval.coerceAtLeast(15)
             prefs.edit()
                 .putLong(PREF_LAT, intentLat.toBits())
                 .putLong(PREF_LON, intentLon.toBits())
                 .putFloat(PREF_RADIUS, intentRadius)
-                .putInt(PREF_INTERVAL, intentInterval.coerceAtLeast(15))
+                .putInt(PREF_INTERVAL, clampedInterval)
                 .putString(PREF_ADDRESS, intentAddress)
                 .apply()
             targetLat = intentLat
             targetLon = intentLon
             targetRadius = intentRadius
+            intervalSec = clampedInterval
             targetAddress = intentAddress
             startForegroundCompat(intentAddress)
-            startLocationUpdates(intentInterval)
+            // Sofort ersten Check + ersten Alarm starten
+            checkLocationOnce()
+            scheduleNextAlarm(clampedInterval)
         } else {
-            // START_STICKY-Neustart: Config aus Prefs wiederherstellen
+            // START_STICKY-Neustart: Config aus Prefs
             val savedLat = Double.fromBits(prefs.getLong(PREF_LAT, Double.NaN.toBits()))
             val savedLon = Double.fromBits(prefs.getLong(PREF_LON, Double.NaN.toBits()))
             val savedRadius = prefs.getFloat(PREF_RADIUS, 0f)
             val savedInterval = prefs.getInt(PREF_INTERVAL, 60)
             val savedAddress = prefs.getString(PREF_ADDRESS, "") ?: ""
 
-            if (!savedLat.isNaN() && !savedLon.isNaN() && savedRadius > 0f) {
+            if (!savedLat.isNaN() && savedRadius > 0f) {
                 targetLat = savedLat
                 targetLon = savedLon
                 targetRadius = savedRadius
+                intervalSec = savedInterval
                 targetAddress = savedAddress
                 startForegroundCompat(savedAddress)
-                startLocationUpdates(savedInterval)
+                checkLocationOnce()
+                scheduleNextAlarm(savedInterval)
                 Log.d(TAG, "Service nach Neustart wiederhergestellt: lat=$savedLat, lon=$savedLon, r=${savedRadius}m, intervall=${savedInterval}s")
             } else {
-                // Keine gespeicherte Config – Service beenden
                 Log.w(TAG, "Kein gespeicherter Geofence – Service beendet")
                 stopSelf()
                 return START_NOT_STICKY
@@ -108,36 +136,72 @@ class GeofenceService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        fusedClient.removeLocationUpdates(locationCallback)
+        cancelAlarm()
+        cancellationTokenSource?.cancel()
         super.onDestroy()
     }
 
     /**
-     * Registriert wiederkehrende Standort-Updates über den FusedLocationProviderClient.
-     * Im Gegensatz zu einzelnen getCurrentLocation()-Aufrufen liefert requestLocationUpdates
-     * auch im Hintergrund und bei inaktivem GPS-Chip zuverlässig Ergebnisse (Netz-/Wifi-Fix).
+     * Holt einmalig den aktuellen Standort mit HIGH_ACCURACY (GPS + Netz).
+     * Im Gegensatz zu requestLocationUpdates wartet getCurrentLocation() aktiv auf
+     * einen frischen Fix und funktioniert auch ohne laufende GPS-Sessions anderer Apps.
      */
-    private fun startLocationUpdates(intervalSec: Int) {
+    private fun checkLocationOnce() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            Log.w(TAG, "Standort-Berechtigung fehlt – Service beendet")
-            stopSelf()
+            Log.w(TAG, "Standort-Berechtigung fehlt – Check übersprungen")
             return
         }
-        val intervalMs = intervalSec.coerceAtLeast(15) * 1000L
-        val request = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, intervalMs)
-            .setMinUpdateIntervalMillis(intervalMs / 2)
-            .setMaxUpdateDelayMillis(intervalMs * 2)
-            .build()
-        try {
-            fusedClient.removeLocationUpdates(locationCallback)
-            fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
-            Log.d(TAG, "LocationUpdates registriert: Intervall=${intervalSec}s")
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException bei requestLocationUpdates: ${e.message}")
-            stopSelf()
+        cancellationTokenSource?.cancel()
+        val cts = CancellationTokenSource()
+        cancellationTokenSource = cts
+
+        fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+            .addOnSuccessListener { location: Location? ->
+                if (location != null) {
+                    handleLocation(location)
+                } else {
+                    Log.w(TAG, "getCurrentLocation lieferte null (kein Fix)")
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "getCurrentLocation fehlgeschlagen: ${e.message}")
+            }
+    }
+
+    /**
+     * Plant den nächsten Alarm via AlarmManager.setExactAndAllowWhileIdle().
+     * Diese Variante wacht das Gerät auch im Doze-Modus auf (im Gegensatz zu setRepeating
+     * oder setInexactRepeating, die im Doze gebündelt/verschoben werden).
+     */
+    private fun scheduleNextAlarm(intervalSec: Int) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val triggerAt = SystemClock.elapsedRealtime() + intervalSec * 1000L
+        alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            triggerAt,
+            getAlarmPendingIntent()
+        )
+        Log.d(TAG, "Nächster Alarm in ${intervalSec}s geplant")
+    }
+
+    private fun cancelAlarm() {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmManager.cancel(getAlarmPendingIntent())
+        Log.d(TAG, "Alarm abgebrochen")
+    }
+
+    private fun getAlarmPendingIntent(): PendingIntent {
+        val intent = Intent(this, GeofenceAlarmReceiver::class.java).apply {
+            action = ACTION_CHECK_LOCATION
         }
+        return PendingIntent.getBroadcast(
+            this,
+            ALARM_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun handleLocation(location: Location) {
@@ -170,9 +234,11 @@ class GeofenceService : Service() {
         private const val PREF_RADIUS = "radius"
         private const val PREF_INTERVAL = "interval_sec"
         private const val PREF_ADDRESS = "address"
+        private const val ALARM_REQUEST_CODE = 7421
 
         const val ACTION_START = "com.iosync.app.START_GEOFENCE"
         const val ACTION_STOP = "com.iosync.app.STOP_GEOFENCE"
+        const val ACTION_CHECK_LOCATION = "com.iosync.app.CHECK_GEOFENCE_LOCATION"
         const val EXTRA_ADDRESS = "geofence_address"
         const val EXTRA_LAT = "geofence_lat"
         const val EXTRA_LON = "geofence_lon"

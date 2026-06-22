@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.9.1",
+        date = "22.06.2026",
+        changes = listOf(
+            "Geofence-Intervall-Fix (Doze-Modus): requestLocationUpdates durch AlarmManager.setExactAndAllowWhileIdle() ersetzt – weckt das Gerät jetzt auch bei ausgeschaltetem Display im Doze-Modus zuverlässig auf",
+            "Standort-Check nutzt getCurrentLocation(HIGH_ACCURACY) für aktiven GPS-Fix statt passivem Polling, das ohne andere GPS-Apps keine Daten lieferte"
+        )
+    ),
+    ChangelogEntry(
         version = "4.9.0",
         date = "22.06.2026",
         changes = listOf(
