@@ -313,15 +313,16 @@ data class MainUiState(
     val p3FontScale: Int = 100,
     // ── Geofence-Vibration ────────────────────────────────────────────────────
     val geofenceEnabled: Boolean = false,
-    val geofenceLat: Double = 0.0,
-    val geofenceLon: Double = 0.0,
+    // Mehrere Standorte – jeder mit eigenem Umkreis. Das Prüf-Intervall gilt global.
+    val geofenceLocations: List<com.iosync.app.data.geofence.GeofenceLocation> = emptyList(),
+    // Innerhalb-Status je Standort-ID (true=drin, false=draußen, null=unbekannt).
+    val geofenceInsideById: Map<String, Boolean?> = emptyMap(),
+    // Voreingestellter Umkreis für neu hinzugefügte Standorte (Stepper-Default).
     val geofenceRadius: Int = 300,
     val geofenceResponsivenessSec: Int = 60,
-    val geofenceAddressDisplay: String = "",
     val geofenceSearchResults: List<com.iosync.app.data.network.AddressSearchResult> = emptyList(),
     val geofenceSearching: Boolean = false,
-    val geofenceSearchError: String? = null,
-    val geofenceInsideRegion: Boolean? = null
+    val geofenceSearchError: String? = null
 )
 
 @HiltViewModel
@@ -571,10 +572,13 @@ class MainViewModel @Inject constructor(
         val KEY_KLIPPER_HEAT_LABEL       = stringPreferencesKey("klipper_heat_label")
         // Geofence-Vibration
         val KEY_GEOFENCE_ENABLED         = booleanPreferencesKey("geofence_enabled")
-        val KEY_GEOFENCE_LAT             = stringPreferencesKey("geofence_lat")
-        val KEY_GEOFENCE_LON             = stringPreferencesKey("geofence_lon")
+        // Mehrere Standorte als JSON-Liste (siehe GeofenceLocation).
+        val KEY_GEOFENCE_LOCATIONS       = stringPreferencesKey("geofence_locations")
         val KEY_GEOFENCE_RADIUS          = intPreferencesKey("geofence_radius")
         val KEY_GEOFENCE_RESPONSIVENESS  = intPreferencesKey("geofence_responsiveness_sec")
+        // Alt (Einzel-Standort) – nur noch für die Migration auf die Liste gelesen.
+        val KEY_GEOFENCE_LAT             = stringPreferencesKey("geofence_lat")
+        val KEY_GEOFENCE_LON             = stringPreferencesKey("geofence_lon")
         val KEY_GEOFENCE_ADDRESS         = stringPreferencesKey("geofence_address")
     }
 
@@ -809,11 +813,28 @@ class MainViewModel @Inject constructor(
             val p3FontScale         = prefs[KEY_P3_FONT_SCALE]          ?: 100
             // Geofence-Vibration
             val geofenceEnabled = prefs[KEY_GEOFENCE_ENABLED] ?: false
-            val geofenceLat     = prefs[KEY_GEOFENCE_LAT]?.toDoubleOrNull() ?: 0.0
-            val geofenceLon     = prefs[KEY_GEOFENCE_LON]?.toDoubleOrNull() ?: 0.0
             val geofenceRadius  = prefs[KEY_GEOFENCE_RADIUS] ?: 300
             val geofenceRespSec = prefs[KEY_GEOFENCE_RESPONSIVENESS] ?: 60
-            val geofenceAddress = prefs[KEY_GEOFENCE_ADDRESS] ?: ""
+            var geofenceLocations =
+                com.iosync.app.data.geofence.GeofenceLocation.listFromJson(prefs[KEY_GEOFENCE_LOCATIONS])
+            // Migration: alter Einzel-Standort → Liste (einmalig, danach persistiert)
+            if (geofenceLocations.isEmpty()) {
+                val oldLat = prefs[KEY_GEOFENCE_LAT]?.toDoubleOrNull()
+                val oldLon = prefs[KEY_GEOFENCE_LON]?.toDoubleOrNull()
+                if (oldLat != null && oldLon != null && (oldLat != 0.0 || oldLon != 0.0)) {
+                    val migrated = com.iosync.app.data.geofence.GeofenceLocation(
+                        id = java.util.UUID.randomUUID().toString(),
+                        lat = oldLat,
+                        lon = oldLon,
+                        address = prefs[KEY_GEOFENCE_ADDRESS] ?: "",
+                        radiusMeters = geofenceRadius
+                    )
+                    geofenceLocations = listOf(migrated)
+                    val json = com.iosync.app.data.geofence.GeofenceLocation.listToJson(geofenceLocations)
+                    viewModelScope.launch { dataStore.edit { it[KEY_GEOFENCE_LOCATIONS] = json } }
+                    persistGeofenceLocationsToPrefs(json)
+                }
+            }
 
             // WeatherService festen Standort konfigurieren
             weatherService.useFixedLocation = weatherUseFixed
@@ -1030,11 +1051,9 @@ class MainViewModel @Inject constructor(
                     klipperHeatLabel      = klipperHeatLabel,
                     p3FontScale           = p3FontScale,
                     geofenceEnabled       = geofenceEnabled,
-                    geofenceLat           = geofenceLat,
-                    geofenceLon           = geofenceLon,
+                    geofenceLocations     = geofenceLocations,
                     geofenceRadius        = geofenceRadius,
-                    geofenceResponsivenessSec = geofenceRespSec,
-                    geofenceAddressDisplay = geofenceAddress
+                    geofenceResponsivenessSec = geofenceRespSec
                 )
             }
     }
@@ -3150,16 +3169,17 @@ class MainViewModel @Inject constructor(
 
     // ── Geofence-Vibration ─────────────────────────────────────────────────────
 
-    /** Liest den aktuellen Geofence-Status (drin/draußen) aus den SharedPreferences. */
+    /** Liest den Innerhalb-Status je Standort aus den SharedPreferences. */
     fun refreshGeofenceStatus() {
         val prefs = context.getSharedPreferences(
             com.iosync.app.data.geofence.GEOFENCE_PREFS_NAME,
             android.content.Context.MODE_PRIVATE
         )
-        val inside = if (prefs.contains(com.iosync.app.data.geofence.KEY_INSIDE_GEOFENCE))
-            prefs.getBoolean(com.iosync.app.data.geofence.KEY_INSIDE_GEOFENCE, false)
-        else null
-        _uiState.update { it.copy(geofenceInsideRegion = inside) }
+        val map = _uiState.value.geofenceLocations.associate { loc ->
+            val key = com.iosync.app.data.geofence.GeofenceVibration.KEY_INSIDE_PREFIX + loc.id
+            loc.id to (if (prefs.contains(key)) prefs.getBoolean(key, false) else null)
+        }
+        _uiState.update { it.copy(geofenceInsideById = map) }
     }
 
     private var geofenceSearchJob: Job? = null
@@ -3184,68 +3204,66 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /** Setzt den Geofence-Standort auf die gewählte Adresse. */
-    fun selectGeofenceLocation(lat: Double, lon: Double, displayName: String) {
+    /** Leert die Adress-Suchergebnisse (z. B. nach Auswahl eines Treffers). */
+    fun clearGeofenceSearch() {
+        geofenceSearchJob?.cancel()
+        _uiState.update { it.copy(geofenceSearchResults = emptyList(), geofenceSearching = false, geofenceSearchError = null) }
+    }
+
+    /** Voreingestellten Umkreis (Default für neue Standorte) speichern. */
+    fun setGeofenceDraftRadius(radiusMeters: Int) {
+        viewModelScope.launch { dataStore.edit { it[KEY_GEOFENCE_RADIUS] = radiusMeters } }
+        _uiState.update { it.copy(geofenceRadius = radiusMeters) }
+    }
+
+    /**
+     * Fügt einen Standort hinzu (id=null) oder aktualisiert einen bestehenden.
+     * Jeder Standort hat seinen eigenen Umkreis.
+     */
+    fun saveGeofenceLocation(id: String?, lat: Double, lon: Double, displayName: String, radius: Int) {
         viewModelScope.launch {
-            dataStore.edit { prefs ->
-                prefs[KEY_GEOFENCE_LAT] = lat.toString()
-                prefs[KEY_GEOFENCE_LON] = lon.toString()
-                prefs[KEY_GEOFENCE_ADDRESS] = displayName
-            }
-            val radius = _uiState.value.geofenceRadius
-            _uiState.update { it.copy(
-                geofenceLat = lat,
-                geofenceLon = lon,
-                geofenceAddressDisplay = displayName,
-                geofenceSearchResults = emptyList(),
-                geofenceSearching = false
-            ) }
-            persistGeofenceAddressDisplay(displayName)
-            // Geofence sofort neu registrieren, falls aktiv
-            if (_uiState.value.geofenceEnabled) {
-                val intervalSec = _uiState.value.geofenceResponsivenessSec
-                geofenceManager.addGeofence(lat, lon, radius.toFloat(), intervalSec * 1000)
-                // Persistente Notification + aktives Standort-Polling mit neuen Daten neu starten
-                com.iosync.app.data.geofence.GeofenceService.start(
-                    context, displayName, lat, lon, radius.toFloat(), intervalSec
-                )
-            }
+            val current = _uiState.value.geofenceLocations.toMutableList()
+            val loc = com.iosync.app.data.geofence.GeofenceLocation(
+                id = id ?: java.util.UUID.randomUUID().toString(),
+                lat = lat, lon = lon, address = displayName, radiusMeters = radius
+            )
+            val idx = current.indexOfFirst { it.id == loc.id }
+            if (idx >= 0) current[idx] = loc else current.add(loc)
+            persistAndReregisterGeofences(current)
+            _uiState.update { it.copy(geofenceSearchResults = emptyList(), geofenceSearching = false) }
         }
     }
 
-    /** Ändert den Geofence-Radius und registriert den Geofence neu. */
-    fun setGeofenceRadius(radiusMeters: Int) {
+    /** Entfernt einen Standort aus der Liste. */
+    fun removeGeofenceLocation(id: String) {
         viewModelScope.launch {
-            dataStore.edit { prefs -> prefs[KEY_GEOFENCE_RADIUS] = radiusMeters }
-            _uiState.update { it.copy(geofenceRadius = radiusMeters) }
-            val st = _uiState.value
-            if (st.geofenceEnabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
-                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, radiusMeters.toFloat(), st.geofenceResponsivenessSec * 1000)
-                // Polling mit neuem Radius neu starten
-                com.iosync.app.data.geofence.GeofenceService.start(
-                    context, st.geofenceAddressDisplay, st.geofenceLat, st.geofenceLon,
-                    radiusMeters.toFloat(), st.geofenceResponsivenessSec
-                )
-            }
+            val current = _uiState.value.geofenceLocations.filterNot { it.id == id }
+            // Innerhalb-Status des entfernten Standorts aufräumen
+            context.getSharedPreferences(
+                com.iosync.app.data.geofence.GEOFENCE_PREFS_NAME,
+                android.content.Context.MODE_PRIVATE
+            ).edit().remove(
+                com.iosync.app.data.geofence.GeofenceVibration.KEY_INSIDE_PREFIX + id
+            ).apply()
+            persistAndReregisterGeofences(current)
         }
     }
 
     /**
-     * Ändert das Prüf-Intervall (Responsiveness) des Geofence und registriert ihn neu.
-     * Bestimmt, in welchen zeitlichen Abständen das System prüft, ob man sich im Bereich
-     * befindet. Längere Intervalle sparen Akku, kürzere reagieren schneller.
+     * Ändert das Prüf-Intervall (Responsiveness) – gilt global für alle Standorte –
+     * und registriert die Geofences neu. Längere Intervalle sparen Akku.
      */
     fun setGeofenceResponsiveness(seconds: Int) {
         viewModelScope.launch {
             dataStore.edit { prefs -> prefs[KEY_GEOFENCE_RESPONSIVENESS] = seconds }
             _uiState.update { it.copy(geofenceResponsivenessSec = seconds) }
             val st = _uiState.value
-            if (st.geofenceEnabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
-                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, st.geofenceRadius.toFloat(), seconds * 1000)
-                // Polling mit neuem Intervall neu starten
+            if (st.geofenceEnabled && st.geofenceLocations.isNotEmpty()) {
+                geofenceManager.setGeofences(st.geofenceLocations, seconds * 1000)
                 com.iosync.app.data.geofence.GeofenceService.start(
-                    context, st.geofenceAddressDisplay, st.geofenceLat, st.geofenceLon,
-                    st.geofenceRadius.toFloat(), seconds
+                    context,
+                    com.iosync.app.data.geofence.GeofenceLocation.listToJson(st.geofenceLocations),
+                    seconds
                 )
             }
         }
@@ -3257,13 +3275,12 @@ class MainViewModel @Inject constructor(
             dataStore.edit { prefs -> prefs[KEY_GEOFENCE_ENABLED] = enabled }
             _uiState.update { it.copy(geofenceEnabled = enabled) }
             val st = _uiState.value
-            if (enabled && st.geofenceLat != 0.0 && st.geofenceLon != 0.0) {
-                persistGeofenceAddressDisplay(st.geofenceAddressDisplay)
-                geofenceManager.addGeofence(st.geofenceLat, st.geofenceLon, st.geofenceRadius.toFloat(), st.geofenceResponsivenessSec * 1000)
-                // Persistente Notification + aktives Standort-Polling starten.
+            if (enabled && st.geofenceLocations.isNotEmpty()) {
+                val json = com.iosync.app.data.geofence.GeofenceLocation.listToJson(st.geofenceLocations)
+                persistGeofenceLocationsToPrefs(json)
+                geofenceManager.setGeofences(st.geofenceLocations, st.geofenceResponsivenessSec * 1000)
                 com.iosync.app.data.geofence.GeofenceService.start(
-                    context, st.geofenceAddressDisplay, st.geofenceLat, st.geofenceLon,
-                    st.geofenceRadius.toFloat(), st.geofenceResponsivenessSec
+                    context, json, st.geofenceResponsivenessSec
                 )
             } else {
                 geofenceManager.removeGeofence()
@@ -3273,17 +3290,37 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * Schreibt die angezeigte Adresse in die Geofence-SharedPreferences, damit der
-     * [com.iosync.app.data.geofence.GeofenceTransitionReceiver] sie für seine
-     * Notifications lesen kann (läuft auch bei geschlossener App).
+     * Persistiert die Standort-Liste (DataStore + Geofence-Prefs) und registriert
+     * die System-Geofences + den Polling-Service neu, falls die Funktion aktiv ist.
      */
-    private fun persistGeofenceAddressDisplay(address: String) {
+    private suspend fun persistAndReregisterGeofences(locations: List<com.iosync.app.data.geofence.GeofenceLocation>) {
+        val json = com.iosync.app.data.geofence.GeofenceLocation.listToJson(locations)
+        dataStore.edit { prefs -> prefs[KEY_GEOFENCE_LOCATIONS] = json }
+        _uiState.update { it.copy(geofenceLocations = locations) }
+        persistGeofenceLocationsToPrefs(json)
+        val st = _uiState.value
+        if (st.geofenceEnabled && locations.isNotEmpty()) {
+            geofenceManager.setGeofences(locations, st.geofenceResponsivenessSec * 1000)
+            com.iosync.app.data.geofence.GeofenceService.start(context, json, st.geofenceResponsivenessSec)
+        } else if (locations.isEmpty()) {
+            geofenceManager.removeGeofence()
+            com.iosync.app.data.geofence.GeofenceService.stop(context)
+        }
+        refreshGeofenceStatus()
+    }
+
+    /**
+     * Schreibt die Standort-Liste in die Geofence-SharedPreferences, damit der
+     * [com.iosync.app.data.geofence.GeofenceTransitionReceiver] sie auch bei
+     * geschlossener App lesen kann.
+     */
+    private fun persistGeofenceLocationsToPrefs(json: String) {
         context.getSharedPreferences(
             com.iosync.app.data.geofence.GEOFENCE_PREFS_NAME,
             android.content.Context.MODE_PRIVATE
         ).edit().putString(
-            com.iosync.app.data.geofence.KEY_GEOFENCE_ADDRESS_DISPLAY,
-            address
+            com.iosync.app.data.geofence.KEY_GEOFENCE_LOCATIONS_JSON,
+            json
         ).apply()
     }
 }

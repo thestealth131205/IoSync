@@ -287,6 +287,12 @@ fun SettingsScreen(
     var geofenceManualCoords by remember { mutableStateOf(false) }
     var geofenceLatInput    by remember { mutableStateOf("") }
     var geofenceLonInput    by remember { mutableStateOf("") }
+    // Add/Edit-Formular für einen Standort
+    var geofenceEditingId   by remember { mutableStateOf<String?>(null) }
+    var geofencePendingLat  by remember { mutableStateOf<Double?>(null) }
+    var geofencePendingLon  by remember { mutableStateOf<Double?>(null) }
+    var geofencePendingAddress by remember { mutableStateOf("") }
+    var geofenceDraftRadius by remember { mutableStateOf(300) }
 
     // NTP-Zeitkorrektur
     var ntpEnabled by remember(uiState.wfNtpEnabled) { mutableStateOf(uiState.wfNtpEnabled) }
@@ -2965,50 +2971,106 @@ fun SettingsScreen(
                     }
                 }
 
-                // Aktuell gespeicherter Standort + Status-Punkt
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                ) {
-                    if (uiState.geofenceEnabled && uiState.geofenceAddressDisplay.isNotBlank()) {
-                        val dotColor = when (uiState.geofenceInsideRegion) {
+                // Gespeicherte Standorte – jeder mit eigenem Umkreis, Status + Löschen-Button.
+                // Tippen auf einen Standort lädt ihn ins Formular zum Bearbeiten.
+                Text(
+                    "Gespeicherte Standorte",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (uiState.geofenceLocations.isEmpty()) {
+                    Text(
+                        "Kein Standort gespeichert",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    uiState.geofenceLocations.forEach { loc ->
+                        val inside = uiState.geofenceInsideById[loc.id]
+                        val dotColor = when (inside) {
                             true  -> Color(0xFF4CAF50)
                             false -> Color(0xFFF44336)
                             null  -> Color(0xFF888888)
                         }
-                        Box(
+                        val isEditing = geofenceEditingId == loc.id
+                        Column(
                             modifier = Modifier
-                                .size(8.dp)
-                                .background(dotColor, CircleShape)
-                        )
-                        Spacer(Modifier.width(6.dp))
+                                .fillMaxWidth()
+                                .background(
+                                    if (isEditing) Color(0xFF2A2A12) else Color(0xFF1E1E1E),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    // Standort ins Formular laden → bearbeiten
+                                    geofenceEditingId = loc.id
+                                    geofencePendingLat = loc.lat
+                                    geofencePendingLon = loc.lon
+                                    geofencePendingAddress = loc.address
+                                    geofenceDraftRadius = loc.radiusMeters
+                                    geofenceSearchQuery = loc.address
+                                    geofenceManualCoords = false
+                                    geofenceLatInput = ""
+                                    geofenceLonInput = ""
+                                    viewModel.clearGeofenceSearch()
+                                }
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(dotColor, CircleShape)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = loc.address.ifBlank {
+                                        "Koordinaten: %.5f, %.5f".format(loc.lat, loc.lon)
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = NeonYellow,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                // Löschen-Button ("-")
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .background(Color(0xFF3A1515), CircleShape)
+                                        .clickable {
+                                            if (geofenceEditingId == loc.id) {
+                                                geofenceEditingId = null
+                                                geofencePendingLat = null
+                                                geofencePendingLon = null
+                                                geofencePendingAddress = ""
+                                                geofenceSearchQuery = ""
+                                            }
+                                            viewModel.removeGeofenceLocation(loc.id)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "−",
+                                        color = Color(0xFFFF6B6B),
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                }
+                            }
+                            val statusText = when (inside) {
+                                true  -> "Du befindest dich im Bereich"
+                                false -> "Du befindest dich außerhalb des Bereichs"
+                                null  -> "Status unbekannt"
+                            }
+                            Text(
+                                text = "$statusText · ${loc.radiusMeters} m",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = dotColor,
+                                modifier = Modifier.padding(start = 14.dp, top = 2.dp)
+                            )
+                        }
                     }
-                    Text(
-                        text = if (uiState.geofenceAddressDisplay.isNotBlank())
-                            "Standort: ${uiState.geofenceAddressDisplay}"
-                        else
-                            "Kein Standort gespeichert",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (uiState.geofenceAddressDisplay.isNotBlank()) NeonYellow
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (uiState.geofenceEnabled && uiState.geofenceAddressDisplay.isNotBlank()) {
-                    val statusText = when (uiState.geofenceInsideRegion) {
-                        true  -> "Du befindest dich im Bereich"
-                        false -> "Du befindest dich außerhalb des Bereichs"
-                        null  -> "Status unbekannt (noch keine Transition erkannt)"
-                    }
-                    val statusColor = when (uiState.geofenceInsideRegion) {
-                        true  -> Color(0xFF4CAF50)
-                        false -> Color(0xFFF44336)
-                        null  -> Color(0xFF888888)
-                    }
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor
-                    )
                 }
 
                 // Adresssuche
@@ -3041,8 +3103,11 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        viewModel.selectGeofenceLocation(result.lat, result.lon, result.displayName)
-                                        geofenceSearchQuery = ""
+                                        geofencePendingLat = result.lat
+                                        geofencePendingLon = result.lon
+                                        geofencePendingAddress = result.displayName
+                                        geofenceSearchQuery = result.displayName
+                                        viewModel.clearGeofenceSearch()
                                     }
                                     .padding(horizontal = 8.dp, vertical = 10.dp)
                             ) {
@@ -3126,10 +3191,11 @@ fun SettingsScreen(
                     Button(
                         onClick = {
                             if (parsedLat != null && parsedLon != null) {
-                                viewModel.selectGeofenceLocation(
-                                    parsedLat, parsedLon,
+                                geofencePendingLat = parsedLat
+                                geofencePendingLon = parsedLon
+                                geofencePendingAddress =
                                     "Koordinaten: %.5f, %.5f".format(parsedLat, parsedLon)
-                                )
+                                geofenceSearchQuery = geofencePendingAddress
                                 geofenceLatInput = ""
                                 geofenceLonInput = ""
                             }
@@ -3161,13 +3227,13 @@ fun SettingsScreen(
                 // hervorgehoben in der Mitte, links/rechts wird in festen
                 // Intervallschritten verkleinert/vergrößert.
                 Text(
-                    "Umkreis",
+                    "Umkreis (für diesen Standort)",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 val minRadius = 100
                 val maxRadius = 2000
-                val currentRadius = uiState.geofenceRadius
+                val currentRadius = geofenceDraftRadius
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -3178,7 +3244,7 @@ fun SettingsScreen(
                         val target = (currentRadius + step).coerceIn(minRadius, maxRadius)
                         val enabled = target != currentRadius
                         Button(
-                            onClick = { viewModel.setGeofenceRadius(target) },
+                            onClick = { geofenceDraftRadius = target; viewModel.setGeofenceDraftRadius(target) },
                             enabled = enabled,
                             modifier = Modifier.weight(1f),
                             contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp),
@@ -3212,7 +3278,7 @@ fun SettingsScreen(
                         val target = (currentRadius + step).coerceIn(minRadius, maxRadius)
                         val enabled = target != currentRadius
                         Button(
-                            onClick = { viewModel.setGeofenceRadius(target) },
+                            onClick = { geofenceDraftRadius = target; viewModel.setGeofenceDraftRadius(target) },
                             enabled = enabled,
                             modifier = Modifier.weight(1f),
                             contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp),
@@ -3233,6 +3299,74 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+
+                // Standort übernehmen: Hinzufügen (neuer Standort) oder Aktualisieren
+                // (bereits geladener Standort). Per "+" wird ein weiterer Standort ergänzt.
+                val pendingValid = geofencePendingLat != null && geofencePendingLon != null
+                if (pendingValid && geofencePendingAddress.isNotBlank()) {
+                    Text(
+                        text = "Gewählt: $geofencePendingAddress",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            val la = geofencePendingLat
+                            val lo = geofencePendingLon
+                            if (la != null && lo != null) {
+                                viewModel.saveGeofenceLocation(
+                                    geofenceEditingId, la, lo, geofencePendingAddress, geofenceDraftRadius
+                                )
+                                geofenceEditingId = null
+                                geofencePendingLat = null
+                                geofencePendingLon = null
+                                geofencePendingAddress = ""
+                                geofenceSearchQuery = ""
+                                geofenceLatInput = ""
+                                geofenceLonInput = ""
+                                geofenceDraftRadius = 300
+                                geofenceManualCoords = false
+                            }
+                        },
+                        enabled = pendingValid,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NeonYellow,
+                            contentColor = Color(0xFF1A1A00),
+                            disabledContainerColor = Color(0xFF2A2A2A),
+                            disabledContentColor = Color(0xFF555555)
+                        )
+                    ) {
+                        Text(if (geofenceEditingId == null) "＋ Standort hinzufügen" else "Standort aktualisieren")
+                    }
+                    if (geofenceEditingId != null) {
+                        OutlinedButton(
+                            onClick = {
+                                geofenceEditingId = null
+                                geofencePendingLat = null
+                                geofencePendingLon = null
+                                geofencePendingAddress = ""
+                                geofenceSearchQuery = ""
+                                geofenceLatInput = ""
+                                geofenceLonInput = ""
+                                geofenceDraftRadius = 300
+                                geofenceManualCoords = false
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFAAAAAA)),
+                            border = BorderStroke(1.dp, Color(0xFF555555))
+                        ) { Text("Abbrechen") }
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+                HorizontalDivider(color = Color(0xFF2A2A2A))
 
                 // Prüf-Intervall (Responsiveness): in welchen zeitlichen Abständen
                 // das System prüft, ob man sich im Bereich befindet. Gleicher

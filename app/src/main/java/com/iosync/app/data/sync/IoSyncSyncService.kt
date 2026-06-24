@@ -127,17 +127,22 @@ class IoSyncSyncService : Service() {
             val prefs = dataStore.data.first()
             val enabled = prefs[MainViewModel.KEY_GEOFENCE_ENABLED] ?: false
             if (!enabled) return
-            val lat = prefs[MainViewModel.KEY_GEOFENCE_LAT]?.toDoubleOrNull() ?: return
-            val lon = prefs[MainViewModel.KEY_GEOFENCE_LON]?.toDoubleOrNull() ?: return
-            if (lat == 0.0 && lon == 0.0) return
-            val radius = (prefs[MainViewModel.KEY_GEOFENCE_RADIUS] ?: 300).toFloat()
+            val locations = com.iosync.app.data.geofence.GeofenceLocation
+                .listFromJson(prefs[MainViewModel.KEY_GEOFENCE_LOCATIONS])
+            if (locations.isEmpty()) return
             val intervalSec = prefs[MainViewModel.KEY_GEOFENCE_RESPONSIVENESS] ?: 60
-            val address = prefs[MainViewModel.KEY_GEOFENCE_ADDRESS] ?: ""
-            geofenceManager.addGeofence(lat, lon, radius, intervalSec * 1000)
+            val json = com.iosync.app.data.geofence.GeofenceLocation.listToJson(locations)
+            // Standort-Liste auch in die Geofence-Prefs schreiben (für den Transition-Receiver).
+            getSharedPreferences(
+                com.iosync.app.data.geofence.GEOFENCE_PREFS_NAME, Context.MODE_PRIVATE
+            ).edit().putString(
+                com.iosync.app.data.geofence.KEY_GEOFENCE_LOCATIONS_JSON, json
+            ).apply()
+            geofenceManager.setGeofences(locations, intervalSec * 1000)
                 .onSuccess {
-                    Log.d(TAG, "Geofence nach Service-Start reaktiviert: lat=$lat, lon=$lon, r=${radius}m")
+                    Log.d(TAG, "Geofence nach Service-Start reaktiviert: ${locations.size} Standort(e)")
                     // Persistente Notification + aktives Standort-Polling wieder starten (z.B. nach Boot).
-                    com.iosync.app.data.geofence.GeofenceService.start(this, address, lat, lon, radius, intervalSec)
+                    com.iosync.app.data.geofence.GeofenceService.start(this, json, intervalSec)
                 }
                 .onFailure { Log.w(TAG, "Geofence-Reaktivierung fehlgeschlagen: ${it.message}") }
         } catch (e: Exception) {

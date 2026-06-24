@@ -8,6 +8,17 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.9.7",
+        date = "24.06.2026",
+        changes = listOf(
+            "Fix: Handy-Akkustatus wird regelmäßiger an die Uhr übertragen",
+            "Standort-Vibration: mehrere Standorte möglich (je eigener Umkreis)",
+            "Standort per „+“ hinzufügen, per „−“ löschen, antippen zum Bearbeiten",
+            "Klingelmodus auf Vibration, sobald man in irgendeinem Bereich ist",
+            "Prüf-Intervall gilt weiterhin global für alle Standorte"
+        )
+    ),
+    ChangelogEntry(
         version = "4.9.5",
         date = "22.06.2026",
         changes = listOf(

@@ -491,6 +491,7 @@ class IoSyncWatchFaceRenderer(
         private const val PATH_ACTION_PILL_STATE = "/iosync/watchface/action_pill_state"
         private const val PATH_P2_PILL_STATES    = "/iosync/watchface/p2_pill_states"
         private const val PATH_STATES            = "/iosync/smarthome/states"
+        private const val PATH_REQUEST_BATTERY   = "/iosync/phone/request_battery"
         private const val PATH_PHONE_HEALTH      = "/iosync/watchface/phone_health"
         private const val KEY_PHONE_HEART_RATE     = "phone_heart_rate"
         private const val KEY_PHONE_SPO2           = "phone_spo2"
@@ -1381,9 +1382,25 @@ class IoSyncWatchFaceRenderer(
     /**
      * Fordert beim Display-Einschalten einen sofortigen Daten-Refresh an.
      * Ab v5 fragt die Uhr selbst (ioBroker-Slots/States, Wetter) – kein Handy nötig.
+     * Zusätzlich wird das Handy per MessageClient um einen frischen Akku-Push gebeten,
+     * damit der Handy-Akkustand nicht durch Doze-Pausen auf dem Stand von morgens früh
+     * eingefroren bleibt.
      */
     private fun requestPhoneRefresh() {
         WatchDataSyncManager.syncNow()
+        // Handy um frischen Akku-Push bitten, damit Doze-Pausen kompensiert werden.
+        scope.launch(Dispatchers.IO) {
+            try {
+                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
+                nodes.forEach { node ->
+                    Wearable.getMessageClient(context)
+                        .sendMessage(node.id, PATH_REQUEST_BATTERY, byteArrayOf())
+                        .await()
+                }
+            } catch (e: Exception) {
+                Log.w("IoSyncRenderer", "Akku-Anfrage an Handy fehlgeschlagen: ${e.message}")
+            }
+        }
     }
 
     /** Schaltet die Aktions-Pille (Seite 1) direkt am ioBroker-Adapter. */

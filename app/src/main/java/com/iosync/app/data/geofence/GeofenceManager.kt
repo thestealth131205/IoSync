@@ -16,7 +16,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "GeofenceManager"
-const val GEOFENCE_ID = "iosync_standort_geofence"
 
 @Singleton
 class GeofenceManager @Inject constructor(
@@ -34,44 +33,51 @@ class GeofenceManager @Inject constructor(
         )
     }
 
-    suspend fun addGeofence(
-        lat: Double,
-        lon: Double,
-        radiusMeters: Float,
+    /**
+     * Registriert die übergebene Standort-Liste als System-Geofences (je Standort
+     * ein Geofence mit der Standort-ID als RequestId). Eine leere Liste entfernt
+     * alle bestehenden Geofences.
+     */
+    suspend fun setGeofences(
+        locations: List<GeofenceLocation>,
         responsivenessMs: Int = 60_000
     ): Result<Unit> {
+        if (locations.isEmpty()) return removeGeofence()
+
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
         ) {
             return Result.failure(SecurityException("Standort-Berechtigung fehlt"))
         }
 
-        val geofence = Geofence.Builder()
-            .setRequestId(GEOFENCE_ID)
-            .setCircularRegion(lat, lon, radiusMeters)
-            .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            // Steuert, in welchen zeitlichen Intervallen das System prüft, ob sich
-            // das Gerät innerhalb/außerhalb des Bereichs befindet. Größere Werte
-            // sparen Akku (System darf Prüfungen bündeln), kleinere reagieren schneller.
-            .setNotificationResponsiveness(responsivenessMs)
-            .setTransitionTypes(
-                Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT
-            )
-            .build()
+        val geofences = locations.map { loc ->
+            Geofence.Builder()
+                .setRequestId(loc.id)
+                .setCircularRegion(loc.lat, loc.lon, loc.radiusMeters.toFloat())
+                .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                // Steuert, in welchen zeitlichen Intervallen das System prüft, ob sich
+                // das Gerät innerhalb/außerhalb des Bereichs befindet. Größere Werte
+                // sparen Akku (System darf Prüfungen bündeln), kleinere reagieren schneller.
+                .setNotificationResponsiveness(responsivenessMs)
+                .setTransitionTypes(
+                    Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT
+                )
+                .build()
+        }
 
         val request = GeofencingRequest.Builder()
             .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-            .addGeofence(geofence)
+            .addGeofences(geofences)
             .build()
 
         return try {
-            // Vorherigen Geofence zuerst entfernen (falls vorhanden)
-            runCatching { geofencingClient.removeGeofences(listOf(GEOFENCE_ID)).await() }
+            // Alle vorherigen Geofences zuerst entfernen
+            runCatching { geofencingClient.removeGeofences(pendingIntent).await() }
             geofencingClient.addGeofences(request, pendingIntent).await()
-            Log.d(TAG, "Geofence registriert: lat=$lat, lon=$lon, radius=${radiusMeters}m")
+            Log.d(TAG, "${geofences.size} Geofence(s) registriert")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Geofence konnte nicht hinzugefügt werden", e)
+            Log.e(TAG, "Geofences konnten nicht hinzugefügt werden", e)
             Result.failure(e)
         }
     }

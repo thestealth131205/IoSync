@@ -7,7 +7,9 @@ import androidx.datastore.preferences.core.edit
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataMapItem
+import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
+import com.iosync.app.data.sync.IoSyncSyncService
 import com.iosync.app.ui.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +22,7 @@ import javax.inject.Inject
 private const val TAG = "WFTriggerListener"
 private const val PATH_NTP_OFFSET_FROM_WATCH = "/iosync/watchface/ntp_offset"
 private const val KEY_NTP_OFFSET_MS          = "ntp_offset_ms"
+private const val PATH_REQUEST_BATTERY       = "/iosync/phone/request_battery"
 
 /**
  * Empfängt den von der Uhr selbst ermittelten NTP-Offset und legt ihn im DataStore ab.
@@ -53,6 +56,13 @@ class WatchFaceTriggerListenerService : WearableListenerService() {
             }
         }
         dataEvents.release()
+    }
+
+    override fun onMessageReceived(event: MessageEvent) {
+        if (event.path == PATH_REQUEST_BATTERY) {
+            Log.d(TAG, "Akku-Anfrage von Uhr empfangen → sofortiger Akku-Push")
+            IoSyncSyncService.syncNow(this)
+        }
     }
 
     override fun onDestroy() {
