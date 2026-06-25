@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "4.9.8",
+        date = "25.06.2026",
+        changes = listOf(
+            "Fix: Handy-Akkustand in der App wird jetzt live aktualisiert (statt auf dem Startwert hängen zu bleiben)"
+        )
+    ),
+    ChangelogEntry(
         version = "4.9.7",
         date = "24.06.2026",
         changes = listOf(

@@ -1068,7 +1068,7 @@ class MainViewModel @Inject constructor(
             // Gesamter Hintergrund-Sync ans Watchface läuft im Foreground-Service,
             // damit Wetter/Akku/Slots/Health auch bei geschlossener App aktualisiert werden.
             IoSyncSyncService.start(context)
-            sendPhoneBattery() // Akkustand einmalig für die App-Anzeige
+            registerBatteryReceiver() // Akkustand live verfolgen (nicht nur einmalig)
             refresh()
             // Health-Connect-Status direkt beim App-Start einmal laden, damit die
             // Konfiguration sofort die verfügbaren Datentypen/Quellen kennt – ohne
