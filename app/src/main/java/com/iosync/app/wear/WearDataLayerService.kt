@@ -44,6 +44,7 @@ private const val KEY_CON_P2_SLOT2_ID    = "con_p2_slot2_id"
 private const val KEY_CON_P2_SLOT3_ID    = "con_p2_slot3_id"
 private const val KEY_CON_P2_SLOT4_ID    = "con_p2_slot4_id"
 private const val KEY_CON_P2_BAR_ID      = "con_p2_bar_id"
+private const val KEY_CON_P2_COLOR_ID    = "con_p2_color_id"
 private const val KEY_CON_SLEEP_ID       = "con_sleep_id"
 private const val KEY_CON_WEATHER_USE_FIXED = "con_weather_use_fixed"
 private const val KEY_CON_WEATHER_LAT       = "con_weather_lat"
@@ -613,6 +614,7 @@ class WearDataLayerService @Inject constructor(
         slot1Id: String, slot2Id: String, slot3Id: String, slot4Id: String,
         p2Slot1Id: String, p2Slot2Id: String, p2Slot3Id: String, p2Slot4Id: String,
         p2BarId: String,
+        p2ColorId: String = "",
         sleepId: String,
         weatherUseFixed: Boolean,
         weatherLat: Double,
@@ -670,6 +672,7 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_CON_P2_SLOT3_ID, p2Slot3Id)
                     dataMap.putString(KEY_CON_P2_SLOT4_ID, p2Slot4Id)
                     dataMap.putString(KEY_CON_P2_BAR_ID, p2BarId)
+                    dataMap.putString(KEY_CON_P2_COLOR_ID, p2ColorId)
                     dataMap.putString(KEY_CON_SLEEP_ID, sleepId)
                     dataMap.putBoolean(KEY_CON_WEATHER_USE_FIXED, weatherUseFixed)
                     dataMap.putDouble(KEY_CON_WEATHER_LAT, weatherLat)

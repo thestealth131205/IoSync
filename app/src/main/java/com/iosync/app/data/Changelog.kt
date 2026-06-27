@@ -8,6 +8,16 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.0.0",
+        date = "28.06.2026",
+        changes = listOf(
+            "Seite 2: neuer Farb-Streifen links zeigt die Farbe eines ioBroker-Datenpunkts (RGB-Hex)",
+            "Tippen auf den Streifen öffnet ein RGB-Farbwahlrad über dem Watchface",
+            "Save-Button in der Mitte schreibt die gewählte Farbe in den Datenpunkt zurück",
+            "Datenpunkt für den Farb-Streifen wählbar in Einstellungen → Zweite Seite"
+        )
+    ),
+    ChangelogEntry(
         version = "4.9.8",
         date = "25.06.2026",
         changes = listOf(

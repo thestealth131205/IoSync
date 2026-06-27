@@ -7,10 +7,14 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ComposeShader
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.RadialGradient
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.SweepGradient
 import android.graphics.Typeface
 import android.os.BatteryManager
@@ -55,6 +59,8 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import com.google.android.gms.wearable.PutDataMapRequest
+import kotlin.math.atan2
+import kotlin.math.hypot
 
 private const val FRAME_PERIOD_MS_DEFAULT = 2L
 
@@ -400,6 +406,17 @@ class IoSyncWatchFaceRenderer(
     private var page2Pill1PressedAt = 0L
     private var page2Pill2Pressed = false
     private var page2Pill2PressedAt = 0L
+
+    // ── Seite 2 – Farb-Streifen + RGB-Farbwahlrad-Overlay ────────────────────
+    private var page2ColorStripBounds = RectF()    // Tap-Zone des Farb-Streifens (öffnet Rad)
+    private var p2ColorWheelVisible = false         // true → Farbwahlrad-Overlay sichtbar
+    private var p2ColorWheelCx = 0f                 // Mittelpunkt + Radius des Rades (für Tap-Mapping)
+    private var p2ColorWheelCy = 0f
+    private var p2ColorWheelRadius = 0f
+    private var p2ColorSaveBounds = RectF()         // Tap-Zone des mittigen Save-Buttons
+    private var p2ColorWheelSelected = Color.RED    // aktuell im Rad gewählte Farbe
+    private var p2ColorWheelShader: Shader? = null  // gecachter Rad-Shader (radius-abhängig)
+    private var p2ColorWheelShaderRadius = 0f
 
     // ── Seite 3 Pille (6 Uhr, Klipper) ───────────────────────────────────────
     private var p3PillBounds = RectF()
@@ -1378,6 +1395,31 @@ class IoSyncWatchFaceRenderer(
         else          -> Color.parseColor("#00BCD4")
     }
 
+    /**
+     * Wandelt einen rohen Datenpunkt-Farbwert in ein ARGB-Int.
+     * Unterstützt "FF0000", "#FF0000", "0xFF0000" sowie Dezimal-Ganzzahlen.
+     * Bei ungültigem Wert wird Schwarz zurückgegeben.
+     */
+    private fun parseColorValue(raw: String): Int {
+        val s = raw.trim()
+        if (s.isEmpty()) return Color.BLACK
+        val hex = s.removePrefix("#").removePrefix("0x").removePrefix("0X")
+        // Reiner 6-/8-stelliger Hex-Wert
+        hex.toLongOrNull(16)?.let { v ->
+            val rgb = (v and 0xFFFFFF).toInt()
+            return Color.rgb((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
+        }
+        // Fallback: Dezimal-Ganzzahl (z.B. manche ioBroker-Adapter liefern int)
+        s.toLongOrNull()?.let { v ->
+            val rgb = (v and 0xFFFFFF).toInt()
+            return Color.rgb((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
+        }
+        return Color.BLACK
+    }
+
+    /** Formatiert ein ARGB-Int als 6-stelligen Hex-String ohne Präfix (z.B. "FF0000"). */
+    private fun colorToHex(color: Int): String =
+        String.format("%06X", color and 0xFFFFFF)
 
     /**
      * Fordert beim Display-Einschalten einen sofortigen Daten-Refresh an.
@@ -2422,6 +2464,45 @@ class IoSyncWatchFaceRenderer(
         val y = tapEvent.yPos.toFloat()
         val config = WatchFaceConfigCache
 
+        // ── RGB-Farbwahlrad-Overlay hat Priorität, solange es sichtbar ist ──
+        if (p2ColorWheelVisible) {
+            if (tapType == TapType.DOWN) {
+                if (!p2ColorSaveBounds.isEmpty && p2ColorSaveBounds.contains(x, y)) {
+                    // Save: aktuell gewählte Farbe in den Datenpunkt schreiben
+                    WatchDataSyncManager.setColorValue(colorToHex(p2ColorWheelSelected))
+                    p2ColorWheelVisible = false
+                    invalidate()
+                } else {
+                    val dist = hypot(x - p2ColorWheelCx, y - p2ColorWheelCy)
+                    if (dist <= p2ColorWheelRadius) {
+                        // Auf dem Rad: Farbton (Winkel) + Sättigung (Radius) ableiten
+                        val angle = (Math.toDegrees(
+                            atan2((y - p2ColorWheelCy).toDouble(), (x - p2ColorWheelCx).toDouble())
+                        ).toFloat() + 360f) % 360f
+                        val sat = (dist / p2ColorWheelRadius).coerceIn(0f, 1f)
+                        p2ColorWheelSelected = Color.HSVToColor(floatArrayOf(angle, sat, 1f))
+                        invalidate()
+                    } else {
+                        // Außerhalb von Rad und Button = Abbrechen
+                        p2ColorWheelVisible = false
+                        invalidate()
+                    }
+                }
+            }
+            return
+        }
+
+        // ── Seite 2: Farb-Streifen antippen öffnet das Farbwahlrad ──────────
+        // (vor der 9-Uhr-Navigation, da der Streifen in deren Zone liegt)
+        if (currentPage == 1 && !page2ColorStripBounds.isEmpty && page2ColorStripBounds.contains(x, y)) {
+            if (tapType == TapType.UP) {
+                p2ColorWheelSelected = parseColorValue(config.p2ColorValue)
+                p2ColorWheelVisible = true
+                invalidate()
+            }
+            return
+        }
+
         // ── 9-Uhr Doppeltipp: zwischen Seite 1 und 2 wechseln (nicht auf Seite 3) ──
         if (nineOClockTapBounds.contains(x, y) && currentPage != 2) {
             if (tapType == TapType.UP) {
@@ -3039,8 +3120,123 @@ class IoSyncWatchFaceRenderer(
             page2SliderTapBounds.setEmpty()
         }
 
+        // Farb-Streifen (links, wenn ein Farb-Datenpunkt konfiguriert ist)
+        if (WatchFaceConfigCache.conP2ColorId.isNotBlank()) {
+            drawPage2ColorStrip(canvas, cx, cy, radius)
+        } else {
+            page2ColorStripBounds.setEmpty()
+        }
+
         // 2 halbe Pillen (7 Uhr und 5 Uhr)
         drawPage2Pills(canvas, cx, cy, radius)
+
+        // RGB-Farbwahlrad-Overlay (über allem) – zuletzt gezeichnet, daher obenauf
+        if (p2ColorWheelVisible) {
+            drawColorWheelOverlay(canvas, cx, cy, radius)
+        } else {
+            p2ColorSaveBounds.setEmpty()
+        }
+    }
+
+    /**
+     * Zeichnet einen vertikalen Farb-Streifen links auf Seite 2, der die aktuelle
+     * Farbe des konfigurierten ioBroker-Datenpunkts anzeigt. Tippen öffnet das
+     * RGB-Farbwahlrad-Overlay.
+     */
+    private fun drawPage2ColorStrip(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config  = WatchFaceConfigCache
+        val stripW  = radius * 0.16f
+        val stripH  = radius * 0.62f
+        val stripCx = cx - radius * 0.76f
+        val top     = cy - stripH / 2f
+        val bot     = cy + stripH / 2f
+        val corner  = stripW * 0.45f
+        val rect    = RectF(stripCx - stripW / 2f, top, stripCx + stripW / 2f, bot)
+
+        val fillPaint = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.FILL
+            color = parseColorValue(config.p2ColorValue)
+        }
+        canvas.drawRoundRect(rect, corner, corner, fillPaint)
+        val strokePaint = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.STROKE
+            strokeWidth = radius * 0.012f; color = Color.parseColor("#66FFFFFF")
+        }
+        canvas.drawRoundRect(rect, corner, corner, strokePaint)
+
+        // Großzügige Tap-Zone (weg vom Bildschirmrand, wo System-Wischgesten liegen)
+        page2ColorStripBounds.set(
+            rect.left - radius * 0.04f, top - radius * 0.06f,
+            rect.right + radius * 0.22f, bot + radius * 0.06f
+        )
+    }
+
+    /**
+     * Zeichnet das RGB-Farbwahlrad-Overlay über dem gesamten Watchface.
+     * Tippen auf das Rad wählt Farbton (Winkel) + Sättigung (Radius); der mittige
+     * Save-Button zeigt die aktuelle Auswahl und schreibt sie beim Tippen in den
+     * Datenpunkt. Ein Tap außerhalb von Rad und Button schließt das Overlay.
+     */
+    private fun drawColorWheelOverlay(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        // Abdunkelnder Hintergrund (gesamtes Zifferblatt)
+        val dimPaint = Paint().apply { isAntiAlias = true; color = Color.argb(210, 0, 0, 0) }
+        canvas.drawRect(0f, 0f, cx * 2f, cy * 2f, dimPaint)
+
+        val wheelR = radius * 0.82f
+        p2ColorWheelCx = cx
+        p2ColorWheelCy = cy
+        p2ColorWheelRadius = wheelR
+
+        // Rad-Shader (Farbton als Sweep, Sättigung als radialer Weiß-Verlauf) cachen
+        if (p2ColorWheelShader == null || p2ColorWheelShaderRadius != wheelR) {
+            val hueColors = IntArray(13) { i ->
+                Color.HSVToColor(floatArrayOf((i * 30f) % 360f, 1f, 1f))
+            }
+            val hueShader = SweepGradient(cx, cy, hueColors, null)
+            val satShader = RadialGradient(
+                cx, cy, wheelR,
+                Color.WHITE, Color.argb(0, 255, 255, 255), Shader.TileMode.CLAMP
+            )
+            p2ColorWheelShader = ComposeShader(hueShader, satShader, PorterDuff.Mode.SRC_OVER)
+            p2ColorWheelShaderRadius = wheelR
+        }
+        val wheelPaint = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.FILL; shader = p2ColorWheelShader
+        }
+        canvas.drawCircle(cx, cy, wheelR, wheelPaint)
+
+        // Save-Button (mittig) – zeigt die aktuell gewählte Farbe
+        val btnR = wheelR * 0.32f
+        val btnFill = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.FILL; color = p2ColorWheelSelected
+        }
+        canvas.drawCircle(cx, cy, btnR, btnFill)
+        val btnStroke = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.STROKE
+            strokeWidth = radius * 0.02f; color = Color.WHITE
+        }
+        canvas.drawCircle(cx, cy, btnR, btnStroke)
+
+        // Kontrastreiche Beschriftung je nach Helligkeit der gewählten Farbe
+        val lum = (0.299f * Color.red(p2ColorWheelSelected) +
+                   0.587f * Color.green(p2ColorWheelSelected) +
+                   0.114f * Color.blue(p2ColorWheelSelected)) / 255f
+        val txtColor = if (lum > 0.6f) Color.BLACK else Color.WHITE
+        val savePaint = Paint().apply {
+            isAntiAlias = true; color = txtColor
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = btnR * 0.42f; textAlign = Paint.Align.CENTER
+        }
+        val fm = savePaint.fontMetrics
+        canvas.drawText("SAVE", cx, cy - btnR * 0.18f - (fm.ascent + fm.descent) / 2f, savePaint)
+        val hexPaint = Paint().apply {
+            isAntiAlias = true; color = txtColor
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+            textSize = btnR * 0.30f; textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("#${colorToHex(p2ColorWheelSelected)}", cx, cy + btnR * 0.45f, hexPaint)
+
+        p2ColorSaveBounds.set(cx - btnR, cy - btnR, cx + btnR, cy + btnR)
     }
 
     /**

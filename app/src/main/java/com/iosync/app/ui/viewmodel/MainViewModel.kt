@@ -227,6 +227,8 @@ data class MainUiState(
     val p2BarWarn1Value: Float = Float.NaN,
     val p2BarWarn2Color: String = "red",
     val p2BarWarn2Value: Float = Float.NaN,
+    // ── Seite 2 – Farb-Streifen (links) ─────────────────────────────────────
+    val p2ColorId: String = "",
     // Aktualisierungsintervalle (in Sekunden)
     val batteryPollIntervalSec: Int = 60,
     val slotPollIntervalSec: Int = 120,
@@ -499,6 +501,8 @@ class MainViewModel @Inject constructor(
         val KEY_P2_BAR_WARN1_VALUE  = stringPreferencesKey("p2_bar_warn1_value")
         val KEY_P2_BAR_WARN2_COLOR  = stringPreferencesKey("p2_bar_warn2_color")
         val KEY_P2_BAR_WARN2_VALUE  = stringPreferencesKey("p2_bar_warn2_value")
+        // Seite 2 – Farb-Streifen
+        val KEY_P2_COLOR_ID         = stringPreferencesKey("p2_color_id")
         // Boden-Komplikationen
         val KEY_WF_SHOW_BOTTOM_COMP  = booleanPreferencesKey("wf_show_bottom_comp")
         val KEY_WF_BC1_USE_IOBROKER  = booleanPreferencesKey("wf_bc1_use_iobroker")
@@ -744,6 +748,7 @@ class MainViewModel @Inject constructor(
             val p2BarWarn1Value = prefs[KEY_P2_BAR_WARN1_VALUE]?.toFloatOrNull() ?: Float.NaN
             val p2BarWarn2Color = prefs[KEY_P2_BAR_WARN2_COLOR] ?: "red"
             val p2BarWarn2Value = prefs[KEY_P2_BAR_WARN2_VALUE]?.toFloatOrNull() ?: Float.NaN
+            val p2ColorId       = prefs[KEY_P2_COLOR_ID]        ?: ""
             // Boden-Komplikationen
             val wfShowBottomComp  = prefs[KEY_WF_SHOW_BOTTOM_COMP]  ?: true
             val wfBc1UseIoBroker  = prefs[KEY_WF_BC1_USE_IOBROKER]  ?: false
@@ -987,6 +992,7 @@ class MainViewModel @Inject constructor(
                     p2BarWarn1Value = p2BarWarn1Value,
                     p2BarWarn2Color  = p2BarWarn2Color,
                     p2BarWarn2Value  = p2BarWarn2Value,
+                    p2ColorId        = p2ColorId,
                     p2ShowBackground = p2ShowBackground,
                     wfShowBottomComp  = wfShowBottomComp,
                     wfBc1UseIoBroker  = wfBc1UseIoBroker,
@@ -1406,6 +1412,7 @@ class MainViewModel @Inject constructor(
             p2Slot3Id = prefs[KEY_P2_SLOT3_ID] ?: "",
             p2Slot4Id = prefs[KEY_P2_SLOT4_ID] ?: "",
             p2BarId   = prefs[KEY_P2_BAR_ID] ?: "",
+            p2ColorId = prefs[KEY_P2_COLOR_ID] ?: "",
             sleepId   = prefs[KEY_WF_SLEEP_IOBROKER_ID] ?: "",
             weatherUseFixed = prefs[KEY_WEATHER_USE_FIXED] ?: false,
             weatherLat = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: Double.NaN,
@@ -2540,6 +2547,7 @@ class MainViewModel @Inject constructor(
         p2BarWarn1Value: Float = _uiState.value.p2BarWarn1Value,
         p2BarWarn2Color: String = _uiState.value.p2BarWarn2Color,
         p2BarWarn2Value: Float = _uiState.value.p2BarWarn2Value,
+        p2ColorId: String = _uiState.value.p2ColorId,
         p2ShowBackground: Boolean = _uiState.value.p2ShowBackground
     ) {
         viewModelScope.launch {
@@ -2584,6 +2592,7 @@ class MainViewModel @Inject constructor(
                 prefs[KEY_P2_BAR_WARN1_VALUE] = p2BarWarn1Value.toString()
                 prefs[KEY_P2_BAR_WARN2_COLOR] = p2BarWarn2Color
                 prefs[KEY_P2_BAR_WARN2_VALUE] = p2BarWarn2Value.toString()
+                prefs[KEY_P2_COLOR_ID]        = p2ColorId
                 prefs[KEY_P2_SHOW_BACKGROUND] = p2ShowBackground
             }
             _uiState.update {
@@ -2622,6 +2631,7 @@ class MainViewModel @Inject constructor(
                     p2BarWarn1Value  = p2BarWarn1Value,
                     p2BarWarn2Color  = p2BarWarn2Color,
                     p2BarWarn2Value  = p2BarWarn2Value,
+                    p2ColorId        = p2ColorId,
                     p2ShowBackground = p2ShowBackground
                 )
             }
@@ -2700,6 +2710,7 @@ class MainViewModel @Inject constructor(
         p2BarWarn1Value: Float = _uiState.value.p2BarWarn1Value,
         p2BarWarn2Color: String = _uiState.value.p2BarWarn2Color,
         p2BarWarn2Value: Float = _uiState.value.p2BarWarn2Value,
+        p2ColorId: String = _uiState.value.p2ColorId,
         p2ShowBackground: Boolean = _uiState.value.p2ShowBackground
     ) {
         viewModelScope.launch {
@@ -2739,6 +2750,7 @@ class MainViewModel @Inject constructor(
                     p2BarWarn1Value  = p2BarWarn1Value,
                     p2BarWarn2Color  = p2BarWarn2Color,
                     p2BarWarn2Value  = p2BarWarn2Value,
+                    p2ColorId        = p2ColorId,
                     p2ShowBackground = p2ShowBackground
                 )
             }

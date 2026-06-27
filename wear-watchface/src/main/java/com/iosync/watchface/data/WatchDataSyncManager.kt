@@ -237,6 +237,8 @@ object WatchDataSyncManager {
         c.p2Slot3Value = formatSlotValue(valueOf(c.conP2Slot3Id))
         c.p2Slot4Value = formatSlotValue(valueOf(c.conP2Slot4Id))
         if (c.conP2BarId.isNotBlank()) c.p2BarValue = formatSlotValue(valueOf(c.conP2BarId))
+        // Farb-Streifen: rohen Hex-Wert NICHT formatieren (formatSlotValue würde ihn kürzen)
+        if (c.conP2ColorId.isNotBlank()) valueOf(c.conP2ColorId)?.let { c.p2ColorValue = it }
 
         // Pillen-Status (aus Datenpunktwert)
         if (c.actionPillEnabled && c.actionPillIoBrokerId.isNotBlank()) {
@@ -478,6 +480,21 @@ object WatchDataSyncManager {
                 c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword,
                 c.conP2BarId, value.toString()
             )
+        }
+    }
+
+    /** Farb-Wert (Seite 2, RGB-Hex wie "FF0000") in den ioBroker-Datenpunkt schreiben. */
+    fun setColorValue(hex: String) {
+        val c = WatchFaceConfigCache
+        if (!c.ioUseAdapter || c.ioHost.isBlank() || c.conP2ColorId.isBlank()) return
+        // Optimistisch lokal aktualisieren für sofortiges Feedback
+        c.p2ColorValue = hex
+        invalidate?.invoke()
+        scope?.launch {
+            WatchIoSyncClient.setState(
+                c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword,
+                c.conP2ColorId, hex
+            ).onFailure { Log.e(TAG, "setColorValue($hex) fehlgeschlagen: ${it.message}") }
         }
     }
 

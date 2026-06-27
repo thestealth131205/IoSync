@@ -47,6 +47,7 @@ object WatchConnectionPrefs {
     private const val KEY_CON_P2_SLOT3_ID = "con_p2_slot3_id"
     private const val KEY_CON_P2_SLOT4_ID = "con_p2_slot4_id"
     private const val KEY_CON_P2_BAR_ID   = "con_p2_bar_id"
+    private const val KEY_CON_P2_COLOR_ID = "con_p2_color_id"
 
     // Sonstige Datenpunkt-IDs
     private const val KEY_CON_SLEEP_ID = "con_sleep_id"
@@ -96,6 +97,7 @@ object WatchConnectionPrefs {
             ed.putString(KEY_CON_P2_SLOT3_ID, c.conP2Slot3Id)
             ed.putString(KEY_CON_P2_SLOT4_ID, c.conP2Slot4Id)
             ed.putString(KEY_CON_P2_BAR_ID, c.conP2BarId)
+            ed.putString(KEY_CON_P2_COLOR_ID, c.conP2ColorId)
             ed.putString(KEY_CON_SLEEP_ID, c.conSleepId)
             ed.putString(KEY_CON_BC1_ID, c.conBc1Id)
             ed.putString(KEY_CON_BC2_ID, c.conBc2Id)
@@ -148,6 +150,7 @@ object WatchConnectionPrefs {
         c.conP2Slot3Id    = prefs.getString(KEY_CON_P2_SLOT3_ID, "") ?: ""
         c.conP2Slot4Id    = prefs.getString(KEY_CON_P2_SLOT4_ID, "") ?: ""
         c.conP2BarId      = prefs.getString(KEY_CON_P2_BAR_ID, "") ?: ""
+        c.conP2ColorId    = prefs.getString(KEY_CON_P2_COLOR_ID, "") ?: ""
         c.conSleepId      = prefs.getString(KEY_CON_SLEEP_ID, "") ?: ""
         c.conBc1Id        = prefs.getString(KEY_CON_BC1_ID, "") ?: ""
         c.conBc2Id        = prefs.getString(KEY_CON_BC2_ID, "") ?: ""

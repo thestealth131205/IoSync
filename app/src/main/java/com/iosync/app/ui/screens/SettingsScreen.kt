@@ -316,6 +316,9 @@ fun SettingsScreen(
     var p2BarWarn2Color by remember(uiState.p2BarWarn2Color) { mutableStateOf(uiState.p2BarWarn2Color) }
     var p2BarWarn2Value by remember(uiState.p2BarWarn2Value) { mutableStateOf(if (uiState.p2BarWarn2Value.isNaN()) "" else uiState.p2BarWarn2Value.toString()) }
 
+    // Seite 2 – Farb-Streifen (links, RGB-Farbwahlrad)
+    var p2ColorId       by remember(uiState.p2ColorId)       { mutableStateOf(uiState.p2ColorId) }
+
     // ── Boden-Komplikationen (BC1 Puls / BC2 Kcal·Oxygen) mit Ring ──────────
     var bcShow         by remember(uiState.wfShowBottomComp) { mutableStateOf(uiState.wfShowBottomComp) }
     // BC1 (links – Puls)
@@ -509,6 +512,7 @@ fun SettingsScreen(
         p2Pill2Enabled, p2Pill2ColorTrue, p2Pill2ColorFalse, p2Pill2IoBrokerId, p2Pill2ValueMode, p2Pill2FixedValue,
         p2BarId, p2BarLabel, p2BarColor, p2BarMin, p2BarMax, p2BarShowLabel, p2BarIsSlider, p2BarTextScale,
         p2BarWarn1Color, p2BarWarn1Value, p2BarWarn2Color, p2BarWarn2Value,
+        p2ColorId,
         p2ShowBackground
     ) {
         if (!page2Initialized) { page2Initialized = true; return@LaunchedEffect }
@@ -540,6 +544,7 @@ fun SettingsScreen(
             p2BarWarn1Value = p2BarWarn1Value.toFloatOrNull() ?: Float.NaN,
             p2BarWarn2Color = p2BarWarn2Color,
             p2BarWarn2Value = p2BarWarn2Value.toFloatOrNull() ?: Float.NaN,
+            p2ColorId = p2ColorId.trim(),
             p2ShowBackground = p2ShowBackground
         )
     }
@@ -2079,6 +2084,12 @@ fun SettingsScreen(
                     PillColorChip(color = Color(0xFF9C27B0), label = "Lila",   selected = p2BarWarn2Color == "purple",      onClick = { p2BarWarn2Color = "purple" })
                 }
 
+                // Farb-Streifen (links, RGB-Farbwahlrad)
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Farb-Streifen (links, RGB-Farbwahlrad)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Zeigt links auf Seite 2 die Farbe eines ioBroker-Datenpunkts (RGB-Hex, z.B. \"FF0000\"). Tippt man darauf, öffnet sich ein RGB-Farbwahlrad zum Setzen der Farbe. Leer = aus.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                DatapointDropdown(selectedId = p2ColorId, availableStates = p2States, onSelect = { p2ColorId = it }, modifier = Modifier.fillMaxWidth())
+
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text(
                     text = "Aktualisierungsintervall",
@@ -2132,6 +2143,7 @@ fun SettingsScreen(
                             p2BarWarn1Value = p2BarWarn1Value.toFloatOrNull() ?: Float.NaN,
                             p2BarWarn2Color = p2BarWarn2Color,
                             p2BarWarn2Value = p2BarWarn2Value.toFloatOrNull() ?: Float.NaN,
+                            p2ColorId = p2ColorId.trim(),
                             p2ShowBackground = p2ShowBackground
                         )
                     },

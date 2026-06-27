@@ -258,6 +258,7 @@ private const val KEY_CON_P2_SLOT2_ID    = "con_p2_slot2_id"
 private const val KEY_CON_P2_SLOT3_ID    = "con_p2_slot3_id"
 private const val KEY_CON_P2_SLOT4_ID    = "con_p2_slot4_id"
 private const val KEY_CON_P2_BAR_ID      = "con_p2_bar_id"
+private const val KEY_CON_P2_COLOR_ID    = "con_p2_color_id"
 private const val KEY_CON_SLEEP_ID       = "con_sleep_id"
 // Wetter-Standort (Uhr hat kein GPS → festes lat/lon vom Handy)
 private const val KEY_CON_WEATHER_USE_FIXED = "con_weather_use_fixed"
@@ -602,6 +603,10 @@ object WatchFaceConfigCache {
     @Volatile var p2BarWarn2Color: String = "red"
     @Volatile var p2BarWarn2Value: Float = Float.NaN
 
+    // ── Seite 2 – Farb-Streifen (links) ───────────────────────────────────────
+    // Roher RGB-Hex-Wert des Datenpunkts (z.B. "FF0000"); von der Uhr abgerufen.
+    @Volatile var p2ColorValue: String = ""
+
     // ── Seite 2 Pillen – Pille 1 (7 Uhr) ─────────────────────────────────────
     @Volatile var p2PillEnabled: Boolean = false
     @Volatile var p2PillColorTrue: String = "cyan"
@@ -692,6 +697,8 @@ object WatchFaceConfigCache {
     @Volatile var conP2Slot3Id: String = ""
     @Volatile var conP2Slot4Id: String = ""
     @Volatile var conP2BarId: String = ""
+    // Datenpunkt-ID des Farb-Streifens (Seite 2, RGB-Hex-Wert wie "FF0000")
+    @Volatile var conP2ColorId: String = ""
     @Volatile var conSleepId: String = ""
     // Wetter-Standort (Uhr hat kein GPS → festes lat/lon vom Handy)
     @Volatile var weatherUseFixed: Boolean = false
@@ -730,6 +737,7 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_CON_P2_SLOT3_ID)?.let { conP2Slot3Id = it }
         dataMap.getString(KEY_CON_P2_SLOT4_ID)?.let { conP2Slot4Id = it }
         dataMap.getString(KEY_CON_P2_BAR_ID)?.let { conP2BarId = it }
+        dataMap.getString(KEY_CON_P2_COLOR_ID)?.let { conP2ColorId = it }
         dataMap.getString(KEY_CON_SLEEP_ID)?.let { conSleepId = it }
         if (dataMap.containsKey(KEY_CON_WEATHER_USE_FIXED)) weatherUseFixed = dataMap.getBoolean(KEY_CON_WEATHER_USE_FIXED)
         if (dataMap.containsKey(KEY_CON_WEATHER_LAT)) weatherLat = dataMap.getDouble(KEY_CON_WEATHER_LAT)
