@@ -48,6 +48,10 @@ object WatchConnectionPrefs {
     private const val KEY_CON_P2_SLOT4_ID = "con_p2_slot4_id"
     private const val KEY_CON_P2_BAR_ID   = "con_p2_bar_id"
     private const val KEY_CON_P2_COLOR_ID = "con_p2_color_id"
+    private const val KEY_CON_P2_COLOR_TEMP_ID      = "con_p2_color_temp_id"
+    private const val KEY_CON_P2_COLOR_TEMP_WARM    = "con_p2_color_temp_warm"
+    private const val KEY_CON_P2_COLOR_TEMP_NEUTRAL = "con_p2_color_temp_neutral"
+    private const val KEY_CON_P2_COLOR_TEMP_COLD    = "con_p2_color_temp_cold"
 
     // Sonstige Datenpunkt-IDs
     private const val KEY_CON_SLEEP_ID = "con_sleep_id"
@@ -98,6 +102,10 @@ object WatchConnectionPrefs {
             ed.putString(KEY_CON_P2_SLOT4_ID, c.conP2Slot4Id)
             ed.putString(KEY_CON_P2_BAR_ID, c.conP2BarId)
             ed.putString(KEY_CON_P2_COLOR_ID, c.conP2ColorId)
+            ed.putString(KEY_CON_P2_COLOR_TEMP_ID, c.conP2ColorTempId)
+            ed.putString(KEY_CON_P2_COLOR_TEMP_WARM, c.conP2ColorTempWarm)
+            ed.putString(KEY_CON_P2_COLOR_TEMP_NEUTRAL, c.conP2ColorTempNeutral)
+            ed.putString(KEY_CON_P2_COLOR_TEMP_COLD, c.conP2ColorTempCold)
             ed.putString(KEY_CON_SLEEP_ID, c.conSleepId)
             ed.putString(KEY_CON_BC1_ID, c.conBc1Id)
             ed.putString(KEY_CON_BC2_ID, c.conBc2Id)
@@ -151,6 +159,10 @@ object WatchConnectionPrefs {
         c.conP2Slot4Id    = prefs.getString(KEY_CON_P2_SLOT4_ID, "") ?: ""
         c.conP2BarId      = prefs.getString(KEY_CON_P2_BAR_ID, "") ?: ""
         c.conP2ColorId    = prefs.getString(KEY_CON_P2_COLOR_ID, "") ?: ""
+        c.conP2ColorTempId      = prefs.getString(KEY_CON_P2_COLOR_TEMP_ID, "") ?: ""
+        c.conP2ColorTempWarm    = prefs.getString(KEY_CON_P2_COLOR_TEMP_WARM, "3300") ?: "3300"
+        c.conP2ColorTempNeutral = prefs.getString(KEY_CON_P2_COLOR_TEMP_NEUTRAL, "4500") ?: "4500"
+        c.conP2ColorTempCold    = prefs.getString(KEY_CON_P2_COLOR_TEMP_COLD, "6500") ?: "6500"
         c.conSleepId      = prefs.getString(KEY_CON_SLEEP_ID, "") ?: ""
         c.conBc1Id        = prefs.getString(KEY_CON_BC1_ID, "") ?: ""
         c.conBc2Id        = prefs.getString(KEY_CON_BC2_ID, "") ?: ""

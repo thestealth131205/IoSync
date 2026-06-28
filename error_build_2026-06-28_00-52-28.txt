@@ -1,0 +1,8 @@
+Push and Deploy FEHLER bei: git push
+Zeitpunkt: 2026-06-28 00:52:28
+
+Fehlermeldung:
+----------------------------------------
+remote: Invalid username or token. Password authentication is not supported for Git operations.
+fatal: Authentication failed for 'https://github.com/thestealth131205/IoSync.git/'
+----------------------------------------

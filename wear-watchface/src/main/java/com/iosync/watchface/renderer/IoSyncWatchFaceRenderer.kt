@@ -417,6 +417,10 @@ class IoSyncWatchFaceRenderer(
     private var p2ColorWheelSelected = Color.RED    // aktuell im Rad gewählte Farbe
     private var p2ColorWheelShader: Shader? = null  // gecachter Rad-Shader (radius-abhängig)
     private var p2ColorWheelShaderRadius = 0f
+    // Weißton-Buttons (Kelvin) oben im Overlay: warm / neutral / kalt
+    private var p2ColorTempWarmBounds    = RectF()
+    private var p2ColorTempNeutralBounds = RectF()
+    private var p2ColorTempColdBounds    = RectF()
 
     // ── Seite 3 Pille (6 Uhr, Klipper) ───────────────────────────────────────
     private var p3PillBounds = RectF()
@@ -2467,7 +2471,20 @@ class IoSyncWatchFaceRenderer(
         // ── RGB-Farbwahlrad-Overlay hat Priorität, solange es sichtbar ist ──
         if (p2ColorWheelVisible) {
             if (tapType == TapType.DOWN) {
-                if (!p2ColorSaveBounds.isEmpty && p2ColorSaveBounds.contains(x, y)) {
+                // Weißton-Buttons (Kelvin) oben: schreiben in den konfigurierten Datenpunkt
+                if (!p2ColorTempWarmBounds.isEmpty && p2ColorTempWarmBounds.contains(x, y)) {
+                    WatchDataSyncManager.setColorTempValue(config.conP2ColorTempWarm)
+                    p2ColorWheelVisible = false
+                    invalidate()
+                } else if (!p2ColorTempNeutralBounds.isEmpty && p2ColorTempNeutralBounds.contains(x, y)) {
+                    WatchDataSyncManager.setColorTempValue(config.conP2ColorTempNeutral)
+                    p2ColorWheelVisible = false
+                    invalidate()
+                } else if (!p2ColorTempColdBounds.isEmpty && p2ColorTempColdBounds.contains(x, y)) {
+                    WatchDataSyncManager.setColorTempValue(config.conP2ColorTempCold)
+                    p2ColorWheelVisible = false
+                    invalidate()
+                } else if (!p2ColorSaveBounds.isEmpty && p2ColorSaveBounds.contains(x, y)) {
                     // Save: aktuell gewählte Farbe in den Datenpunkt schreiben
                     WatchDataSyncManager.setColorValue(colorToHex(p2ColorWheelSelected))
                     p2ColorWheelVisible = false
@@ -3135,6 +3152,9 @@ class IoSyncWatchFaceRenderer(
             drawColorWheelOverlay(canvas, cx, cy, radius)
         } else {
             p2ColorSaveBounds.setEmpty()
+            p2ColorTempWarmBounds.setEmpty()
+            p2ColorTempNeutralBounds.setEmpty()
+            p2ColorTempColdBounds.setEmpty()
         }
     }
 
@@ -3237,6 +3257,51 @@ class IoSyncWatchFaceRenderer(
         canvas.drawText("#${colorToHex(p2ColorWheelSelected)}", cx, cy + btnR * 0.45f, hexPaint)
 
         p2ColorSaveBounds.set(cx - btnR, cy - btnR, cx + btnR, cy + btnR)
+
+        // Weißton-Buttons (Kelvin) oben – nur wenn ein Datenpunkt konfiguriert ist
+        if (WatchFaceConfigCache.conP2ColorTempId.isNotBlank()) {
+            val tBtnR  = wheelR * 0.17f
+            val tRowY  = cy - wheelR * 0.66f
+            val tDx    = wheelR * 0.42f
+            // links warmweiß, Mitte neutralweiß, rechts kaltweiß
+            drawColorTempButton(canvas, cx - tDx, tRowY, tBtnR,
+                Color.rgb(255, 200, 140), WatchFaceConfigCache.conP2ColorTempWarm, p2ColorTempWarmBounds)
+            drawColorTempButton(canvas, cx, tRowY, tBtnR,
+                Color.WHITE, WatchFaceConfigCache.conP2ColorTempNeutral, p2ColorTempNeutralBounds)
+            drawColorTempButton(canvas, cx + tDx, tRowY, tBtnR,
+                Color.rgb(200, 225, 255), WatchFaceConfigCache.conP2ColorTempCold, p2ColorTempColdBounds)
+        } else {
+            p2ColorTempWarmBounds.setEmpty()
+            p2ColorTempNeutralBounds.setEmpty()
+            p2ColorTempColdBounds.setEmpty()
+        }
+    }
+
+    /**
+     * Zeichnet einen runden Weißton-Button (warm/neutral/kalt) mit dem zu
+     * schreibenden Kelvin-Wert als Beschriftung und füllt seine Tap-Bounds.
+     */
+    private fun drawColorTempButton(
+        canvas: Canvas, bx: Float, by: Float, r: Float,
+        fill: Int, kelvin: String, bounds: RectF
+    ) {
+        val fillPaint = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.FILL; color = fill
+        }
+        canvas.drawCircle(bx, by, r, fillPaint)
+        val strokePaint = Paint().apply {
+            isAntiAlias = true; style = Paint.Style.STROKE
+            strokeWidth = r * 0.10f; color = Color.parseColor("#99000000")
+        }
+        canvas.drawCircle(bx, by, r, strokePaint)
+        val txtPaint = Paint().apply {
+            isAntiAlias = true; color = Color.BLACK
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = r * 0.50f; textAlign = Paint.Align.CENTER
+        }
+        val fm = txtPaint.fontMetrics
+        canvas.drawText(kelvin, bx, by - (fm.ascent + fm.descent) / 2f, txtPaint)
+        bounds.set(bx - r, by - r, bx + r, by + r)
     }
 
     /**

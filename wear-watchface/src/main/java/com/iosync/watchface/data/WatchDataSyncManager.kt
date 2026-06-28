@@ -498,6 +498,18 @@ object WatchDataSyncManager {
         }
     }
 
+    /** Weißton-Wert (Kelvin, z.B. "3300") in den konfigurierten ioBroker-Datenpunkt schreiben. */
+    fun setColorTempValue(kelvin: String) {
+        val c = WatchFaceConfigCache
+        if (!c.ioUseAdapter || c.ioHost.isBlank() || c.conP2ColorTempId.isBlank()) return
+        scope?.launch {
+            WatchIoSyncClient.setState(
+                c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword,
+                c.conP2ColorTempId, kelvin
+            ).onFailure { Log.e(TAG, "setColorTempValue($kelvin) fehlgeschlagen: ${it.message}") }
+        }
+    }
+
     /** LED-Button (Seite 3) schalten. Unterstützt G-Code und Moonraker Power-API (Tasmota). */
     fun toggleKlipperLed() {
         val c = WatchFaceConfigCache

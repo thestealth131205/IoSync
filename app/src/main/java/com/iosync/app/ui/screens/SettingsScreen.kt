@@ -318,6 +318,11 @@ fun SettingsScreen(
 
     // Seite 2 – Farb-Streifen (links, RGB-Farbwahlrad)
     var p2ColorId       by remember(uiState.p2ColorId)       { mutableStateOf(uiState.p2ColorId) }
+    // Weißton-Buttons (Kelvin) im Farbwahlrad
+    var p2ColorTempId      by remember(uiState.p2ColorTempId)      { mutableStateOf(uiState.p2ColorTempId) }
+    var p2ColorTempWarm    by remember(uiState.p2ColorTempWarm)    { mutableStateOf(uiState.p2ColorTempWarm) }
+    var p2ColorTempNeutral by remember(uiState.p2ColorTempNeutral) { mutableStateOf(uiState.p2ColorTempNeutral) }
+    var p2ColorTempCold    by remember(uiState.p2ColorTempCold)    { mutableStateOf(uiState.p2ColorTempCold) }
 
     // ── Boden-Komplikationen (BC1 Puls / BC2 Kcal·Oxygen) mit Ring ──────────
     var bcShow         by remember(uiState.wfShowBottomComp) { mutableStateOf(uiState.wfShowBottomComp) }
@@ -513,6 +518,7 @@ fun SettingsScreen(
         p2BarId, p2BarLabel, p2BarColor, p2BarMin, p2BarMax, p2BarShowLabel, p2BarIsSlider, p2BarTextScale,
         p2BarWarn1Color, p2BarWarn1Value, p2BarWarn2Color, p2BarWarn2Value,
         p2ColorId,
+        p2ColorTempId, p2ColorTempWarm, p2ColorTempNeutral, p2ColorTempCold,
         p2ShowBackground
     ) {
         if (!page2Initialized) { page2Initialized = true; return@LaunchedEffect }
@@ -545,6 +551,10 @@ fun SettingsScreen(
             p2BarWarn2Color = p2BarWarn2Color,
             p2BarWarn2Value = p2BarWarn2Value.toFloatOrNull() ?: Float.NaN,
             p2ColorId = p2ColorId.trim(),
+            p2ColorTempId = p2ColorTempId.trim(),
+            p2ColorTempWarm = p2ColorTempWarm.trim(),
+            p2ColorTempNeutral = p2ColorTempNeutral.trim(),
+            p2ColorTempCold = p2ColorTempCold.trim(),
             p2ShowBackground = p2ShowBackground
         )
     }
@@ -2090,6 +2100,17 @@ fun SettingsScreen(
                 Text("Zeigt links auf Seite 2 die Farbe eines ioBroker-Datenpunkts (RGB-Hex, z.B. \"FF0000\"). Tippt man darauf, öffnet sich ein RGB-Farbwahlrad zum Setzen der Farbe. Leer = aus.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                 DatapointDropdown(selectedId = p2ColorId, availableStates = p2States, onSelect = { p2ColorId = it }, modifier = Modifier.fillMaxWidth())
 
+                // Weißton-Buttons (Kelvin) im Farbwahlrad
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                Text("Weißton-Buttons (Kelvin)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Blendet im RGB-Farbwahlrad oben drei Buttons ein (links warmweiß, Mitte neutralweiß, rechts kaltweiß). Beim Tippen wird der jeweilige Kelvin-Wert in diesen Datenpunkt geschrieben. Leer = aus.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                DatapointDropdown(selectedId = p2ColorTempId, availableStates = p2States, onSelect = { p2ColorTempId = it }, modifier = Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(value = p2ColorTempWarm, onValueChange = { p2ColorTempWarm = it.filter { c -> c.isDigit() } }, label = { Text("Warm") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    OutlinedTextField(value = p2ColorTempNeutral, onValueChange = { p2ColorTempNeutral = it.filter { c -> c.isDigit() } }, label = { Text("Neutral") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    OutlinedTextField(value = p2ColorTempCold, onValueChange = { p2ColorTempCold = it.filter { c -> c.isDigit() } }, label = { Text("Kalt") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                }
+
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text(
                     text = "Aktualisierungsintervall",
@@ -2144,6 +2165,10 @@ fun SettingsScreen(
                             p2BarWarn2Color = p2BarWarn2Color,
                             p2BarWarn2Value = p2BarWarn2Value.toFloatOrNull() ?: Float.NaN,
                             p2ColorId = p2ColorId.trim(),
+                            p2ColorTempId = p2ColorTempId.trim(),
+                            p2ColorTempWarm = p2ColorTempWarm.trim(),
+                            p2ColorTempNeutral = p2ColorTempNeutral.trim(),
+                            p2ColorTempCold = p2ColorTempCold.trim(),
                             p2ShowBackground = p2ShowBackground
                         )
                     },

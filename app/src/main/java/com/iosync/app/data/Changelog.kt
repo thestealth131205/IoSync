@@ -8,6 +8,31 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.0.3",
+        date = "28.06.2026",
+        changes = listOf(
+            "Weißton-Buttons & schnellere Schaltbefehle ausgerollt"
+        )
+    ),
+    ChangelogEntry(
+        version = "5.0.2",
+        date = "28.06.2026",
+        changes = listOf(
+            "Fix: Schaltbefehle (Pillen/Farbe/Balken) der Uhr kommen zuverlässiger und schneller an",
+            "Eigener, schlanker Netzwerk-Kanal nur für Befehle — wartet nicht mehr hinter dem Datenabruf",
+            "Automatischer Wiederholversuch (bis zu 3×) bei kurzzeitig überlasteter Bluetooth-Leitung"
+        )
+    ),
+    ChangelogEntry(
+        version = "5.0.1",
+        date = "28.06.2026",
+        changes = listOf(
+            "RGB-Farbwahlrad: oben drei Weißton-Buttons (warmweiß / neutralweiß / kaltweiß)",
+            "Tippen schreibt den jeweiligen Kelvin-Wert in einen eigenen Datenpunkt",
+            "Datenpunkt + die drei Kelvin-Werte wählbar in Einstellungen → Zweite Seite"
+        )
+    ),
+    ChangelogEntry(
         version = "5.0.0",
         date = "28.06.2026",
         changes = listOf(

@@ -259,6 +259,10 @@ private const val KEY_CON_P2_SLOT3_ID    = "con_p2_slot3_id"
 private const val KEY_CON_P2_SLOT4_ID    = "con_p2_slot4_id"
 private const val KEY_CON_P2_BAR_ID      = "con_p2_bar_id"
 private const val KEY_CON_P2_COLOR_ID    = "con_p2_color_id"
+private const val KEY_CON_P2_COLOR_TEMP_ID      = "con_p2_color_temp_id"
+private const val KEY_CON_P2_COLOR_TEMP_WARM    = "con_p2_color_temp_warm"
+private const val KEY_CON_P2_COLOR_TEMP_NEUTRAL = "con_p2_color_temp_neutral"
+private const val KEY_CON_P2_COLOR_TEMP_COLD    = "con_p2_color_temp_cold"
 private const val KEY_CON_SLEEP_ID       = "con_sleep_id"
 // Wetter-Standort (Uhr hat kein GPS → festes lat/lon vom Handy)
 private const val KEY_CON_WEATHER_USE_FIXED = "con_weather_use_fixed"
@@ -699,6 +703,11 @@ object WatchFaceConfigCache {
     @Volatile var conP2BarId: String = ""
     // Datenpunkt-ID des Farb-Streifens (Seite 2, RGB-Hex-Wert wie "FF0000")
     @Volatile var conP2ColorId: String = ""
+    // Weißton-Buttons (Kelvin) im Farbwahlrad: Datenpunkt + 3 Werte
+    @Volatile var conP2ColorTempId: String = ""
+    @Volatile var conP2ColorTempWarm: String = "3300"
+    @Volatile var conP2ColorTempNeutral: String = "4500"
+    @Volatile var conP2ColorTempCold: String = "6500"
     @Volatile var conSleepId: String = ""
     // Wetter-Standort (Uhr hat kein GPS → festes lat/lon vom Handy)
     @Volatile var weatherUseFixed: Boolean = false
@@ -738,6 +747,10 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_CON_P2_SLOT4_ID)?.let { conP2Slot4Id = it }
         dataMap.getString(KEY_CON_P2_BAR_ID)?.let { conP2BarId = it }
         dataMap.getString(KEY_CON_P2_COLOR_ID)?.let { conP2ColorId = it }
+        dataMap.getString(KEY_CON_P2_COLOR_TEMP_ID)?.let { conP2ColorTempId = it }
+        dataMap.getString(KEY_CON_P2_COLOR_TEMP_WARM)?.let { conP2ColorTempWarm = it }
+        dataMap.getString(KEY_CON_P2_COLOR_TEMP_NEUTRAL)?.let { conP2ColorTempNeutral = it }
+        dataMap.getString(KEY_CON_P2_COLOR_TEMP_COLD)?.let { conP2ColorTempCold = it }
         dataMap.getString(KEY_CON_SLEEP_ID)?.let { conSleepId = it }
         if (dataMap.containsKey(KEY_CON_WEATHER_USE_FIXED)) weatherUseFixed = dataMap.getBoolean(KEY_CON_WEATHER_USE_FIXED)
         if (dataMap.containsKey(KEY_CON_WEATHER_LAT)) weatherLat = dataMap.getDouble(KEY_CON_WEATHER_LAT)
