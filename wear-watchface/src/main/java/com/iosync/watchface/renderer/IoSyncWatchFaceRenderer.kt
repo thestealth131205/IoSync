@@ -1701,9 +1701,10 @@ class IoSyncWatchFaceRenderer(
         val config = WatchFaceConfigCache
         if (!config.showBottomComp) return
 
-        // Positions-Feinjustierung (dp-Offset aus der App-Konfig); X verschiebt beide Ringe gemeinsam
+        // Positions-Feinjustierung (dp-Offset aus der App-Konfig); X spreizt die Ringe symmetrisch:
+        // X− → aufeinander zu, X+ → weiter auseinander
         val compCy     = cy + radius * 0.58f - 7f + config.bottomCompOffsetY * density
-        val leftCx     = cx - radius * 0.52f - 3f + config.bottomCompOffsetX * density
+        val leftCx     = cx - radius * 0.52f - 3f - config.bottomCompOffsetX * density
         val rightCx    = cx + radius * 0.52f + 3f + config.bottomCompOffsetX * density
         val compRadius = radius * 0.17f
 

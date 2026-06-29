@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.0.6",
+        date = "29.06.2026",
+        changes = listOf(
+            "Boden-Komplikationen X-Feinjustage: X− rückt Ringe zusammen, X+ weiter auseinander (symmetrisch)"
+        )
+    ),
+    ChangelogEntry(
         version = "5.0.5",
         date = "29.06.2026",
         changes = listOf(
