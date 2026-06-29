@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.0.4",
+        date = "29.06.2026",
+        changes = listOf(
+            "Weißton-Buttons jetzt im Bogen um den SAVE-Button angeordnet",
+            "Watchface-Layout: Werte, Balken & Schrittzahl feiner positioniert"
+        )
+    ),
+    ChangelogEntry(
         version = "5.0.3",
         date = "28.06.2026",
         changes = listOf(

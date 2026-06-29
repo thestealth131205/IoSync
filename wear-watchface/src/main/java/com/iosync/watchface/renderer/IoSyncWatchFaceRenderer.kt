@@ -2034,7 +2034,8 @@ class IoSyncWatchFaceRenderer(
         val valueSize = radius * 0.130f * scale
         val iconSize  = radius * 0.090f * scale
         val gap       = iconSize * 0.45f
-        val rowY      = cy - radius * 0.30f - 5f * density
+        // ~halbe Schrifthöhe weiter nach oben verschoben
+        val rowY      = cy - radius * 0.30f - 5f * density - valueSize * 0.5f
 
         // Schritte: aus Komplikation (System-Schrittzähler) oder lokalem Sensor
         val steps = readComplicationNumber("6") ?: healthSensorManager.steps.takeIf { it > 0 }
@@ -2167,6 +2168,8 @@ class IoSyncWatchFaceRenderer(
             val barLeft  = cx - barW / 2f
             val barRight = cx + barW / 2f
             val barCorner = barH / 2f
+            // Balken (mit Beschriftung) um seine eigene Höhe nach unten verschieben
+            nextY += barH
             // Tap-Zone für Klipper-Tap → Page 3 merken
             slot4BarTapBounds.set(barLeft, nextY, barRight, nextY + barH)
 
@@ -2244,6 +2247,9 @@ class IoSyncWatchFaceRenderer(
 
             nextY += barH + 3f * context.resources.displayMetrics.density
         }
+
+        // Werte-Slots (mit Beschriftung) um ~eine Schrifthöhe nach unten verschieben
+        nextY += radius * 0.10f
 
         // ── Slots 1 / 2 / 3 nebeneinander (dynamisch zentriert) ─────────
         // Abstand zwischen Slot-Mittelpunkten skaliert mit max. Schriftgröße
@@ -3258,17 +3264,20 @@ class IoSyncWatchFaceRenderer(
 
         p2ColorSaveBounds.set(cx - btnR, cy - btnR, cx + btnR, cy + btnR)
 
-        // Weißton-Buttons (Kelvin) oben – nur wenn ein Datenpunkt konfiguriert ist
+        // Weißton-Buttons (Kelvin) im Bogen um den Save-Button – nur wenn ein Datenpunkt konfiguriert ist
         if (WatchFaceConfigCache.conP2ColorTempId.isNotBlank()) {
             val tBtnR  = wheelR * 0.17f
-            val tRowY  = cy - wheelR * 0.66f
-            val tDx    = wheelR * 0.42f
-            // links warmweiß, Mitte neutralweiß, rechts kaltweiß
-            drawColorTempButton(canvas, cx - tDx, tRowY, tBtnR,
+            // Bogen knapp um den Save-Button herum (0 rad = senkrecht nach oben)
+            val arcR   = btnR + tBtnR + wheelR * 0.05f
+            val spread = Math.toRadians(58.0)
+            fun arcX(theta: Double) = cx + (arcR * Math.sin(theta)).toFloat()
+            fun arcY(theta: Double) = cy - (arcR * Math.cos(theta)).toFloat()
+            // links warmweiß, Mitte (oben) neutralweiß, rechts kaltweiß
+            drawColorTempButton(canvas, arcX(-spread), arcY(-spread), tBtnR,
                 Color.rgb(255, 200, 140), WatchFaceConfigCache.conP2ColorTempWarm, p2ColorTempWarmBounds)
-            drawColorTempButton(canvas, cx, tRowY, tBtnR,
+            drawColorTempButton(canvas, arcX(0.0), arcY(0.0), tBtnR,
                 Color.WHITE, WatchFaceConfigCache.conP2ColorTempNeutral, p2ColorTempNeutralBounds)
-            drawColorTempButton(canvas, cx + tDx, tRowY, tBtnR,
+            drawColorTempButton(canvas, arcX(spread), arcY(spread), tBtnR,
                 Color.rgb(200, 225, 255), WatchFaceConfigCache.conP2ColorTempCold, p2ColorTempColdBounds)
         } else {
             p2ColorTempWarmBounds.setEmpty()
