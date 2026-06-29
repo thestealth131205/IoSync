@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.0.5",
+        date = "29.06.2026",
+        changes = listOf(
+            "Neue X/Y-Feinjustierung (±) für die Wetter-Anzeige oben in den Einstellungen",
+            "Gleiche Position-Feinjustierung für die beiden Boden-Komplikations-Ringe mit Wert"
+        )
+    ),
+    ChangelogEntry(
         version = "5.0.4",
         date = "29.06.2026",
         changes = listOf(

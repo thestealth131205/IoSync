@@ -61,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -1543,6 +1544,22 @@ fun SettingsScreen(
                     FontSizeDropdown(selected = wfSunriseTextScale, onSelect = { wfSunriseTextScale = it })
                 }
             }
+            // Positions-Feinjustierung Wetter-Anzeige (oben, 12 Uhr)
+            Text("Position Wetter (Feinjustierung, dp)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                OffsetStepper(
+                    label = "X (←/→)",
+                    value = uiState.wfWeatherOffsetX,
+                    onChange = { viewModel.setWatchFacePositionOffsets(weatherOffsetX = it) },
+                    modifier = Modifier.weight(1f)
+                )
+                OffsetStepper(
+                    label = "Y (↑/↓)",
+                    value = uiState.wfWeatherOffsetY,
+                    onChange = { viewModel.setWatchFacePositionOffsets(weatherOffsetY = it) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
             Text("Sonnenauf/-untergang Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             WatchFaceColorRow(selected = wfSunriseColor, onSelect = { wfSunriseColor = it })
 
@@ -2602,6 +2619,23 @@ fun SettingsScreen(
                         Text("Umschlag-Farbe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         WatchFaceColorRow(selected = bc2ThColor, onSelect = { bc2ThColor = it })
                     }
+                }
+
+                // Positions-Feinjustierung beider Boden-Komplikations-Ringe (gemeinsam)
+                Text("Position Ringe (Feinjustierung, dp)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    OffsetStepper(
+                        label = "X (←/→)",
+                        value = uiState.wfBottomCompOffsetX,
+                        onChange = { viewModel.setWatchFacePositionOffsets(bottomCompOffsetX = it) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OffsetStepper(
+                        label = "Y (↑/↓)",
+                        value = uiState.wfBottomCompOffsetY,
+                        onChange = { viewModel.setWatchFacePositionOffsets(bottomCompOffsetY = it) },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
 
                 Button(
@@ -3999,6 +4033,50 @@ fun FontSizeDropdown(
                     }
                 )
             }
+        }
+    }
+}
+
+/**
+ * +/- Schrittsteller zur Positions-Feinjustierung (dp-Offset, darf negativ sein).
+ * Jeder Tipp ändert den Wert um 1 dp und meldet ihn sofort über [onChange].
+ */
+@Composable
+private fun OffsetStepper(
+    label: String,
+    value: Int,
+    onChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = { onChange(value - 1) },
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(40.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFF444444))
+            ) { Text("−", style = MaterialTheme.typography.titleMedium) }
+            Text(
+                text = "$value",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedButton(
+                onClick = { onChange(value + 1) },
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(40.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFF444444))
+            ) { Text("+", style = MaterialTheme.typography.titleMedium) }
         }
     }
 }

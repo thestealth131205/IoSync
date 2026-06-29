@@ -1495,9 +1495,10 @@ class IoSyncWatchFaceRenderer(
     private fun drawWeatherCircle(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val config = WatchFaceConfigCache
         val circleRadius = radius * 0.18f
-        val circleCx = cx
+        // Positions-Feinjustierung (dp-Offset aus der App-Konfig)
+        val circleCx = cx + config.weatherOffsetX * density
         // nach oben verschoben, Steps-Anzeige liegt darunter direkt über der Uhrzeit
-        val circleCy = cy - radius * 0.64f - 20f * density
+        val circleCy = cy - radius * 0.64f - 20f * density + config.weatherOffsetY * density
 
         // Tap-Bereich für Wetter-App-Start merken (etwas größer als der Kreis).
         // Seiten/oben großzügig, unten (Richtung kcal) klein, damit kcal nicht getroffen wird.
@@ -1700,9 +1701,10 @@ class IoSyncWatchFaceRenderer(
         val config = WatchFaceConfigCache
         if (!config.showBottomComp) return
 
-        val compCy     = cy + radius * 0.58f
-        val leftCx     = cx - radius * 0.52f
-        val rightCx    = cx + radius * 0.52f
+        // Positions-Feinjustierung (dp-Offset aus der App-Konfig); X verschiebt beide Ringe gemeinsam
+        val compCy     = cy + radius * 0.58f - 7f + config.bottomCompOffsetY * density
+        val leftCx     = cx - radius * 0.52f - 3f + config.bottomCompOffsetX * density
+        val rightCx    = cx + radius * 0.52f + 3f + config.bottomCompOffsetX * density
         val compRadius = radius * 0.17f
 
         // ── BC1 (links) – Puls oder ioBroker ──────────────────────────────────

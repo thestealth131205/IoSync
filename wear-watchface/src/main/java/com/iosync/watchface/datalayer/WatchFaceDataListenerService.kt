@@ -82,6 +82,8 @@ private const val KEY_WF_SLOT2_TEXT_SCALE     = "wf_slot2_text_scale"
 private const val KEY_WF_SLOT3_TEXT_SCALE     = "wf_slot3_text_scale"
 private const val KEY_WF_SLOT4_TEXT_SCALE     = "wf_slot4_text_scale"
 private const val KEY_WF_WEATHER_TEXT_SCALE   = "wf_weather_text_scale"
+private const val KEY_WF_WEATHER_OFFSET_X     = "wf_weather_offset_x"
+private const val KEY_WF_WEATHER_OFFSET_Y     = "wf_weather_offset_y"
 private const val KEY_WF_SUNRISE_TEXT_SCALE        = "wf_sunrise_text_scale"
 private const val KEY_WF_WATCH_BATTERY_TEXT_SCALE  = "wf_watch_battery_text_scale"
 private const val KEY_WF_STEPS_TEXT_SCALE          = "wf_steps_text_scale"
@@ -134,6 +136,8 @@ private const val KEY_WF_BC2_RING_TH_DIR    = "wf_bc2_ring_th_dir"
 private const val KEY_WF_BC2_RING_TH_TARGET = "wf_bc2_ring_th_target"
 private const val KEY_WF_BC2_RING_TH_COLOR  = "wf_bc2_ring_th_color"
 private const val KEY_WF_BC2_TEXT_SCALE     = "wf_bc2_text_scale"
+private const val KEY_WF_BOTTOM_COMP_OFFSET_X = "wf_bottom_comp_offset_x"
+private const val KEY_WF_BOTTOM_COMP_OFFSET_Y = "wf_bottom_comp_offset_y"
 
 // ── Phone-Health-Daten (vom Smartphone gesendet) ────────────────────────────
 private const val PATH_PHONE_HEALTH          = "/iosync/watchface/phone_health"
@@ -474,6 +478,11 @@ object WatchFaceConfigCache {
     @Volatile var slot3TextScale: Int = 100
     @Volatile var slot4TextScale: Int = 100
     @Volatile var weatherTextScale: Int = 100
+    // Positions-Feinjustierung (dp-Offset, kann negativ sein)
+    @Volatile var weatherOffsetX: Int = 0
+    @Volatile var weatherOffsetY: Int = 0
+    @Volatile var bottomCompOffsetX: Int = 0
+    @Volatile var bottomCompOffsetY: Int = 0
     @Volatile var sunriseTextScale: Int = 100
     @Volatile var watchBatteryTextScale: Int = 100
     // Akku-Ring-Farben (Farbverlauf) und Ringbreite
@@ -909,6 +918,10 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_WF_BC2_RING_TH_TARGET)?.let { bc2RingThreshTarget = it }
         dataMap.getString(KEY_WF_BC2_RING_TH_COLOR)?.let { bc2RingThreshColor = it }
         if (dataMap.containsKey(KEY_WF_BC2_TEXT_SCALE)) bc2TextScale = dataMap.getInt(KEY_WF_BC2_TEXT_SCALE)
+        if (dataMap.containsKey(KEY_WF_WEATHER_OFFSET_X))     weatherOffsetX    = dataMap.getInt(KEY_WF_WEATHER_OFFSET_X)
+        if (dataMap.containsKey(KEY_WF_WEATHER_OFFSET_Y))     weatherOffsetY    = dataMap.getInt(KEY_WF_WEATHER_OFFSET_Y)
+        if (dataMap.containsKey(KEY_WF_BOTTOM_COMP_OFFSET_X)) bottomCompOffsetX = dataMap.getInt(KEY_WF_BOTTOM_COMP_OFFSET_X)
+        if (dataMap.containsKey(KEY_WF_BOTTOM_COMP_OFFSET_Y)) bottomCompOffsetY = dataMap.getInt(KEY_WF_BOTTOM_COMP_OFFSET_Y)
     }
 
     fun updateP2ConfigFromDataMap(dataMap: DataMap) {

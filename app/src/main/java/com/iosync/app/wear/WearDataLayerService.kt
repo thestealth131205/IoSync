@@ -117,6 +117,8 @@ private const val KEY_WF_SLOT2_TEXT_SCALE     = "wf_slot2_text_scale"
 private const val KEY_WF_SLOT3_TEXT_SCALE     = "wf_slot3_text_scale"
 private const val KEY_WF_SLOT4_TEXT_SCALE     = "wf_slot4_text_scale"
 private const val KEY_WF_WEATHER_TEXT_SCALE   = "wf_weather_text_scale"
+private const val KEY_WF_WEATHER_OFFSET_X     = "wf_weather_offset_x"
+private const val KEY_WF_WEATHER_OFFSET_Y     = "wf_weather_offset_y"
 private const val KEY_WF_SUNRISE_TEXT_SCALE        = "wf_sunrise_text_scale"
 private const val KEY_WF_WATCH_BATTERY_TEXT_SCALE = "wf_watch_battery_text_scale"
 private const val KEY_WF_STEPS_TEXT_SCALE         = "wf_steps_text_scale"
@@ -225,6 +227,8 @@ private const val KEY_WF_BC2_RING_TH_DIR    = "wf_bc2_ring_th_dir"
 private const val KEY_WF_BC2_RING_TH_TARGET = "wf_bc2_ring_th_target"
 private const val KEY_WF_BC2_RING_TH_COLOR  = "wf_bc2_ring_th_color"
 private const val KEY_WF_BC2_TEXT_SCALE     = "wf_bc2_text_scale"
+private const val KEY_WF_BOTTOM_COMP_OFFSET_X = "wf_bottom_comp_offset_x"
+private const val KEY_WF_BOTTOM_COMP_OFFSET_Y = "wf_bottom_comp_offset_y"
 private const val KEY_CON_BC1_ID            = "con_bc1_id"
 private const val KEY_CON_BC2_ID            = "con_bc2_id"
 
@@ -454,7 +458,12 @@ class WearDataLayerService @Inject constructor(
         bc2RingThreshDir: String = "above",
         bc2RingThreshTarget: String = "color2",
         bc2RingThreshColor: String = "red",
-        bc2TextScale: Int = 100
+        bc2TextScale: Int = 100,
+        // Positions-Feinjustierung (dp-Offset, kann negativ sein)
+        weatherOffsetX: Int = 0,
+        weatherOffsetY: Int = 0,
+        bottomCompOffsetX: Int = 0,
+        bottomCompOffsetY: Int = 0
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -570,6 +579,10 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_WF_BC2_RING_TH_TARGET, bc2RingThreshTarget)
                     dataMap.putString(KEY_WF_BC2_RING_TH_COLOR, bc2RingThreshColor)
                     dataMap.putInt(KEY_WF_BC2_TEXT_SCALE,     bc2TextScale)
+                    dataMap.putInt(KEY_WF_WEATHER_OFFSET_X,     weatherOffsetX)
+                    dataMap.putInt(KEY_WF_WEATHER_OFFSET_Y,     weatherOffsetY)
+                    dataMap.putInt(KEY_WF_BOTTOM_COMP_OFFSET_X, bottomCompOffsetX)
+                    dataMap.putInt(KEY_WF_BOTTOM_COMP_OFFSET_Y, bottomCompOffsetY)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

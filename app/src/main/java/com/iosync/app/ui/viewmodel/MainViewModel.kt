@@ -280,6 +280,11 @@ data class MainUiState(
     val wfBc2RingThreshTarget: String = "color2",
     val wfBc2RingThreshColor: String = "red",
     val wfBc2TextScale: Int = 100,
+    // Positions-Feinjustierung (dp-Offset, kann negativ sein)
+    val wfWeatherOffsetX: Int = 0,
+    val wfWeatherOffsetY: Int = 0,
+    val wfBottomCompOffsetX: Int = 0,
+    val wfBottomCompOffsetY: Int = 0,
     // ── Klipper-Verbindung (Seite 3 – Moonraker, Port 7125) ──────────────────
     val klipperEnabled: Boolean = false,
     val klipperHost: String = "",
@@ -548,6 +553,10 @@ class MainViewModel @Inject constructor(
         val KEY_WF_BC2_RING_TH_TGT   = stringPreferencesKey("wf_bc2_ring_th_target")
         val KEY_WF_BC2_RING_TH_COLOR = stringPreferencesKey("wf_bc2_ring_th_color")
         val KEY_WF_BC2_TEXT_SCALE    = intPreferencesKey("wf_bc2_text_scale")
+        val KEY_WF_WEATHER_OFFSET_X     = intPreferencesKey("wf_weather_offset_x")
+        val KEY_WF_WEATHER_OFFSET_Y     = intPreferencesKey("wf_weather_offset_y")
+        val KEY_WF_BOTTOM_COMP_OFFSET_X = intPreferencesKey("wf_bottom_comp_offset_x")
+        val KEY_WF_BOTTOM_COMP_OFFSET_Y = intPreferencesKey("wf_bottom_comp_offset_y")
         // Klipper
         val KEY_KLIPPER_ENABLED      = booleanPreferencesKey("klipper_enabled")
         val KEY_KLIPPER_HOST         = stringPreferencesKey("klipper_host")
@@ -798,6 +807,10 @@ class MainViewModel @Inject constructor(
             val wfBc2RingThreshTarget  = prefs[KEY_WF_BC2_RING_TH_TGT]    ?: "color2"
             val wfBc2RingThreshColor   = prefs[KEY_WF_BC2_RING_TH_COLOR]  ?: "red"
             val wfBc2TextScale    = prefs[KEY_WF_BC2_TEXT_SCALE]    ?: 100
+            val wfWeatherOffsetX     = prefs[KEY_WF_WEATHER_OFFSET_X]     ?: 0
+            val wfWeatherOffsetY     = prefs[KEY_WF_WEATHER_OFFSET_Y]     ?: 0
+            val wfBottomCompOffsetX  = prefs[KEY_WF_BOTTOM_COMP_OFFSET_X] ?: 0
+            val wfBottomCompOffsetY  = prefs[KEY_WF_BOTTOM_COMP_OFFSET_Y] ?: 0
             // Klipper
             val klipperEnabled   = prefs[KEY_KLIPPER_ENABLED]    ?: false
             val klipperHost      = prefs[KEY_KLIPPER_HOST]        ?: ""
@@ -1046,6 +1059,10 @@ class MainViewModel @Inject constructor(
                     wfBc2RingThreshTarget  = wfBc2RingThreshTarget,
                     wfBc2RingThreshColor   = wfBc2RingThreshColor,
                     wfBc2TextScale    = wfBc2TextScale,
+                    wfWeatherOffsetX    = wfWeatherOffsetX,
+                    wfWeatherOffsetY    = wfWeatherOffsetY,
+                    wfBottomCompOffsetX = wfBottomCompOffsetX,
+                    wfBottomCompOffsetY = wfBottomCompOffsetY,
                     klipperEnabled    = klipperEnabled,
                     klipperHost       = klipperHost,
                     klipperPort       = klipperPort,
@@ -1397,7 +1414,11 @@ class MainViewModel @Inject constructor(
             bc2RingThreshDir     = s.wfBc2RingThreshDir,
             bc2RingThreshTarget  = s.wfBc2RingThreshTarget,
             bc2RingThreshColor   = s.wfBc2RingThreshColor,
-            bc2TextScale    = s.wfBc2TextScale
+            bc2TextScale    = s.wfBc2TextScale,
+            weatherOffsetX    = s.wfWeatherOffsetX,
+            weatherOffsetY    = s.wfWeatherOffsetY,
+            bottomCompOffsetX = s.wfBottomCompOffsetX,
+            bottomCompOffsetY = s.wfBottomCompOffsetY
         )
         pushConnectionConfigToWear()
     }
@@ -1897,6 +1918,40 @@ class MainViewModel @Inject constructor(
             try {
                 pushFullConfigToWear()
                 _uiState.update { it.copy(wearSyncLog = "Boden-Komplikationen übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Speichert die Positions-Feinjustierung (dp-Offsets) für die Wetter-Anzeige (oben)
+     * und die beiden Boden-Komplikations-Ringe und überträgt sie ans Watchface.
+     */
+    fun setWatchFacePositionOffsets(
+        weatherOffsetX: Int = _uiState.value.wfWeatherOffsetX,
+        weatherOffsetY: Int = _uiState.value.wfWeatherOffsetY,
+        bottomCompOffsetX: Int = _uiState.value.wfBottomCompOffsetX,
+        bottomCompOffsetY: Int = _uiState.value.wfBottomCompOffsetY
+    ) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_WF_WEATHER_OFFSET_X]     = weatherOffsetX
+                prefs[KEY_WF_WEATHER_OFFSET_Y]     = weatherOffsetY
+                prefs[KEY_WF_BOTTOM_COMP_OFFSET_X] = bottomCompOffsetX
+                prefs[KEY_WF_BOTTOM_COMP_OFFSET_Y] = bottomCompOffsetY
+            }
+            _uiState.update {
+                it.copy(
+                    wfWeatherOffsetX    = weatherOffsetX,
+                    wfWeatherOffsetY    = weatherOffsetY,
+                    wfBottomCompOffsetX = bottomCompOffsetX,
+                    wfBottomCompOffsetY = bottomCompOffsetY
+                )
+            }
+            try {
+                pushFullConfigToWear()
+                _uiState.update { it.copy(wearSyncLog = "Positions-Offsets übertragen") }
             } catch (e: Exception) {
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
