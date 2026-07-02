@@ -137,7 +137,20 @@ class GeofenceService : Service() {
                 if (location != null) {
                     handleLocation(location)
                 } else {
-                    Log.w(TAG, "getCurrentLocation lieferte null (kein Fix)")
+                    // Kein frischer GPS-Fix (z. B. im Gebäude) → Fallback auf letzten bekannten Standort
+                    Log.w(TAG, "getCurrentLocation lieferte null – Fallback auf lastLocation")
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        fusedClient.lastLocation.addOnSuccessListener { lastLoc ->
+                            if (lastLoc != null) {
+                                Log.d(TAG, "lastLocation verwendet (Alter: ${(System.currentTimeMillis() - lastLoc.time) / 1000}s)")
+                                handleLocation(lastLoc)
+                            } else {
+                                Log.w(TAG, "Auch lastLocation null – kein Standort verfügbar")
+                            }
+                        }
+                    }
                 }
             }
             .addOnFailureListener { e ->

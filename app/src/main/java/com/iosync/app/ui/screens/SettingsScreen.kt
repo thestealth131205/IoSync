@@ -76,7 +76,9 @@ import com.iosync.app.data.health.HealthDataTypeInfo
 import com.iosync.app.ui.viewmodel.MainUiState
 import com.iosync.app.ui.viewmodel.MainViewModel
 import android.app.NotificationManager
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.content.Intent
 import androidx.compose.runtime.DisposableEffect
@@ -2906,11 +2908,14 @@ fun SettingsScreen(
                 context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as NotificationManager
             }
             var hasDndAccess by remember { mutableStateOf(notifManager.isNotificationPolicyAccessGranted) }
+            val powerManager = remember(context) { context.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager }
+            var hasBatteryOptExempt by remember { mutableStateOf(powerManager.isIgnoringBatteryOptimizations(context.packageName)) }
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
                         hasDndAccess = notifManager.isNotificationPolicyAccessGranted
+                        hasBatteryOptExempt = powerManager.isIgnoringBatteryOptimizations(context.packageName)
                         viewModel.refreshGeofenceStatus()
                     }
                 }
@@ -3039,6 +3044,37 @@ fun SettingsScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFAA00), contentColor = Color.Black),
                             modifier = Modifier.padding(start = 8.dp)
                         ) { Text("Öffnen", style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+
+                // Warnung: Akku-Optimierung aktiv
+                if (!hasBatteryOptExempt) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF2A1800), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Akku-Optimierung aktiv – Geofence kann im Hintergrund blockiert werden",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFFFAA00),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Button(
+                            onClick = {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                    }
+                                )
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFAA00), contentColor = Color.Black),
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) { Text("Ausschließen", style = MaterialTheme.typography.labelSmall) }
                     }
                 }
 

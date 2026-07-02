@@ -8,6 +8,22 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.0.9",
+        date = "02.07.2026",
+        changes = listOf(
+            "Geofence: Nach Neustart des Geräts wird der GeofenceService automatisch wieder gestartet (BootReceiver)",
+            "Geofence: Fallback auf letzten bekannten Standort wenn kein frischer GPS-Fix verfügbar (z. B. im Gebäude)",
+            "Geofence: Warnung + Direktlink wenn Akku-Optimierung den Hintergrund-Standort blockiert"
+        )
+    ),
+    ChangelogEntry(
+        version = "5.0.8",
+        date = "02.07.2026",
+        changes = listOf(
+            "Geofence: Akku-Optimierung-Warnung in den Einstellungen – direkter Link zum Ausschließen aus der Akku-Optimierung verhindert Hintergrund-Blockierung"
+        )
+    ),
+    ChangelogEntry(
         version = "5.0.7",
         date = "29.06.2026",
         changes = listOf(
