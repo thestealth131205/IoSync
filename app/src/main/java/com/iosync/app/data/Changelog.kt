@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.1.1",
+        date = "02.07.2026",
+        changes = listOf(
+            "Geofence: Warnung in den Einstellungen wenn der System-Schalter \"App bei Nichtnutzung pausieren\" aktiv ist – mit Direktlink zur App-Info zum Deaktivieren (verhindert, dass Android die Standort-Vibration nach längerer Nichtnutzung stoppt)"
+        )
+    ),
+    ChangelogEntry(
         version = "5.1.0",
         date = "02.07.2026",
         changes = listOf(

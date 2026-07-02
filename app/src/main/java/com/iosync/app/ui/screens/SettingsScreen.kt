@@ -2910,12 +2910,23 @@ fun SettingsScreen(
             var hasDndAccess by remember { mutableStateOf(notifManager.isNotificationPolicyAccessGranted) }
             val powerManager = remember(context) { context.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager }
             var hasBatteryOptExempt by remember { mutableStateOf(powerManager.isIgnoringBatteryOptimizations(context.packageName)) }
+            // "App bei Nichtnutzung pausieren" (App-Hibernation / Auto-Revoke) – wird nach App-Updates
+            // von Android teils wieder automatisch aktiviert und entzieht dann im Hintergrund Berechtigungen.
+            var hasAutoRevokeExempt by remember {
+                mutableStateOf(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                        context.packageManager.isAutoRevokeWhitelisted()
+                    else true
+                )
+            }
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
                         hasDndAccess = notifManager.isNotificationPolicyAccessGranted
                         hasBatteryOptExempt = powerManager.isIgnoringBatteryOptimizations(context.packageName)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                            hasAutoRevokeExempt = context.packageManager.isAutoRevokeWhitelisted()
                         viewModel.refreshGeofenceStatus()
                     }
                 }
@@ -3075,6 +3086,37 @@ fun SettingsScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFAA00), contentColor = Color.Black),
                             modifier = Modifier.padding(start = 8.dp)
                         ) { Text("Ausschließen", style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+
+                // Warnung: "App bei Nichtnutzung pausieren" aktiv (App-Hibernation / Auto-Revoke)
+                if (!hasAutoRevokeExempt) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF2A1800), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "\"App bei Nichtnutzung pausieren\" aktiv – Android entzieht sonst Berechtigungen und stoppt den Hintergrund-Sync",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFFFAA00),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Button(
+                            onClick = {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                    }
+                                )
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFAA00), contentColor = Color.Black),
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) { Text("Öffnen", style = MaterialTheme.typography.labelSmall) }
                     }
                 }
 
