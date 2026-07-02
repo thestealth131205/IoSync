@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.1.0",
+        date = "02.07.2026",
+        changes = listOf(
+            "Geofence: Hintergrund-Standortberechtigung (ACCESS_BACKGROUND_LOCATION) ergänzt – Standort wird jetzt auch im Hintergrund zuverlässig aktualisiert",
+            "Geofence: RECEIVE_BOOT_COMPLETED-Berechtigung ergänzt – Geofence startet automatisch nach Neustart",
+            "Geofence: GeofenceService läuft jetzt als Foreground-Service mit persistenter Benachrichtigung für zuverlässigen Hintergrundbetrieb"
+        )
+    ),
+    ChangelogEntry(
         version = "5.0.9",
         date = "02.07.2026",
         changes = listOf(
