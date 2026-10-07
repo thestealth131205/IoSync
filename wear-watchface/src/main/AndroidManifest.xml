@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <!-- Puls-Rückschrieb: On-Demand-Messung (MeasureClient) wird nach Health Connect geschrieben -->
+    <uses-permission android:name="android.permission.health.WRITE_HEART_RATE" />
 
     <!-- Sichtbarkeit für Wetter-App-Start (Android 11+ Package Visibility) -->
     <queries>

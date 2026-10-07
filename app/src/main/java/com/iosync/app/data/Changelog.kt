@@ -8,6 +8,13 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.1.2",
+        date = "07.10.2026",
+        changes = listOf(
+            "Health Connect: Puls-Werte von der Uhr werden jetzt zurück nach Health Connect geschrieben (nach jeder On-Demand-Messung)"
+        )
+    ),
+    ChangelogEntry(
         version = "5.1.1",
         date = "02.07.2026",
         changes = listOf(

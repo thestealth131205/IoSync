@@ -29,6 +29,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
@@ -78,7 +79,8 @@ private val HEALTH_CONNECT_PERMISSIONS = setOf(
     HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
     HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
     HealthPermission.getReadPermission(OxygenSaturationRecord::class),
-    HealthPermission.getReadPermission(SleepSessionRecord::class)
+    HealthPermission.getReadPermission(SleepSessionRecord::class),
+    HealthPermission.getWritePermission(HeartRateRecord::class)
 )
 
 @Composable

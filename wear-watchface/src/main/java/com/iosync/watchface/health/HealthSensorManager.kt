@@ -185,6 +185,7 @@ class HealthSensorManager private constructor(
                         HealthDataCache.heartRate = hr
                         HealthDataCache.lastHeartRateTimestamp = System.currentTimeMillis()
                         Log.d(TAG, "Puls (Measure, periodisch): $hr bpm")
+                        wearHealthConnectManager?.writeHeartRate(hr)
                         received.complete(Unit)
                     }
                 }

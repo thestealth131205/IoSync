@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -47,7 +48,8 @@ class WearHealthConnectManager(private val context: Context) {
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(OxygenSaturationRecord::class),
-        HealthPermission.getReadPermission(SleepSessionRecord::class)
+        HealthPermission.getReadPermission(SleepSessionRecord::class),
+        HealthPermission.getWritePermission(HeartRateRecord::class)
     )
 
     fun isAvailable(): Boolean = try {
@@ -74,6 +76,37 @@ class WearHealthConnectManager(private val context: Context) {
     fun stop() {
         pollJob?.cancel()
         scope.cancel()
+    }
+
+    /**
+     * Schreibt einen frisch per MeasureClient gemessenen Puls-Wert als [HeartRateRecord]
+     * nach Health Connect. Die On-Demand-Messung ([HealthSensorManager.measureHeartRateOnce])
+     * landete bisher nur im In-Memory-Cache für die Anzeige – so bleibt sie auch dauerhaft
+     * als Health-Connect-Verlauf erhalten.
+     */
+    fun writeHeartRate(bpm: Int, time: Instant = Instant.now()) {
+        if (bpm <= 0) return
+        scope.launch {
+            try {
+                val client = HealthConnectClient.getOrCreate(context)
+                val granted = client.permissionController.getGrantedPermissions()
+                if (!granted.contains(HealthPermission.getWritePermission(HeartRateRecord::class))) return@launch
+                val zoneOffset = ZoneId.systemDefault().rules.getOffset(time)
+                val record = HeartRateRecord(
+                    startTime = time,
+                    startZoneOffset = zoneOffset,
+                    endTime = time.plusSeconds(1),
+                    endZoneOffset = zoneOffset,
+                    samples = listOf(HeartRateRecord.Sample(time = time, beatsPerMinute = bpm.toLong()))
+                )
+                client.insertRecords(listOf(record))
+                Log.d(TAG, "Puls $bpm bpm nach Health Connect geschrieben")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Puls-Schreiben nach Health Connect fehlgeschlagen: ${e.message}")
+            }
+        }
     }
 
     private suspend fun refreshHealthData() {
