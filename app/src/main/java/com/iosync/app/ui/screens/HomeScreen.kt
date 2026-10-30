@@ -23,7 +23,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -36,9 +39,8 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -54,8 +56,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,10 +91,12 @@ fun HomeScreen(
     onStateClick: (String) -> Unit,
     onSettingsClick: () -> Unit,
     onRefresh: () -> Unit,
-    onToggleConnection: () -> Unit
+    onToggleConnection: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onRoomSelect: (String?) -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    var searchActive by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let { snackbarHostState.showSnackbar(it) }
@@ -142,27 +148,27 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Search Bar
-            SearchBar(
-                inputField = {
-                    SearchBarDefaults.InputField(
-                        query = uiState.searchQuery,
-                        onQueryChange = {},
-                        onSearch = {},
-                        expanded = searchActive,
-                        onExpandedChange = { searchActive = it },
-                        leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = null)
-                        },
-                        placeholder = { Text("Datenpunkt suchen…") }
-                    )
+            // Suchfeld: einfaches Textfeld statt M3-SearchBar (die sprang beim Antippen auf ein leeres Vollbild)
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = onSearchQueryChange,
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchQueryChange("") }) {
+                            Icon(Icons.Default.Close, contentDescription = "Suche leeren")
+                        }
+                    }
                 },
-                expanded = searchActive,
-                onExpandedChange = { searchActive = it },
+                placeholder = { Text("Datenpunkt suchen…") },
+                singleLine = true,
+                shape = RoundedCornerShape(28.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {}
+            )
 
             // Room filter chips
             if (uiState.availableRooms.isNotEmpty()) {
@@ -173,7 +179,7 @@ fun HomeScreen(
                     item {
                         FilterChip(
                             selected = uiState.selectedRoom == null,
-                            onClick = {},
+                            onClick = { onRoomSelect(null) },
                             label = { Text("Alle") },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = NeonYellow,
@@ -184,7 +190,7 @@ fun HomeScreen(
                     items(uiState.availableRooms) { room ->
                         FilterChip(
                             selected = uiState.selectedRoom == room,
-                            onClick = {},
+                            onClick = { onRoomSelect(room) },
                             label = { Text(room) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = NeonYellow,

@@ -236,6 +236,8 @@ private const val KEY_WF_BC2_TEXT_SCALE     = "wf_bc2_text_scale"
 private const val KEY_WF_BOTTOM_COMP_OFFSET_X = "wf_bottom_comp_offset_x"
 private const val KEY_WF_BOTTOM_COMP_OFFSET_Y = "wf_bottom_comp_offset_y"
 private const val KEY_CON_BC1_ID            = "con_bc1_id"
+private const val KEY_CON_DATA_POINT1_ID    = "con_data_point1_id"
+private const val KEY_CON_DATA_POINT2_ID    = "con_data_point2_id"
 private const val KEY_CON_BC2_ID            = "con_bc2_id"
 
 // ── Seite-2-Balken ────────────────────────────────────────────────────────────
@@ -648,6 +650,8 @@ class WearDataLayerService @Inject constructor(
         p2ColorTempNeutral: String = "4500",
         p2ColorTempCold: String = "6500",
         sleepId: String,
+        dataPoint1Id: String = "",
+        dataPoint2Id: String = "",
         weatherUseFixed: Boolean,
         weatherLat: Double,
         weatherLon: Double,
@@ -715,6 +719,8 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_CON_P2_COLOR_TEMP_NEUTRAL, p2ColorTempNeutral)
                     dataMap.putString(KEY_CON_P2_COLOR_TEMP_COLD, p2ColorTempCold)
                     dataMap.putString(KEY_CON_SLEEP_ID, sleepId)
+                    dataMap.putString(KEY_CON_DATA_POINT1_ID, dataPoint1Id)
+                    dataMap.putString(KEY_CON_DATA_POINT2_ID, dataPoint2Id)
                     dataMap.putBoolean(KEY_CON_WEATHER_USE_FIXED, weatherUseFixed)
                     dataMap.putDouble(KEY_CON_WEATHER_LAT, weatherLat)
                     dataMap.putDouble(KEY_CON_WEATHER_LON, weatherLon)

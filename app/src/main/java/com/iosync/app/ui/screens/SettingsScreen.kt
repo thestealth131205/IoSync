@@ -45,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import android.Manifest
@@ -901,12 +902,40 @@ fun SettingsScreen(
             )
 
             WatchFaceToggleRow(
-                text = "ioBroker-Datenpunkte anzeigen",
-                subText = if (uiState.ioSyncHost.isBlank()) "IoSync Adapter muss konfiguriert sein"
-                          else "${uiState.ioSyncStates.size} Datenpunkte verfügbar",
+                text = if (uiState.useHomeAssistant) "Datenpunkte unter der Uhrzeit anzeigen" else "ioBroker-Datenpunkte anzeigen",
+                subText = when {
+                    uiState.useHomeAssistant -> "Zwei Entities unten auswählen"
+                    uiState.ioSyncHost.isBlank() -> "IoSync Adapter muss konfiguriert sein"
+                    else -> "${uiState.ioSyncStates.size} Datenpunkte verfügbar"
+                },
                 checked = wfShowIoBrokerData,
                 onCheckedChange = { wfShowIoBrokerData = it }
             )
+            if (wfShowIoBrokerData) {
+                // Auswahl wird sofort gespeichert und an die Uhr gesendet (Verbindungs-Config)
+                val dpStates = uiState.states
+                Text(
+                    if (uiState.useHomeAssistant) "Angezeigte Entities (ohne Auswahl wird nichts angezeigt)"
+                    else "Angezeigte Datenpunkte (leer = die ersten zwei des Adapters)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                listOf(uiState.wfDataPoint1Id, uiState.wfDataPoint2Id).forEachIndexed { index, selectedId ->
+                    fun select(id: String) = if (index == 0) viewModel.setWfDataPointIds(id, uiState.wfDataPoint2Id)
+                                             else viewModel.setWfDataPointIds(uiState.wfDataPoint1Id, id)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DatapointDropdown(
+                            selectedId = selectedId,
+                            availableStates = dpStates,
+                            onSelect = { select(it) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (selectedId.isNotBlank()) {
+                            TextButton(onClick = { select("") }) { Text("✕") }
+                        }
+                    }
+                }
+            }
             WatchFaceToggleRow(
                 text = "Handy-Akkustand anzeigen",
                 subText = if (uiState.phoneBatteryLevel >= 0) "Aktuell: ${uiState.phoneBatteryLevel}%"
@@ -2109,7 +2138,7 @@ fun SettingsScreen(
                 // Vertikaler Balken (p2Bar)
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Vertikaler Balken-Graph (rechts, 3 Uhr)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Zeigt einen Wert als vertikalen Balken rechts auf Seite 2. Beschriftung links.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                Text("Zeigt einen Wert als vertikalen Balken rechts auf Seite 2. Beschriftung links. Home Assistant: für Lampen „<Lampe> Helligkeit“ wählen (0–100 %).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = p2BarLabel, onValueChange = { if (it.length <= 6) p2BarLabel = it }, label = { Text("Name") }, placeholder = { Text("TEMP") }, modifier = Modifier.weight(1f), singleLine = true)
                     DatapointDropdown(selectedId = p2BarId, availableStates = p2States, onSelect = { p2BarId = it }, modifier = Modifier.weight(3f))
@@ -2157,13 +2186,13 @@ fun SettingsScreen(
                 // Farb-Streifen (links, RGB-Farbwahlrad)
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Farb-Streifen (links, RGB-Farbwahlrad)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Zeigt links auf Seite 2 die Farbe eines ioBroker-Datenpunkts (RGB-Hex, z.B. \"FF0000\"). Tippt man darauf, öffnet sich ein RGB-Farbwahlrad zum Setzen der Farbe. Leer = aus.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                Text("Zeigt links auf Seite 2 die Farbe eines ioBroker-Datenpunkts (RGB-Hex, z.B. \"FF0000\"). Tippt man darauf, öffnet sich ein RGB-Farbwahlrad zum Setzen der Farbe. Home Assistant: „<Lampe> Farbe“ wählen. Leer = aus.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                 DatapointDropdown(selectedId = p2ColorId, availableStates = p2States, onSelect = { p2ColorId = it }, modifier = Modifier.fillMaxWidth())
 
                 // Weißton-Buttons (Kelvin) im Farbwahlrad
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 Text("Weißton-Buttons (Kelvin)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Blendet im RGB-Farbwahlrad oben drei Buttons ein (links warmweiß, Mitte neutralweiß, rechts kaltweiß). Beim Tippen wird der jeweilige Kelvin-Wert in diesen Datenpunkt geschrieben. Leer = aus.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                Text("Blendet im RGB-Farbwahlrad oben drei Buttons ein (links warmweiß, Mitte neutralweiß, rechts kaltweiß). Beim Tippen wird der jeweilige Kelvin-Wert in diesen Datenpunkt geschrieben. Home Assistant: „<Lampe> Weißton“ wählen. Leer = aus.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                 DatapointDropdown(selectedId = p2ColorTempId, availableStates = p2States, onSelect = { p2ColorTempId = it }, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(value = p2ColorTempWarm, onValueChange = { p2ColorTempWarm = it.filter { c -> c.isDigit() } }, label = { Text("Warm") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))

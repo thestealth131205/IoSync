@@ -274,6 +274,8 @@ private const val KEY_CON_P2_COLOR_TEMP_WARM    = "con_p2_color_temp_warm"
 private const val KEY_CON_P2_COLOR_TEMP_NEUTRAL = "con_p2_color_temp_neutral"
 private const val KEY_CON_P2_COLOR_TEMP_COLD    = "con_p2_color_temp_cold"
 private const val KEY_CON_SLEEP_ID       = "con_sleep_id"
+private const val KEY_CON_DATA_POINT1_ID = "con_data_point1_id"
+private const val KEY_CON_DATA_POINT2_ID = "con_data_point2_id"
 // Wetter-Standort (Uhr hat kein GPS → festes lat/lon vom Handy)
 private const val KEY_CON_WEATHER_USE_FIXED = "con_weather_use_fixed"
 private const val KEY_CON_WEATHER_LAT       = "con_weather_lat"
@@ -730,6 +732,9 @@ object WatchFaceConfigCache {
     @Volatile var conP2ColorTempNeutral: String = "4500"
     @Volatile var conP2ColorTempCold: String = "6500"
     @Volatile var conSleepId: String = ""
+    /** Seite-1-Datenanzeige unter der Uhrzeit: gewählte Datenpunkte (leer = Adapter-Reihenfolge). */
+    @Volatile var conDataPoint1Id: String = ""
+    @Volatile var conDataPoint2Id: String = ""
     // Wetter-Standort (Uhr hat kein GPS → festes lat/lon vom Handy)
     @Volatile var weatherUseFixed: Boolean = false
     @Volatile var weatherLat: Double = Double.NaN
@@ -778,6 +783,8 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_CON_P2_COLOR_TEMP_NEUTRAL)?.let { conP2ColorTempNeutral = it }
         dataMap.getString(KEY_CON_P2_COLOR_TEMP_COLD)?.let { conP2ColorTempCold = it }
         dataMap.getString(KEY_CON_SLEEP_ID)?.let { conSleepId = it }
+        dataMap.getString(KEY_CON_DATA_POINT1_ID)?.let { conDataPoint1Id = it }
+        dataMap.getString(KEY_CON_DATA_POINT2_ID)?.let { conDataPoint2Id = it }
         if (dataMap.containsKey(KEY_CON_WEATHER_USE_FIXED)) weatherUseFixed = dataMap.getBoolean(KEY_CON_WEATHER_USE_FIXED)
         if (dataMap.containsKey(KEY_CON_WEATHER_LAT)) weatherLat = dataMap.getDouble(KEY_CON_WEATHER_LAT)
         if (dataMap.containsKey(KEY_CON_WEATHER_LON)) weatherLon = dataMap.getDouble(KEY_CON_WEATHER_LON)
@@ -1001,6 +1008,22 @@ object SmartHomeStateCache {
         states = newStates
     }
 
+    /**
+     * Seite-1-Datenanzeige unter der Uhrzeit: die zwei gewählten Datenpunkte in Wahl-Reihenfolge.
+     * Ohne Auswahl bei ioBroker die ersten zwei der Adapter-Liste (dort nur freigegebene
+     * Punkte), bei Home Assistant nichts — sonst käme eine beliebige Entity (z.B. Backup-Status).
+     */
+    fun displayStates(): List<CachedState> {
+        val c = WatchFaceConfigCache
+        val all = states
+        val chosen = listOf(c.conDataPoint1Id, c.conDataPoint2Id).filter { it.isNotBlank() }
+        return when {
+            chosen.isNotEmpty() -> chosen.mapNotNull { id -> all.firstOrNull { it.id == id } }
+            c.useHomeAssistant  -> emptyList()
+            else                -> all.take(2)
+        }
+    }
+
     fun getTopValue(): String? = states.firstOrNull()?.displayValue
     fun getBottomValue(): String? = states.getOrNull(1)?.displayValue
 
@@ -1054,7 +1077,7 @@ data class CachedState(
     val isPercent: Boolean get() = unit == "%" || unit == "Prozent"
 
     val displayValue: String get() = when {
-        value == null -> "–"
+        value == null -> "--"
         unit != null  -> "$value $unit"
         else          -> value
     }

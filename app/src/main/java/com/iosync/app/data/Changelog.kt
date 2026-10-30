@@ -8,6 +8,19 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.2.3",
+        date = "30.10.2026",
+        changes = listOf(
+            "Home Assistant: Lampen liefern eigene Auswahl-Einträge für Helligkeit, Farbe und Weißton (Seite-2-Slider und Farbwähler steuerbar)",
+            "Home Assistant: Thermostate (Ist-/Soll-Temperatur, Luftfeuchte) und Wetter (Temperatur, Luftfeuchte, Wind) als eigene Einträge – Soll-Temperatur per Slider einstellbar",
+            "Home Assistant: Slider auf einer Lampe schaltet bei 1–100 % nicht mehr aus, sondern setzt die Helligkeit",
+            "unknown/unavailable werden auf der Uhr als \"--\" angezeigt, nicht erreichbare Geräte in der App rot markiert",
+            "Datenpunkte unter der Uhrzeit: zwei frei wählbare Einträge statt der ersten zwei der Liste",
+            "Startseite: Suchfeld und Raum-Filter funktionieren, kein leeres Vollbild mehr",
+            "ioBroker-Daten überschreiben die Home-Assistant-Liste nicht mehr, wenn HA aktiv ist"
+        )
+    ),
+    ChangelogEntry(
         version = "5.2.2",
         date = "30.10.2026",
         changes = listOf(

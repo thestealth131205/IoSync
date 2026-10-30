@@ -232,7 +232,7 @@ object WatchDataSyncManager {
             return v == "true" || v == "1"
         }
 
-        // Volle Zustandsliste (Seite-1-„ioBroker-Daten"-Anzeige)
+        // Volle Zustandsliste (Seite-1-Datenanzeige; Auswahl in SmartHomeStateCache.displayStates)
         if (c.showIoBrokerData) {
             SmartHomeStateCache.updateFromCachedStates(states)
         }

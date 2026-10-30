@@ -70,7 +70,9 @@ fun IoSyncNavGraph() {
                     navController.navigate(Route.Settings.path)
                 },
                 onRefresh = viewModel::refresh,
-                onToggleConnection = viewModel::toggleConnection
+                onToggleConnection = viewModel::toggleConnection,
+                onSearchQueryChange = viewModel::updateSearchQuery,
+                onRoomSelect = viewModel::selectRoom
             )
         }
         composable(Route.Detail.path) { backStackEntry ->

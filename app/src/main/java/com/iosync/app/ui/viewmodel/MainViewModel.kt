@@ -186,6 +186,9 @@ data class MainUiState(
     // Wetter-Temperaturquelle
     val wfWeatherTempSource: String = "openweather",
     val wfWeatherIoBrokerId: String = "",
+    // Seite-1-Datenanzeige unter der Uhrzeit: zwei frei gewählte Datenpunkte/Entities
+    val wfDataPoint1Id: String = "",
+    val wfDataPoint2Id: String = "",
     // NTP-Zeitkorrektur (Offset wird auf der Uhr per NTP ermittelt)
     val wfNtpEnabled: Boolean = false,
     val wfNtpServer: String = "pool.ntp.org",
@@ -563,6 +566,9 @@ class MainViewModel @Inject constructor(
         // Wetter-Temperaturquelle
         val KEY_WF_WEATHER_TEMP_SOURCE  = stringPreferencesKey("wf_weather_temp_source")
         val KEY_WF_WEATHER_IOBROKER_ID  = stringPreferencesKey("wf_weather_iobroker_id")
+        // Seite-1-Datenanzeige: gewählte Datenpunkte
+        val KEY_WF_DATA_POINT1_ID = stringPreferencesKey("wf_data_point1_id")
+        val KEY_WF_DATA_POINT2_ID = stringPreferencesKey("wf_data_point2_id")
         // NTP-Zeitkorrektur
         val KEY_WF_NTP_ENABLED       = booleanPreferencesKey("wf_ntp_enabled")
         val KEY_WF_NTP_SERVER        = stringPreferencesKey("wf_ntp_server")
@@ -787,6 +793,8 @@ class MainViewModel @Inject constructor(
             val weatherFixedCity  = prefs[KEY_WEATHER_FIXED_CITY]  ?: ""
             val wfWeatherTempSource = prefs[KEY_WF_WEATHER_TEMP_SOURCE] ?: "openweather"
             val wfWeatherIoBrokerId = prefs[KEY_WF_WEATHER_IOBROKER_ID] ?: ""
+            val wfDataPoint1Id = prefs[KEY_WF_DATA_POINT1_ID] ?: ""
+            val wfDataPoint2Id = prefs[KEY_WF_DATA_POINT2_ID] ?: ""
             val wfNtpEnabled = prefs[KEY_WF_NTP_ENABLED] ?: false
             val wfNtpServer  = prefs[KEY_WF_NTP_SERVER]  ?: "pool.ntp.org"
             val ntpOffsetFromWatch = prefs[KEY_NTP_OFFSET_FROM_WATCH] ?: 0L
@@ -1084,6 +1092,8 @@ class MainViewModel @Inject constructor(
                     p2Pill2State      = p2Pill2State,
                     wfWeatherTempSource = wfWeatherTempSource,
                     wfWeatherIoBrokerId = wfWeatherIoBrokerId,
+                    wfDataPoint1Id = wfDataPoint1Id,
+                    wfDataPoint2Id = wfDataPoint2Id,
                     wfNtpEnabled = wfNtpEnabled,
                     wfNtpServer  = wfNtpServer,
                     ntpOffsetFromWatch = ntpOffsetFromWatch,
@@ -1218,12 +1228,16 @@ class MainViewModel @Inject constructor(
                 Triple(stateList, status, rooms)
             }.collect { (stateList, status, rooms) ->
                 _uiState.update {
-                    it.copy(
+                    // Simple-API-Daten (ioBroker) nur übernehmen, wenn sie die aktive Quelle sind –
+                    // sonst überschreibt jede Repository-Emission die Liste von HA bzw. IoSync-Adapter.
+                    val simpleApiActive = !(it.useHomeAssistant && it.haHost.isNotBlank()) &&
+                        !(it.useIoSyncAdapter && it.ioSyncHost.isNotBlank())
+                    if (simpleApiActive) it.copy(
                         states         = stateList,
                         filteredStates = applyFilter(stateList, it.searchQuery, it.selectedRoom),
                         connectionStatus = status,
                         availableRooms = rooms
-                    )
+                    ) else it.copy(connectionStatus = status)
                 }
             }
         }
@@ -1399,7 +1413,9 @@ class MainViewModel @Inject constructor(
 
             ioSyncPollingJob?.cancel()
             if (host.isNotBlank()) {
-                startIoSyncPolling(host, port, useHttps, username, password)
+                // Bei aktivem Home Assistant nicht parallel pollen (würde die HA-Liste überschreiben)
+                val st = _uiState.value
+                if (!(st.useHomeAssistant && st.haHost.isNotBlank())) startIoSyncPolling(host, port, useHttps, username, password)
                 refresh()
             }
             try { pushConnectionConfigToWear() } catch (_: Exception) {}
@@ -1414,7 +1430,7 @@ class MainViewModel @Inject constructor(
 
             if (useIoSync) {
                 val s = _uiState.value
-                if (s.ioSyncHost.isNotBlank()) {
+                if (s.ioSyncHost.isNotBlank() && !(s.useHomeAssistant && s.haHost.isNotBlank())) {
                     startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
                 }
             } else {
@@ -1441,7 +1457,7 @@ class MainViewModel @Inject constructor(
             _uiState.update { it.copy(haHost = host, haPort = port, haUseHttps = useHttps, haToken = token) }
 
             haPollingJob?.cancel()
-            if (host.isNotBlank()) {
+            if (host.isNotBlank() && _uiState.value.useHomeAssistant) {
                 startHomeAssistantPolling(host, port, useHttps, token)
                 refresh()
             }
@@ -1663,6 +1679,8 @@ class MainViewModel @Inject constructor(
             p2ColorTempNeutral = prefs[KEY_P2_COLOR_TEMP_NEUTRAL] ?: "4500",
             p2ColorTempCold    = prefs[KEY_P2_COLOR_TEMP_COLD]    ?: "6500",
             sleepId   = prefs[KEY_WF_SLEEP_IOBROKER_ID] ?: "",
+            dataPoint1Id = prefs[KEY_WF_DATA_POINT1_ID] ?: "",
+            dataPoint2Id = prefs[KEY_WF_DATA_POINT2_ID] ?: "",
             weatherUseFixed = prefs[KEY_WEATHER_USE_FIXED] ?: false,
             weatherLat = prefs[KEY_WEATHER_FIXED_LAT]?.toDoubleOrNull() ?: Double.NaN,
             weatherLon = prefs[KEY_WEATHER_FIXED_LON]?.toDoubleOrNull() ?: Double.NaN,
@@ -1716,6 +1734,26 @@ class MainViewModel @Inject constructor(
             _uiState.update { it.copy(wfNtpEnabled = enabled, wfNtpServer = server) }
             try {
                 pushFullConfigToWear()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Wählt die zwei Datenpunkte/Entities für die Datenanzeige unter der Uhrzeit
+     * (Seite 1). Leer = bei ioBroker die ersten zwei Adapter-Datenpunkte (bisheriges
+     * Verhalten), bei Home Assistant keine Anzeige (dort kämen sonst beliebige Entities).
+     */
+    fun setWfDataPointIds(id1: String, id2: String) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_WF_DATA_POINT1_ID] = id1
+                prefs[KEY_WF_DATA_POINT2_ID] = id2
+            }
+            _uiState.update { it.copy(wfDataPoint1Id = id1, wfDataPoint2Id = id2) }
+            try {
+                pushConnectionConfigToWear()
             } catch (e: Exception) {
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }
@@ -2603,6 +2641,10 @@ class MainViewModel @Inject constructor(
             if (ioSyncPollingJob?.isActive == true) {
                 val s = _uiState.value
                 if (s.ioSyncHost.isNotBlank()) startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
+            }
+            if (haPollingJob?.isActive == true) {
+                val s = _uiState.value
+                if (s.haHost.isNotBlank()) startHomeAssistantPolling(s.haHost, s.haPort, s.haUseHttps, s.haToken)
             }
         }
     }

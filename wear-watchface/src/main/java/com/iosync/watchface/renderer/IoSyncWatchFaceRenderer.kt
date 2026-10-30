@@ -1203,7 +1203,7 @@ class IoSyncWatchFaceRenderer(
         radius: Float,
         startY: Float
     ) {
-        val states = SmartHomeStateCache.states.take(2)
+        val states = SmartHomeStateCache.displayStates()
         if (states.isEmpty()) return
 
         val scaleFactor = 1.0f
