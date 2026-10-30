@@ -183,6 +183,14 @@ class HomeAssistantClient @Inject constructor() {
                 val num = value.toDoubleOrNull()
                 when {
                     attr == ATTR_BRIGHTNESS -> brightnessService(base, num)
+                    // Weißton-Datenpunkt: Kelvin-Wert explizit anhand des Attributs erkennen,
+                    // nicht anhand des Zahlenbereichs (brach sonst bei Werten außerhalb 1000–40000,
+                    // z.B. aus alten ioBroker-Mired-Settings, zu "turn_off" durch).
+                    attr == ATTR_COLOR_TEMP -> {
+                        val kelvin = value.toIntOrNull()
+                        if (kelvin == null || kelvin <= 0) "turn_off" to base
+                        else "turn_on" to JSONObject(base.toString()).put("color_temp_kelvin", kelvin)
+                    }
                     Regex("^#?[0-9A-Fa-f]{6}$").matches(value) -> {
                         val hex = value.removePrefix("#")
                         val rgb = JSONArray().put(hex.substring(0, 2).toInt(16))

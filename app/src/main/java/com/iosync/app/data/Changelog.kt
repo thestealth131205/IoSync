@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.2.4",
+        date = "30.10.2026",
+        changes = listOf(
+            "Fix: Weißton-Buttons (Kelvin) auf Seite 2 schalteten die Lampe aus statt den Farbton zu setzen, wenn Home Assistant statt ioBroker genutzt wird",
+            "Farbtemperatur-Erkennung richtet sich jetzt nach dem HA-Attribut, nicht mehr nach der Zahlengröße des Werts"
+        )
+    ),
+    ChangelogEntry(
         version = "5.2.3",
         date = "30.10.2026",
         changes = listOf(
