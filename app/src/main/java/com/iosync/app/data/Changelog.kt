@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.2.2",
+        date = "30.10.2026",
+        changes = listOf(
+            "Neue Verbindungsanzeige: Symbol + S / IO / HA zeigen je Backend, ob es verbunden ist",
+            "Startseite zeigt bei Home Assistant die richtige Host-Adresse",
+            "Hintergrund-Sync startet unter Android 14+ wieder als Vordergrund-Dienst (fehlende Berechtigung)"
+        )
+    ),
+    ChangelogEntry(
         version = "5.2.1",
         date = "30.10.2026",
         changes = listOf(

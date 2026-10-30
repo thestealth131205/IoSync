@@ -71,10 +71,14 @@ import com.iosync.app.ui.theme.StatusOffline
 import com.iosync.app.ui.theme.StatusOnline
 import com.iosync.app.ui.theme.SurfaceElevated
 import com.iosync.app.ui.theme.SurfaceMid
+import com.iosync.app.ui.viewmodel.BackendStatus
 import com.iosync.app.ui.viewmodel.MainUiState
 
-private fun MainUiState.activeHost(): String =
-    if (useIoSyncAdapter && ioSyncHost.isNotBlank()) "$ioSyncHost:$ioSyncPort" else "$host:$port"
+private fun MainUiState.activeHost(): String = when {
+    useHomeAssistant && haHost.isNotBlank() -> "$haHost:$haPort"
+    useIoSyncAdapter && ioSyncHost.isNotBlank() -> "$ioSyncHost:$ioSyncPort"
+    else -> "$host:$port"
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +113,7 @@ fun HomeScreen(
                 actions = {
                     ConnectionStatusButton(
                         status = uiState.connectionStatus,
+                        backendStatus = uiState.backendStatus,
                         onClick = onToggleConnection
                     )
                     IconButton(onClick = onRefresh) {
@@ -345,19 +350,46 @@ fun SmartHomeStateCard(
     }
 }
 
+/**
+ * Verbindungsanzeige: Symbol weiß, sobald irgendeine Verbindung besteht, daneben
+ * senkrecht S (Simple-API/WebSocket), IO (IoSync Adapter), HA (Home Assistant) –
+ * jeweils weiß = verbunden, grau = nicht verbunden.
+ */
 @Composable
 fun ConnectionStatusButton(
     status: WebSocketStatus,
+    backendStatus: BackendStatus,
     onClick: () -> Unit
 ) {
-    val (icon, tint) = when (status) {
-        WebSocketStatus.CONNECTED -> Icons.Default.Wifi to StatusOnline
-        WebSocketStatus.CONNECTING,
-        WebSocketStatus.RECONNECTING -> Icons.Default.Wifi to NeonYellow
-        WebSocketStatus.DISCONNECTED,
-        WebSocketStatus.FAILED -> Icons.Default.SignalWifiOff to StatusOffline
-    }
-    IconButton(onClick = onClick) {
-        Icon(imageVector = icon, contentDescription = "Verbindungsstatus", tint = tint)
+    val simpleApi = backendStatus.simpleApi || status == WebSocketStatus.CONNECTED
+    val anyConnected = simpleApi || backendStatus.ioSync || backendStatus.homeAssistant
+    val connected = Color.White
+    val disconnected = Color(0xFF5A5A5A)
+
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (anyConnected) Icons.Default.Wifi else Icons.Default.SignalWifiOff,
+            contentDescription = "Verbindungsstatus",
+            tint = if (anyConnected) connected else disconnected
+        )
+        Spacer(Modifier.width(4.dp))
+        Column(horizontalAlignment = Alignment.Start) {
+            listOf("S" to simpleApi, "IO" to backendStatus.ioSync, "HA" to backendStatus.homeAssistant)
+                .forEach { (label, ok) ->
+                    Text(
+                        text = label,
+                        fontSize = 8.sp,
+                        lineHeight = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (ok) connected else disconnected
+                    )
+                }
+        }
     }
 }

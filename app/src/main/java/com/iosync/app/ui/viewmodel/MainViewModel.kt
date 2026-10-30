@@ -53,6 +53,8 @@ data class MainUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val connectionStatus: WebSocketStatus = WebSocketStatus.DISCONNECTED,
+    // Letzter Abruf-Erfolg je Backend (Simple-API / IoSync Adapter / Home Assistant)
+    val backendStatus: BackendStatus = BackendStatus(),
     val searchQuery: String = "",
     val selectedRoom: String? = null,
     val host: String = BuildConfig.IOBROKER_DEFAULT_HOST,
@@ -346,6 +348,16 @@ data class MainUiState(
     val wfBc2RingThreshColor get() = bottomComp.wfBc2RingThreshColor
     val wfBc2TextScale get() = bottomComp.wfBc2TextScale
 }
+
+/**
+ * Verbindungsstatus je Backend für die Statusanzeige im HomeScreen.
+ * true = letzter Abruf erfolgreich; nicht aktive Backends gelten als getrennt.
+ */
+data class BackendStatus(
+    val simpleApi: Boolean = false,
+    val ioSync: Boolean = false,
+    val homeAssistant: Boolean = false
+)
 
 /**
  * Boden-Komplikationen, ausgelagert aus [MainUiState].
@@ -1243,7 +1255,8 @@ class MainViewModel @Inject constructor(
                                 isLoading = false, error = null,
                                 states = sorted,
                                 ioSyncStates = states,
-                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
+                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom),
+                                backendStatus = BackendStatus(homeAssistant = true)
                             )
                         }
                         if (s.wfShowIoBrokerData) wearDataLayerService.syncStatesToWear(states)
@@ -1251,7 +1264,7 @@ class MainViewModel @Inject constructor(
                         syncPage2SlotValues()
                     }
                     .onFailure { e ->
-                        _uiState.update { it.copy(isLoading = false, error = "Home Assistant: ${e.message}") }
+                        _uiState.update { it.copy(isLoading = false, error = "Home Assistant: ${e.message}", backendStatus = BackendStatus()) }
                     }
             } else if (s.useIoSyncAdapter && s.ioSyncHost.isNotBlank()) {
                 // Primär: IoSync Adapter
@@ -1263,7 +1276,8 @@ class MainViewModel @Inject constructor(
                                 isLoading = false, error = null,
                                 states = sorted,
                                 ioSyncStates = states,
-                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
+                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom),
+                                backendStatus = BackendStatus(ioSync = true)
                             )
                         }
                         if (s.wfShowIoBrokerData) wearDataLayerService.syncStatesToWear(states)
@@ -1273,13 +1287,13 @@ class MainViewModel @Inject constructor(
                         syncPage2SlotValues()
                     }
                     .onFailure { e ->
-                        _uiState.update { it.copy(isLoading = false, error = "IoSync: ${e.message}") }
+                        _uiState.update { it.copy(isLoading = false, error = "IoSync: ${e.message}", backendStatus = BackendStatus()) }
                     }
             } else {
                 // Fallback: Simple-API
                 when (val result = repository.fetchAllStates()) {
-                    is RepoResult.Success -> _uiState.update { it.copy(isLoading = false, error = null) }
-                    is RepoResult.Error   -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                    is RepoResult.Success -> _uiState.update { it.copy(isLoading = false, error = null, backendStatus = BackendStatus(simpleApi = true)) }
+                    is RepoResult.Error   -> _uiState.update { it.copy(isLoading = false, error = result.message, backendStatus = BackendStatus()) }
                     is RepoResult.Loading -> Unit
                 }
             }
@@ -1474,7 +1488,8 @@ class MainViewModel @Inject constructor(
                             it.copy(
                                 ioSyncStates = states,
                                 states = sorted,
-                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
+                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom),
+                                backendStatus = BackendStatus(ioSync = true)
                             )
                         }
                         // Frische Werte auch bei jedem Poll-Zyklus ans Watchface senden,
@@ -1484,7 +1499,8 @@ class MainViewModel @Inject constructor(
                         syncCustomSlotValues()
                         syncPage2SlotValues()
                     }
-                    .onFailure { /* Fehler werden im IoSyncClient geloggt */ }
+                    // Fehler werden im IoSyncClient geloggt
+                    .onFailure { _uiState.update { it.copy(backendStatus = BackendStatus()) } }
                 delay(_uiState.value.slotPollIntervalSec * 1_000L)
             }
         }
@@ -1505,7 +1521,8 @@ class MainViewModel @Inject constructor(
                             it.copy(
                                 ioSyncStates = states,
                                 states = sorted,
-                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
+                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom),
+                                backendStatus = BackendStatus(homeAssistant = true)
                             )
                         }
                         val s = _uiState.value
@@ -1513,7 +1530,8 @@ class MainViewModel @Inject constructor(
                         syncCustomSlotValues()
                         syncPage2SlotValues()
                     }
-                    .onFailure { /* Fehler werden im HomeAssistantClient geloggt */ }
+                    // Fehler werden im HomeAssistantClient geloggt
+                    .onFailure { _uiState.update { it.copy(backendStatus = BackendStatus()) } }
                 delay(_uiState.value.slotPollIntervalSec * 1_000L)
             }
         }
