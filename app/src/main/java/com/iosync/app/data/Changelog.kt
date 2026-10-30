@@ -8,6 +8,21 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.2.1",
+        date = "30.10.2026",
+        changes = listOf(
+            "Absturz beim App-Start behoben (VerifyError durch zu großen UI-State)",
+            "Einstellungen: Eingabefelder (z. B. HA-Host) werden nicht mehr von der Tastatur verdeckt"
+        )
+    ),
+    ChangelogEntry(
+        version = "5.2.0",
+        date = "30.10.2026",
+        changes = listOf(
+            "Optionales Home-Assistant-Backend (Langzeit-Zugriffstoken, echte Service-Calls) für App und Watchface"
+        )
+    ),
+    ChangelogEntry(
         version = "5.1.2",
         date = "07.10.2026",
         changes = listOf(
