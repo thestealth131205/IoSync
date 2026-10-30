@@ -106,6 +106,12 @@ fun SettingsScreen(
     var ioSyncUsername  by remember(uiState.ioSyncUsername)   { mutableStateOf(uiState.ioSyncUsername) }
     var ioSyncPassword  by remember(uiState.ioSyncPassword)  { mutableStateOf(uiState.ioSyncPassword) }
 
+    // Home Assistant Verbindung
+    var haHost     by remember(uiState.haHost)     { mutableStateOf(uiState.haHost) }
+    var haPort     by remember(uiState.haPort)     { mutableStateOf(uiState.haPort.toString()) }
+    var haUseHttps by remember(uiState.haUseHttps) { mutableStateOf(uiState.haUseHttps) }
+    var haToken    by remember(uiState.haToken)    { mutableStateOf(uiState.haToken) }
+
     // Watchface-Konfiguration
     var wfTimeColor        by remember(uiState.wfTimeColor)        { mutableStateOf(uiState.wfTimeColor) }
     var wfDateColor        by remember(uiState.wfDateColor)        { mutableStateOf(uiState.wfDateColor) }
@@ -633,6 +639,35 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = if (!uiState.useIoSyncAdapter) NeonYellow else Color(0xFF333333), contentColor = if (!uiState.useIoSyncAdapter) Color(0xFF1A1A00) else Color(0xFFAAAAAA))
                 ) { Text("Simple-API speichern", style = MaterialTheme.typography.labelLarge) }
+
+                HorizontalDivider(color = Color(0xFF2A2A2A))
+                // ── Home Assistant (alternatives Backend) ─────────────────────
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Home Assistant verwenden", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Hat Vorrang vor IoSync Adapter / Simple-API, wenn aktiv",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = uiState.useHomeAssistant, onCheckedChange = { viewModel.updateBackendSelection(it) },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF1A1A00), checkedTrackColor = NeonYellow))
+                }
+                Text("Home Assistant", style = MaterialTheme.typography.titleSmall,
+                    color = if (uiState.useHomeAssistant) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                Text("Verbindung per Langzeit-Zugriffstoken. Steuert Geräte über echte Service-Calls (z.B. light.turn_on).", style = MaterialTheme.typography.bodySmall,
+                    color = if (uiState.useHomeAssistant) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                OutlinedTextField(value = haHost, onValueChange = { haHost = it }, label = { Text("HA-Host / IP") }, placeholder = { Text("192.168.1.100 oder thestealth.de") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProtocolSelector(useHttps = haUseHttps, onSelect = { haUseHttps = it }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = haPort, onValueChange = { haPort = it.filter { c -> c.isDigit() } }, label = { Text("Port") }, placeholder = { Text("8123") }, modifier = Modifier.weight(1f), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                }
+                OutlinedTextField(value = haToken, onValueChange = { haToken = it }, label = { Text("Langzeit-Zugriffstoken") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+                Button(
+                    onClick = { viewModel.updateHomeAssistantSettings(host = haHost.trim(), port = haPort.toIntOrNull() ?: 8123, useHttps = haUseHttps, token = haToken.trim()) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = if (uiState.useHomeAssistant) NeonYellow else Color(0xFF333333), contentColor = if (uiState.useHomeAssistant) Color(0xFF1A1A00) else Color(0xFFAAAAAA))
+                ) { Text("Home Assistant speichern & verbinden", style = MaterialTheme.typography.labelLarge) }
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 // ── Klipper 3D-Drucker (aufklappbar) ──────────────────────────

@@ -95,6 +95,22 @@ object WatchDataSyncManager {
     @Volatile var lastFetchError = ""
     @Volatile var lastFetchAt = 0L
 
+    // ── Backend-Auswahl (IoSync Adapter vs. Home Assistant) ───────────────────
+    // Home Assistant hat Vorrang, wenn aktiviert; sonst wird wie bisher der
+    // IoSync-Adapter genutzt. Beide liefern dieselben generischen [CachedState]s,
+    // sodass resolveAll() unverändert bleibt.
+
+    private fun backendConfigured(c: WatchFaceConfigCache): Boolean =
+        if (c.useHomeAssistant) c.haHost.isNotBlank() else c.ioUseAdapter && c.ioHost.isNotBlank()
+
+    private suspend fun backendFetch(c: WatchFaceConfigCache): Result<List<CachedState>> =
+        if (c.useHomeAssistant) WatchHomeAssistantClient.fetchDataPoints(c.haHost, c.haPort, c.haUseHttps, c.haToken)
+        else WatchIoSyncClient.fetchDataPoints(c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword)
+
+    private suspend fun backendSetState(c: WatchFaceConfigCache, id: String, value: String): Result<Unit> =
+        if (c.useHomeAssistant) WatchHomeAssistantClient.setState(c.haHost, c.haPort, c.haUseHttps, c.haToken, id, value)
+        else WatchIoSyncClient.setState(c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword, id, value)
+
     fun start(invalidate: () -> Unit) {
         if (running) return
         running = true
@@ -188,11 +204,9 @@ object WatchDataSyncManager {
 
     private suspend fun runFetch() {
         val c = WatchFaceConfigCache
-        if (!c.ioUseAdapter || c.ioHost.isBlank()) return
+        if (!backendConfigured(c)) return
         fetchMutex.withLock {
-            WatchIoSyncClient.fetchDataPoints(
-                c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword
-            ).onSuccess { states ->
+            backendFetch(c).onSuccess { states ->
                 resolveAll(states)
                 lastFetchOk = true
                 lastFetchError = ""
@@ -384,7 +398,8 @@ object WatchDataSyncManager {
             try {
                 val c = WatchFaceConfigCache
                 // Echtzeit-Push hält das Funkmodul wach → im Ambient-Modus stoppen.
-                if (displayActive && c.ioUseAdapter && c.ioUsePush && c.ioHost.isNotBlank()) {
+                // Nur für den IoSync-Adapter (SSE); Home Assistant pollt (noch) ohne Push.
+                if (displayActive && !c.useHomeAssistant && c.ioUseAdapter && c.ioUsePush && c.ioHost.isNotBlank()) {
                     val sig = "${c.ioHost}|${c.ioPort}|${c.ioUseHttps}|${c.ioUsername}|${c.ioPassword}"
                     if (sig != pushSignature) {
                         pushSignature = sig
@@ -472,41 +487,34 @@ object WatchDataSyncManager {
     /** Slider-/Balken-Wert (Seite 2) in den ioBroker-Datenpunkt schreiben. */
     fun setBarValue(value: Int) {
         val c = WatchFaceConfigCache
-        if (!c.ioUseAdapter || c.ioHost.isBlank() || c.conP2BarId.isBlank()) return
+        if (!backendConfigured(c) || c.conP2BarId.isBlank()) return
         c.p2BarValue = value.toString()
         invalidate?.invoke()
         scope?.launch {
-            WatchIoSyncClient.setState(
-                c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword,
-                c.conP2BarId, value.toString()
-            )
+            backendSetState(c, c.conP2BarId, value.toString())
         }
     }
 
     /** Farb-Wert (Seite 2, RGB-Hex wie "FF0000") in den ioBroker-Datenpunkt schreiben. */
     fun setColorValue(hex: String) {
         val c = WatchFaceConfigCache
-        if (!c.ioUseAdapter || c.ioHost.isBlank() || c.conP2ColorId.isBlank()) return
+        if (!backendConfigured(c) || c.conP2ColorId.isBlank()) return
         // Optimistisch lokal aktualisieren für sofortiges Feedback
         c.p2ColorValue = hex
         invalidate?.invoke()
         scope?.launch {
-            WatchIoSyncClient.setState(
-                c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword,
-                c.conP2ColorId, hex
-            ).onFailure { Log.e(TAG, "setColorValue($hex) fehlgeschlagen: ${it.message}") }
+            backendSetState(c, c.conP2ColorId, hex)
+                .onFailure { Log.e(TAG, "setColorValue($hex) fehlgeschlagen: ${it.message}") }
         }
     }
 
-    /** Weißton-Wert (Kelvin, z.B. "3300") in den konfigurierten ioBroker-Datenpunkt schreiben. */
+    /** Weißton-Wert (Kelvin, z.B. "3300") in den konfigurierten Datenpunkt/Entity schreiben. */
     fun setColorTempValue(kelvin: String) {
         val c = WatchFaceConfigCache
-        if (!c.ioUseAdapter || c.ioHost.isBlank() || c.conP2ColorTempId.isBlank()) return
+        if (!backendConfigured(c) || c.conP2ColorTempId.isBlank()) return
         scope?.launch {
-            WatchIoSyncClient.setState(
-                c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword,
-                c.conP2ColorTempId, kelvin
-            ).onFailure { Log.e(TAG, "setColorTempValue($kelvin) fehlgeschlagen: ${it.message}") }
+            backendSetState(c, c.conP2ColorTempId, kelvin)
+                .onFailure { Log.e(TAG, "setColorTempValue($kelvin) fehlgeschlagen: ${it.message}") }
         }
     }
 
@@ -751,7 +759,7 @@ object WatchDataSyncManager {
         applyState: (Boolean) -> Unit
     ) {
         val c = WatchFaceConfigCache
-        if (!c.ioUseAdapter || c.ioHost.isBlank() || id.isBlank()) return
+        if (!backendConfigured(c) || id.isBlank()) return
         val valueToSend = when (valueMode) {
             "true"   -> "true"
             "false"  -> "false"
@@ -769,9 +777,7 @@ object WatchDataSyncManager {
         applyState(newState)
         invalidate?.invoke()
         scope?.launch {
-            WatchIoSyncClient.setState(
-                c.ioHost, c.ioPort, c.ioUseHttps, c.ioUsername, c.ioPassword, id, valueToSend
-            ).onFailure {
+            backendSetState(c, id, valueToSend).onFailure {
                 Log.e(TAG, "Pillen-Befehl fehlgeschlagen: ${it.message}")
                 applyState(currentState)
                 invalidate?.invoke()

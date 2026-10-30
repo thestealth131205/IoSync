@@ -35,6 +35,13 @@ object WatchConnectionPrefs {
     private const val KEY_IO_PASSWORD    = "io_password"
     private const val KEY_IO_USE_PUSH    = "io_use_push"
 
+    // Home Assistant (alternatives Backend)
+    private const val KEY_USE_HOME_ASSISTANT = "use_home_assistant"
+    private const val KEY_HA_HOST            = "ha_host"
+    private const val KEY_HA_PORT            = "ha_port"
+    private const val KEY_HA_USE_HTTPS       = "ha_use_https"
+    private const val KEY_HA_TOKEN           = "ha_token"
+
     // Slot-IDs Seite 1
     private const val KEY_CON_SLOT1_ID = "con_slot1_id"
     private const val KEY_CON_SLOT2_ID = "con_slot2_id"
@@ -92,6 +99,11 @@ object WatchConnectionPrefs {
             ed.putString(KEY_IO_USERNAME, c.ioUsername)
             ed.putString(KEY_IO_PASSWORD, c.ioPassword)
             ed.putBoolean(KEY_IO_USE_PUSH, c.ioUsePush)
+            ed.putBoolean(KEY_USE_HOME_ASSISTANT, c.useHomeAssistant)
+            ed.putString(KEY_HA_HOST, c.haHost)
+            ed.putInt(KEY_HA_PORT, c.haPort)
+            ed.putBoolean(KEY_HA_USE_HTTPS, c.haUseHttps)
+            ed.putString(KEY_HA_TOKEN, c.haToken)
             ed.putString(KEY_CON_SLOT1_ID, c.conSlot1Id)
             ed.putString(KEY_CON_SLOT2_ID, c.conSlot2Id)
             ed.putString(KEY_CON_SLOT3_ID, c.conSlot3Id)
@@ -149,6 +161,11 @@ object WatchConnectionPrefs {
         c.ioUsername      = prefs.getString(KEY_IO_USERNAME, "") ?: ""
         c.ioPassword      = prefs.getString(KEY_IO_PASSWORD, "") ?: ""
         c.ioUsePush       = prefs.getBoolean(KEY_IO_USE_PUSH, false)
+        c.useHomeAssistant = prefs.getBoolean(KEY_USE_HOME_ASSISTANT, false)
+        c.haHost          = prefs.getString(KEY_HA_HOST, "") ?: ""
+        c.haPort          = prefs.getInt(KEY_HA_PORT, 8123)
+        c.haUseHttps      = prefs.getBoolean(KEY_HA_USE_HTTPS, false)
+        c.haToken         = prefs.getString(KEY_HA_TOKEN, "") ?: ""
         c.conSlot1Id      = prefs.getString(KEY_CON_SLOT1_ID, "") ?: ""
         c.conSlot2Id      = prefs.getString(KEY_CON_SLOT2_ID, "") ?: ""
         c.conSlot3Id      = prefs.getString(KEY_CON_SLOT3_ID, "") ?: ""

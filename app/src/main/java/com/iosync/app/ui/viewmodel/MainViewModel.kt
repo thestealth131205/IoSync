@@ -23,6 +23,7 @@ import com.iosync.app.data.health.HealthConnectStatus
 import com.iosync.app.data.sync.IoSyncSyncService
 import com.iosync.app.data.geofence.GeofenceManager
 import com.iosync.app.data.network.DynamicBaseUrl
+import com.iosync.app.data.network.HomeAssistantClient
 import com.iosync.app.data.network.IoSyncClient
 import com.iosync.app.data.network.NominatimService
 import com.iosync.app.data.network.SmartHomeWebSocketService
@@ -80,6 +81,12 @@ data class MainUiState(
     val ioSyncUseHttps: Boolean = false,
     val ioSyncUsername: String = "",
     val ioSyncPassword: String = "",
+    // Home Assistant: hat Vorrang vor useIoSyncAdapter/Simple-API, wenn aktiv
+    val useHomeAssistant: Boolean = false,
+    val haHost: String = "",
+    val haPort: Int = 8123,
+    val haUseHttps: Boolean = false,
+    val haToken: String = "",
     // Laufende IoSync-Datenpunkte (vom Adapter abgerufen)
     val ioSyncStates: List<SmartHomeState> = emptyList(),
     val phoneBatteryLevel: Int = -1,
@@ -344,6 +351,7 @@ class MainViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val wearDataLayerService: WearDataLayerService,
     private val ioSyncClient: IoSyncClient,
+    private val homeAssistantClient: HomeAssistantClient,
     private val dynamicBaseUrl: DynamicBaseUrl,
     private val weatherService: WeatherService,
     val healthConnectManager: HealthConnectManager,
@@ -373,6 +381,11 @@ class MainViewModel @Inject constructor(
         val KEY_IOSYNC_USE_HTTPS     = booleanPreferencesKey("iosync_use_https")
         val KEY_IOSYNC_USERNAME      = stringPreferencesKey("iosync_username")
         val KEY_IOSYNC_PASSWORD      = stringPreferencesKey("iosync_password")
+        val KEY_USE_HOME_ASSISTANT   = booleanPreferencesKey("use_home_assistant")
+        val KEY_HA_HOST              = stringPreferencesKey("ha_host")
+        val KEY_HA_PORT              = intPreferencesKey("ha_port")
+        val KEY_HA_USE_HTTPS         = booleanPreferencesKey("ha_use_https")
+        val KEY_HA_TOKEN             = stringPreferencesKey("ha_token")
         // Aktions-Pille
         val KEY_ACTION_PILL_ENABLED      = booleanPreferencesKey("action_pill_enabled")
         val KEY_ACTION_PILL_COLOR_TRUE   = stringPreferencesKey("action_pill_color_true")
@@ -612,6 +625,7 @@ class MainViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WebSocketStatus.DISCONNECTED)
 
     private var ioSyncPollingJob: Job? = null
+    private var haPollingJob: Job? = null
 
     /**
      * Liest die gesamte Konfiguration aus dem DataStore und überträgt sie in den UI-State.
@@ -638,6 +652,11 @@ class MainViewModel @Inject constructor(
             val ioSyncUseHttps    = prefs[KEY_IOSYNC_USE_HTTPS]     ?: false
             val ioSyncUsername    = prefs[KEY_IOSYNC_USERNAME]       ?: ""
             val ioSyncPassword    = prefs[KEY_IOSYNC_PASSWORD]       ?: ""
+            val useHomeAssistant  = prefs[KEY_USE_HOME_ASSISTANT]   ?: false
+            val haHost            = prefs[KEY_HA_HOST]              ?: ""
+            val haPort            = prefs[KEY_HA_PORT]              ?: 8123
+            val haUseHttps        = prefs[KEY_HA_USE_HTTPS]         ?: false
+            val haToken           = prefs[KEY_HA_TOKEN]             ?: ""
             val actionPillEnabled    = prefs[KEY_ACTION_PILL_ENABLED]     ?: false
             val actionPillColorTrue  = prefs[KEY_ACTION_PILL_COLOR_TRUE]  ?: "cyan"
             val actionPillColorFalse = prefs[KEY_ACTION_PILL_COLOR_FALSE] ?: "red"
@@ -895,6 +914,11 @@ class MainViewModel @Inject constructor(
                     ioSyncUseHttps     = ioSyncUseHttps,
                     ioSyncUsername     = ioSyncUsername,
                     ioSyncPassword     = ioSyncPassword,
+                    useHomeAssistant   = useHomeAssistant,
+                    haHost             = haHost,
+                    haPort             = haPort,
+                    haUseHttps         = haUseHttps,
+                    haToken            = haToken,
                     actionPillEnabled    = actionPillEnabled,
                     actionPillColorTrue  = actionPillColorTrue,
                     actionPillColorFalse = actionPillColorFalse,
@@ -1104,8 +1128,11 @@ class MainViewModel @Inject constructor(
             applyConfigFromPrefs(dataStore.data.first())
             val st = _uiState.value
             dynamicBaseUrl.update(st.host, st.port)
-            if (st.useIoSyncAdapter && st.ioSyncHost.isNotBlank())
+            if (st.useHomeAssistant && st.haHost.isNotBlank()) {
+                startHomeAssistantPolling(st.haHost, st.haPort, st.haUseHttps, st.haToken)
+            } else if (st.useIoSyncAdapter && st.ioSyncHost.isNotBlank()) {
                 startIoSyncPolling(st.ioSyncHost, st.ioSyncPort, st.ioSyncUseHttps, st.ioSyncUsername, st.ioSyncPassword)
+            }
             // Gesamter Hintergrund-Sync ans Watchface läuft im Foreground-Service,
             // damit Wetter/Akku/Slots/Health auch bei geschlossener App aktualisiert werden.
             IoSyncSyncService.start(context)
@@ -1160,7 +1187,27 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val s = _uiState.value
-            if (s.useIoSyncAdapter && s.ioSyncHost.isNotBlank()) {
+            if (s.useHomeAssistant && s.haHost.isNotBlank()) {
+                // Primär: Home Assistant
+                homeAssistantClient.fetchDataPoints(s.haHost, s.haPort, s.haUseHttps, s.haToken)
+                    .onSuccess { states ->
+                        val sorted = states.sortedBy { it.name }
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false, error = null,
+                                states = sorted,
+                                ioSyncStates = states,
+                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
+                            )
+                        }
+                        if (s.wfShowIoBrokerData) wearDataLayerService.syncStatesToWear(states)
+                        syncCustomSlotValues()
+                        syncPage2SlotValues()
+                    }
+                    .onFailure { e ->
+                        _uiState.update { it.copy(isLoading = false, error = "Home Assistant: ${e.message}") }
+                    }
+            } else if (s.useIoSyncAdapter && s.ioSyncHost.isNotBlank()) {
                 // Primär: IoSync Adapter
                 ioSyncClient.fetchDataPoints(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
                     .onSuccess { states ->
@@ -1250,6 +1297,19 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /** Schreibt einen Wert über Home Assistant (Service-Call mit Bearer-Token). */
+    fun setStateValueViaHomeAssistant(id: String, value: String) {
+        viewModelScope.launch {
+            val s = _uiState.value
+            if (s.haHost.isBlank()) {
+                _uiState.update { it.copy(error = "Home Assistant nicht konfiguriert") }
+                return@launch
+            }
+            homeAssistantClient.setState(s.haHost, s.haPort, s.haUseHttps, s.haToken, id, value)
+                .onFailure { _uiState.update { st -> st.copy(error = "Home Assistant setState: ${it.message}") } }
+        }
+    }
+
     fun updateConnectionSettings(host: String, port: Int) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
@@ -1304,6 +1364,54 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // ── Home Assistant ────────────────────────────────────────────────────────
+
+    /**
+     * Speichert die Home-Assistant-Verbindungseinstellungen (Host/Port/HTTPS/Token)
+     * und startet das Polling neu. Gegenstück zu [updateIoSyncSettings].
+     */
+    fun updateHomeAssistantSettings(host: String, port: Int, useHttps: Boolean, token: String) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_HA_HOST]      = host
+                prefs[KEY_HA_PORT]      = port
+                prefs[KEY_HA_USE_HTTPS] = useHttps
+                prefs[KEY_HA_TOKEN]     = token
+            }
+            _uiState.update { it.copy(haHost = host, haPort = port, haUseHttps = useHttps, haToken = token) }
+
+            haPollingJob?.cancel()
+            if (host.isNotBlank()) {
+                startHomeAssistantPolling(host, port, useHttps, token)
+                refresh()
+            }
+            try { pushConnectionConfigToWear() } catch (_: Exception) {}
+        }
+    }
+
+    /** Wählt Home Assistant als aktives Backend (hat Vorrang vor IoSync/Simple-API). */
+    fun updateBackendSelection(useHomeAssistant: Boolean) {
+        viewModelScope.launch {
+            dataStore.edit { prefs -> prefs[KEY_USE_HOME_ASSISTANT] = useHomeAssistant }
+            _uiState.update { it.copy(useHomeAssistant = useHomeAssistant) }
+
+            val s = _uiState.value
+            if (useHomeAssistant) {
+                ioSyncPollingJob?.cancel()
+                if (s.haHost.isNotBlank()) {
+                    startHomeAssistantPolling(s.haHost, s.haPort, s.haUseHttps, s.haToken)
+                }
+            } else {
+                haPollingJob?.cancel()
+                if (s.useIoSyncAdapter && s.ioSyncHost.isNotBlank()) {
+                    startIoSyncPolling(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword)
+                }
+            }
+            refresh()
+            try { pushConnectionConfigToWear() } catch (_: Exception) {}
+        }
+    }
+
     /**
      * Aktualisiert die in der App-UI angezeigte Datenpunkt-Liste, solange die App
      * geöffnet ist. Der Versand der Werte ans Watchface erfolgt unabhängig davon im
@@ -1331,6 +1439,35 @@ class MainViewModel @Inject constructor(
                         syncPage2SlotValues()
                     }
                     .onFailure { /* Fehler werden im IoSyncClient geloggt */ }
+                delay(_uiState.value.slotPollIntervalSec * 1_000L)
+            }
+        }
+    }
+
+    /**
+     * Aktualisiert die in der App-UI angezeigte Entity-Liste von Home Assistant,
+     * solange die App geöffnet ist (Gegenstück zu [startIoSyncPolling]).
+     */
+    private fun startHomeAssistantPolling(host: String, port: Int, useHttps: Boolean, token: String) {
+        haPollingJob?.cancel()
+        haPollingJob = viewModelScope.launch {
+            while (true) {
+                homeAssistantClient.fetchDataPoints(host, port, useHttps, token)
+                    .onSuccess { states ->
+                        val sorted = states.sortedBy { it.name }
+                        _uiState.update {
+                            it.copy(
+                                ioSyncStates = states,
+                                states = sorted,
+                                filteredStates = applyFilter(sorted, it.searchQuery, it.selectedRoom)
+                            )
+                        }
+                        val s = _uiState.value
+                        if (s.wfShowIoBrokerData) wearDataLayerService.syncStatesToWear(states)
+                        syncCustomSlotValues()
+                        syncPage2SlotValues()
+                    }
+                    .onFailure { /* Fehler werden im HomeAssistantClient geloggt */ }
                 delay(_uiState.value.slotPollIntervalSec * 1_000L)
             }
         }
@@ -1442,6 +1579,11 @@ class MainViewModel @Inject constructor(
             username   = prefs[KEY_IOSYNC_USERNAME] ?: "",
             password   = prefs[KEY_IOSYNC_PASSWORD] ?: "",
             usePush    = true,
+            useHomeAssistant = prefs[KEY_USE_HOME_ASSISTANT] ?: false,
+            haHost     = prefs[KEY_HA_HOST] ?: "",
+            haPort     = prefs[KEY_HA_PORT] ?: 8123,
+            haUseHttps = prefs[KEY_HA_USE_HTTPS] ?: false,
+            haToken    = prefs[KEY_HA_TOKEN] ?: "",
             slot1Id = prefs[KEY_CUSTOM_SLOT1_ID] ?: "",
             slot2Id = prefs[KEY_CUSTOM_SLOT2_ID] ?: "",
             slot3Id = prefs[KEY_CUSTOM_SLOT3_ID] ?: "",
@@ -2270,13 +2412,28 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /** Wählt automatisch Simple-API oder IoSync je nach aktueller Konfiguration. */
+    /** Wählt automatisch Home Assistant, IoSync oder Simple-API je nach aktueller Konfiguration. */
     fun setStateValueSmart(id: String, value: String) {
         val s = _uiState.value
-        if (s.useIoSyncAdapter && s.ioSyncHost.isNotBlank()) {
+        if (s.useHomeAssistant && s.haHost.isNotBlank()) {
+            setStateValueViaHomeAssistant(id, value)
+        } else if (s.useIoSyncAdapter && s.ioSyncHost.isNotBlank()) {
             setStateValueViaIoSync(id, value)
         } else {
             setStateValue(id, value)
+        }
+    }
+
+    /**
+     * Schreibt einen Wert über das aktuell aktive Backend (Home Assistant hat
+     * Vorrang vor IoSync). Gemeinsame Hilfsfunktion für die "...FromApp"-Pillen-Toggles.
+     */
+    private suspend fun activeBackendSetState(id: String, value: String): Result<Unit> {
+        val s = _uiState.value
+        return if (s.useHomeAssistant && s.haHost.isNotBlank()) {
+            homeAssistantClient.setState(s.haHost, s.haPort, s.haUseHttps, s.haToken, id, value)
+        } else {
+            ioSyncClient.setState(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword, id, value)
         }
     }
 
@@ -2290,8 +2447,8 @@ class MainViewModel @Inject constructor(
                 _uiState.update { it.copy(error = "Pille 1: Kein ioBroker-Datenpunkt konfiguriert") }
                 return@launch
             }
-            if (s.ioSyncHost.isBlank()) {
-                _uiState.update { it.copy(error = "Pille 1: IoSync Adapter nicht konfiguriert") }
+            if (!(s.useHomeAssistant && s.haHost.isNotBlank()) && s.ioSyncHost.isBlank()) {
+                _uiState.update { it.copy(error = "Pille 1: Backend nicht konfiguriert") }
                 return@launch
             }
             val currentState = s.p2Pill1State
@@ -2301,7 +2458,7 @@ class MainViewModel @Inject constructor(
                 "fixed" -> s.p2PillFixedValue
                 else    -> if (currentState) "false" else "true"
             }
-            ioSyncClient.setState(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword, ioBrokerId, valueToSend)
+            activeBackendSetState(ioBrokerId, valueToSend)
                 .onSuccess {
                     val newState = when (s.p2PillValueMode) {
                         "toggle" -> !currentState; "true" -> true; "false" -> false; else -> currentState
@@ -2331,8 +2488,8 @@ class MainViewModel @Inject constructor(
                 _uiState.update { it.copy(error = "Pille 2: Kein ioBroker-Datenpunkt konfiguriert") }
                 return@launch
             }
-            if (s.ioSyncHost.isBlank()) {
-                _uiState.update { it.copy(error = "Pille 2: IoSync Adapter nicht konfiguriert") }
+            if (!(s.useHomeAssistant && s.haHost.isNotBlank()) && s.ioSyncHost.isBlank()) {
+                _uiState.update { it.copy(error = "Pille 2: Backend nicht konfiguriert") }
                 return@launch
             }
             val currentState = s.p2Pill2State
@@ -2342,7 +2499,7 @@ class MainViewModel @Inject constructor(
                 "fixed" -> s.p2Pill2FixedValue
                 else    -> if (currentState) "false" else "true"
             }
-            ioSyncClient.setState(s.ioSyncHost, s.ioSyncPort, s.ioSyncUseHttps, s.ioSyncUsername, s.ioSyncPassword, ioBrokerId, valueToSend)
+            activeBackendSetState(ioBrokerId, valueToSend)
                 .onSuccess {
                     val newState = when (s.p2Pill2ValueMode) {
                         "toggle" -> !currentState; "true" -> true; "false" -> false; else -> currentState
@@ -3238,8 +3395,11 @@ class MainViewModel @Inject constructor(
                 applyConfigFromPrefs(dataStore.data.first())
                 val st = _uiState.value
                 dynamicBaseUrl.update(st.host, st.port)
-                if (st.useIoSyncAdapter && st.ioSyncHost.isNotBlank())
+                if (st.useHomeAssistant && st.haHost.isNotBlank()) {
+                    startHomeAssistantPolling(st.haHost, st.haPort, st.haUseHttps, st.haToken)
+                } else if (st.useIoSyncAdapter && st.ioSyncHost.isNotBlank()) {
                     startIoSyncPolling(st.ioSyncHost, st.ioSyncPort, st.ioSyncUseHttps, st.ioSyncUsername, st.ioSyncPassword)
+                }
                 try { pushFullConfigToWear() } catch (_: Exception) {}
                 IoSyncSyncService.start(context)
                 onResult(true, "Konfiguration wiederhergestellt")

@@ -35,6 +35,12 @@ private const val KEY_IO_USE_HTTPS       = "io_use_https"
 private const val KEY_IO_USERNAME        = "io_username"
 private const val KEY_IO_PASSWORD        = "io_password"
 private const val KEY_IO_USE_PUSH        = "io_use_push"
+// Home Assistant (alternatives Backend, Bearer-Token statt Username/Passwort)
+private const val KEY_USE_HOME_ASSISTANT = "use_home_assistant"
+private const val KEY_HA_HOST            = "ha_host"
+private const val KEY_HA_PORT            = "ha_port"
+private const val KEY_HA_USE_HTTPS       = "ha_use_https"
+private const val KEY_HA_TOKEN           = "ha_token"
 private const val KEY_CON_SLOT1_ID       = "con_slot1_id"
 private const val KEY_CON_SLOT2_ID       = "con_slot2_id"
 private const val KEY_CON_SLOT3_ID       = "con_slot3_id"
@@ -628,6 +634,11 @@ class WearDataLayerService @Inject constructor(
         username: String,
         password: String,
         usePush: Boolean,
+        useHomeAssistant: Boolean = false,
+        haHost: String = "",
+        haPort: Int = 8123,
+        haUseHttps: Boolean = false,
+        haToken: String = "",
         slot1Id: String, slot2Id: String, slot3Id: String, slot4Id: String,
         p2Slot1Id: String, p2Slot2Id: String, p2Slot3Id: String, p2Slot4Id: String,
         p2BarId: String,
@@ -684,6 +695,11 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString(KEY_IO_USERNAME, username)
                     dataMap.putString(KEY_IO_PASSWORD, password)
                     dataMap.putBoolean(KEY_IO_USE_PUSH, usePush)
+                    dataMap.putBoolean(KEY_USE_HOME_ASSISTANT, useHomeAssistant)
+                    dataMap.putString(KEY_HA_HOST, haHost)
+                    dataMap.putInt(KEY_HA_PORT, haPort)
+                    dataMap.putBoolean(KEY_HA_USE_HTTPS, haUseHttps)
+                    dataMap.putString(KEY_HA_TOKEN, haToken)
                     dataMap.putString(KEY_CON_SLOT1_ID, slot1Id)
                     dataMap.putString(KEY_CON_SLOT2_ID, slot2Id)
                     dataMap.putString(KEY_CON_SLOT3_ID, slot3Id)

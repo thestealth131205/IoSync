@@ -252,6 +252,12 @@ private const val KEY_IO_USE_HTTPS       = "io_use_https"
 private const val KEY_IO_USERNAME        = "io_username"
 private const val KEY_IO_PASSWORD        = "io_password"
 private const val KEY_IO_USE_PUSH        = "io_use_push"
+// Home Assistant (alternatives Backend, Bearer-Token statt Username/Passwort)
+private const val KEY_USE_HOME_ASSISTANT = "use_home_assistant"
+private const val KEY_HA_HOST            = "ha_host"
+private const val KEY_HA_PORT            = "ha_port"
+private const val KEY_HA_USE_HTTPS       = "ha_use_https"
+private const val KEY_HA_TOKEN           = "ha_token"
 // Datenpunkt-IDs der Slots (Werte werden auf der Uhr aufgelöst)
 private const val KEY_CON_SLOT1_ID       = "con_slot1_id"
 private const val KEY_CON_SLOT2_ID       = "con_slot2_id"
@@ -700,6 +706,12 @@ object WatchFaceConfigCache {
     @Volatile var ioUsername: String = ""
     @Volatile var ioPassword: String = ""
     @Volatile var ioUsePush: Boolean = false
+    // Home Assistant (hat Vorrang vor ioUseAdapter, wenn aktiv)
+    @Volatile var useHomeAssistant: Boolean = false
+    @Volatile var haHost: String = ""
+    @Volatile var haPort: Int = 8123
+    @Volatile var haUseHttps: Boolean = false
+    @Volatile var haToken: String = ""
     // Datenpunkt-IDs der Slots (Werte werden auf der Uhr aufgelöst)
     @Volatile var conSlot1Id: String = ""
     @Volatile var conSlot2Id: String = ""
@@ -746,6 +758,11 @@ object WatchFaceConfigCache {
         dataMap.getString(KEY_IO_USERNAME)?.let { ioUsername = it }
         dataMap.getString(KEY_IO_PASSWORD)?.let { ioPassword = it }
         if (dataMap.containsKey(KEY_IO_USE_PUSH)) ioUsePush = dataMap.getBoolean(KEY_IO_USE_PUSH)
+        if (dataMap.containsKey(KEY_USE_HOME_ASSISTANT)) useHomeAssistant = dataMap.getBoolean(KEY_USE_HOME_ASSISTANT)
+        dataMap.getString(KEY_HA_HOST)?.let { haHost = it }
+        if (dataMap.containsKey(KEY_HA_PORT)) haPort = dataMap.getInt(KEY_HA_PORT)
+        if (dataMap.containsKey(KEY_HA_USE_HTTPS)) haUseHttps = dataMap.getBoolean(KEY_HA_USE_HTTPS)
+        dataMap.getString(KEY_HA_TOKEN)?.let { haToken = it }
         dataMap.getString(KEY_CON_SLOT1_ID)?.let { conSlot1Id = it }
         dataMap.getString(KEY_CON_SLOT2_ID)?.let { conSlot2Id = it }
         dataMap.getString(KEY_CON_SLOT3_ID)?.let { conSlot3Id = it }
