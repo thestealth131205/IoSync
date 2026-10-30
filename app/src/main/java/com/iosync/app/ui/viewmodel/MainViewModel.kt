@@ -254,39 +254,7 @@ data class MainUiState(
     val healthConnectLoading: Boolean = false,
     // ── Boden-Komplikationen (2 Kreistaschen unten) ──────────────────────────
     val wfShowBottomComp: Boolean = true,
-    val wfBc1UseIoBroker: Boolean = false,
-    val wfBc1Id: String = "",
-    val wfBc1Label: String = "BPM",
-    val wfBc1Color: String = "red",
-    val wfBc1RingEnabled: Boolean = true,
-    val wfBc1RingColor1: String = "red",
-    val wfBc1RingColor2: String = "orange",
-    val wfBc1RingMin: Float = 0f,
-    val wfBc1RingMax: Float = 140f,
-    val wfBc1RingWidth: Int = 6,
-    val wfBc1RingThreshEnabled: Boolean = false,
-    val wfBc1RingThreshValue: Float = 0f,
-    val wfBc1RingThreshDir: String = "above",
-    val wfBc1RingThreshTarget: String = "color2",
-    val wfBc1RingThreshColor: String = "red",
-    val wfBc1TextScale: Int = 100,
-    val wfBc2Metric: String = "kcal",
-    val wfBc2UseIoBroker: Boolean = false,
-    val wfBc2Id: String = "",
-    val wfBc2Label: String = "KCAL",
-    val wfBc2Color: String = "orange",
-    val wfBc2RingEnabled: Boolean = true,
-    val wfBc2RingColor1: String = "orange",
-    val wfBc2RingColor2: String = "neon_yellow",
-    val wfBc2RingMin: Float = 0f,
-    val wfBc2RingMax: Float = 1000f,
-    val wfBc2RingWidth: Int = 6,
-    val wfBc2RingThreshEnabled: Boolean = false,
-    val wfBc2RingThreshValue: Float = 0f,
-    val wfBc2RingThreshDir: String = "above",
-    val wfBc2RingThreshTarget: String = "color2",
-    val wfBc2RingThreshColor: String = "red",
-    val wfBc2TextScale: Int = 100,
+    val bottomComp: BottomCompConfig = BottomCompConfig(),
     // Positions-Feinjustierung (dp-Offset, kann negativ sein)
     val wfWeatherOffsetX: Int = 0,
     val wfWeatherOffsetY: Int = 0,
@@ -342,6 +310,82 @@ data class MainUiState(
     val geofenceSearchResults: List<com.iosync.app.data.network.AddressSearchResult> = emptyList(),
     val geofenceSearching: Boolean = false,
     val geofenceSearchError: String? = null
+) {
+    // Weiterleitungen, damit Lesezugriffe (uiState.wfBc1…) unverändert bleiben
+    val wfBc1UseIoBroker get() = bottomComp.wfBc1UseIoBroker
+    val wfBc1Id get() = bottomComp.wfBc1Id
+    val wfBc1Label get() = bottomComp.wfBc1Label
+    val wfBc1Color get() = bottomComp.wfBc1Color
+    val wfBc1RingEnabled get() = bottomComp.wfBc1RingEnabled
+    val wfBc1RingColor1 get() = bottomComp.wfBc1RingColor1
+    val wfBc1RingColor2 get() = bottomComp.wfBc1RingColor2
+    val wfBc1RingMin get() = bottomComp.wfBc1RingMin
+    val wfBc1RingMax get() = bottomComp.wfBc1RingMax
+    val wfBc1RingWidth get() = bottomComp.wfBc1RingWidth
+    val wfBc1RingThreshEnabled get() = bottomComp.wfBc1RingThreshEnabled
+    val wfBc1RingThreshValue get() = bottomComp.wfBc1RingThreshValue
+    val wfBc1RingThreshDir get() = bottomComp.wfBc1RingThreshDir
+    val wfBc1RingThreshTarget get() = bottomComp.wfBc1RingThreshTarget
+    val wfBc1RingThreshColor get() = bottomComp.wfBc1RingThreshColor
+    val wfBc1TextScale get() = bottomComp.wfBc1TextScale
+    val wfBc2Metric get() = bottomComp.wfBc2Metric
+    val wfBc2UseIoBroker get() = bottomComp.wfBc2UseIoBroker
+    val wfBc2Id get() = bottomComp.wfBc2Id
+    val wfBc2Label get() = bottomComp.wfBc2Label
+    val wfBc2Color get() = bottomComp.wfBc2Color
+    val wfBc2RingEnabled get() = bottomComp.wfBc2RingEnabled
+    val wfBc2RingColor1 get() = bottomComp.wfBc2RingColor1
+    val wfBc2RingColor2 get() = bottomComp.wfBc2RingColor2
+    val wfBc2RingMin get() = bottomComp.wfBc2RingMin
+    val wfBc2RingMax get() = bottomComp.wfBc2RingMax
+    val wfBc2RingWidth get() = bottomComp.wfBc2RingWidth
+    val wfBc2RingThreshEnabled get() = bottomComp.wfBc2RingThreshEnabled
+    val wfBc2RingThreshValue get() = bottomComp.wfBc2RingThreshValue
+    val wfBc2RingThreshDir get() = bottomComp.wfBc2RingThreshDir
+    val wfBc2RingThreshTarget get() = bottomComp.wfBc2RingThreshTarget
+    val wfBc2RingThreshColor get() = bottomComp.wfBc2RingThreshColor
+    val wfBc2TextScale get() = bottomComp.wfBc2TextScale
+}
+
+/**
+ * Boden-Komplikationen, ausgelagert aus [MainUiState].
+ * Grund: Konstruktor/copy$default von MainUiState überschritten sonst das
+ * Dex-Limit von 255 Argument-Registern → VerifyError beim App-Start.
+ */
+data class BottomCompConfig(
+    val wfBc1UseIoBroker: Boolean = false,
+    val wfBc1Id: String = "",
+    val wfBc1Label: String = "BPM",
+    val wfBc1Color: String = "red",
+    val wfBc1RingEnabled: Boolean = true,
+    val wfBc1RingColor1: String = "red",
+    val wfBc1RingColor2: String = "orange",
+    val wfBc1RingMin: Float = 0f,
+    val wfBc1RingMax: Float = 140f,
+    val wfBc1RingWidth: Int = 6,
+    val wfBc1RingThreshEnabled: Boolean = false,
+    val wfBc1RingThreshValue: Float = 0f,
+    val wfBc1RingThreshDir: String = "above",
+    val wfBc1RingThreshTarget: String = "color2",
+    val wfBc1RingThreshColor: String = "red",
+    val wfBc1TextScale: Int = 100,
+    val wfBc2Metric: String = "kcal",
+    val wfBc2UseIoBroker: Boolean = false,
+    val wfBc2Id: String = "",
+    val wfBc2Label: String = "KCAL",
+    val wfBc2Color: String = "orange",
+    val wfBc2RingEnabled: Boolean = true,
+    val wfBc2RingColor1: String = "orange",
+    val wfBc2RingColor2: String = "neon_yellow",
+    val wfBc2RingMin: Float = 0f,
+    val wfBc2RingMax: Float = 1000f,
+    val wfBc2RingWidth: Int = 6,
+    val wfBc2RingThreshEnabled: Boolean = false,
+    val wfBc2RingThreshValue: Float = 0f,
+    val wfBc2RingThreshDir: String = "above",
+    val wfBc2RingThreshTarget: String = "color2",
+    val wfBc2RingThreshColor: String = "red",
+    val wfBc2TextScale: Int = 100,
 )
 
 @HiltViewModel
@@ -1050,6 +1094,7 @@ class MainViewModel @Inject constructor(
                     p2ColorTempCold    = p2ColorTempCold,
                     p2ShowBackground = p2ShowBackground,
                     wfShowBottomComp  = wfShowBottomComp,
+                    bottomComp = it.bottomComp.copy(
                     wfBc1UseIoBroker  = wfBc1UseIoBroker,
                     wfBc1Id           = wfBc1Id,
                     wfBc1Label        = wfBc1Label,
@@ -1083,6 +1128,7 @@ class MainViewModel @Inject constructor(
                     wfBc2RingThreshTarget  = wfBc2RingThreshTarget,
                     wfBc2RingThreshColor   = wfBc2RingThreshColor,
                     wfBc2TextScale    = wfBc2TextScale,
+                    ),
                     wfWeatherOffsetX    = wfWeatherOffsetX,
                     wfWeatherOffsetY    = wfWeatherOffsetY,
                     wfBottomCompOffsetX = wfBottomCompOffsetX,
@@ -2030,6 +2076,7 @@ class MainViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     wfShowBottomComp  = showBottomComp,
+                    bottomComp = it.bottomComp.copy(
                     wfBc1UseIoBroker  = bc1UseIoBroker, wfBc1Id = bc1Id,
                     wfBc1Label = bc1Label, wfBc1Color = bc1Color,
                     wfBc1RingEnabled = bc1RingEnabled,
@@ -2054,7 +2101,8 @@ class MainViewModel @Inject constructor(
                     wfBc2RingThreshDir = bc2RingThreshDir,
                     wfBc2RingThreshTarget = bc2RingThreshTarget,
                     wfBc2RingThreshColor = bc2RingThreshColor,
-                    wfBc2TextScale = bc2TextScale
+                    wfBc2TextScale = bc2TextScale,
+                    ),
                 )
             }
             try {
