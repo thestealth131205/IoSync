@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.location.Location
 import androidx.core.app.NotificationCompat
 import com.iosync.app.MainActivity
 import com.iosync.app.R
@@ -31,6 +32,16 @@ object GeofenceNotifications {
     const val NOTIFICATION_ID_PERSISTENT = 1010
     const val NOTIFICATION_ID_UPDATED = 1011
     const val NOTIFICATION_ID_REGION = 1012
+
+    /** Benachrichtigungs-Schalter in den Einstellungen (Backup & Wiederherstellen-Bereich). */
+    const val KEY_NOTIFY_LOCATION_UPDATED = "notify_location_updated"
+    const val KEY_NOTIFY_REGION_STATUS = "notify_region_status"
+
+    private const val KEY_LAST_NOTIFIED_LAT = "last_notified_lat"
+    private const val KEY_LAST_NOTIFIED_LON = "last_notified_lon"
+
+    /** "Standort aktualisiert" feuert erst wieder ab dieser Abweichung von der zuletzt gemeldeten Position. */
+    private const val MIN_UPDATE_DISTANCE_METERS = 300f
 
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.GERMANY)
 
@@ -88,8 +99,32 @@ object GeofenceNotifications {
             .build()
     }
 
-    /** Notification: der GPS-Standort wurde gerade neu abgeglichen. */
-    fun notifyLocationUpdated(context: Context, address: String) {
+    /**
+     * Notification: der GPS-Standort wurde gerade neu abgeglichen.
+     *
+     * Feuert nur, wenn der Benachrichtigungs-Schalter aktiv ist UND (sofern [lat]/[lon]
+     * bekannt sind) sich die Position seit der letzten Meldung um mindestens
+     * [MIN_UPDATE_DISTANCE_METERS] verändert hat – sonst würde bei jedem Intervall-Check
+     * (z.B. alle 60s) eine neue Benachrichtigung erscheinen, auch im Stillstand.
+     */
+    fun notifyLocationUpdated(context: Context, address: String, lat: Double? = null, lon: Double? = null) {
+        val prefs = context.getSharedPreferences(GEOFENCE_PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_NOTIFY_LOCATION_UPDATED, true)) return
+
+        if (lat != null && lon != null) {
+            val lastLat = prefs.getFloat(KEY_LAST_NOTIFIED_LAT, Float.NaN)
+            val lastLon = prefs.getFloat(KEY_LAST_NOTIFIED_LON, Float.NaN)
+            if (!lastLat.isNaN() && !lastLon.isNaN()) {
+                val results = FloatArray(1)
+                Location.distanceBetween(lastLat.toDouble(), lastLon.toDouble(), lat, lon, results)
+                if (results[0] < MIN_UPDATE_DISTANCE_METERS) return
+            }
+            prefs.edit()
+                .putFloat(KEY_LAST_NOTIFIED_LAT, lat.toFloat())
+                .putFloat(KEY_LAST_NOTIFIED_LON, lon.toFloat())
+                .apply()
+        }
+
         ensureChannels(context)
         val now = timeFormat.format(Date())
         val text = if (address.isNotBlank())
@@ -109,6 +144,8 @@ object GeofenceNotifications {
 
     /** Notification: man befindet sich innerhalb bzw. außerhalb des Bereichs. */
     fun notifyRegionStatus(context: Context, inside: Boolean, address: String) {
+        val prefs = context.getSharedPreferences(GEOFENCE_PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_NOTIFY_REGION_STATUS, true)) return
         ensureChannels(context)
         val title = if (inside) "Bereich betreten" else "Bereich verlassen"
         val base = if (inside)

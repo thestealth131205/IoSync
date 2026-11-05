@@ -71,6 +71,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.iosync.app.data.crash.CrashLogManager
+import com.iosync.app.data.geofence.GEOFENCE_PREFS_NAME
+import com.iosync.app.data.geofence.GeofenceNotifications
 import com.iosync.app.data.model.SmartHomeState
 import com.iosync.app.data.network.GeocodingResult
 import com.iosync.app.ui.theme.NeonYellow
@@ -2970,6 +2972,79 @@ fun SettingsScreen(
             backupStatus?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = NeonYellow)
+            }
+
+            // ── Benachrichtigungen ────────────────────────────────────────────
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFF333333))
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Benachrichtigungen",
+                style = MaterialTheme.typography.titleSmall,
+                color = NeonYellow,
+                fontWeight = FontWeight.Bold
+            )
+
+            val notifPrefs = remember(ctx) { ctx.getSharedPreferences(GEOFENCE_PREFS_NAME, android.content.Context.MODE_PRIVATE) }
+            var notifyLocationUpdated by remember {
+                mutableStateOf(notifPrefs.getBoolean(GeofenceNotifications.KEY_NOTIFY_LOCATION_UPDATED, true))
+            }
+            var notifyRegionStatus by remember {
+                mutableStateOf(notifPrefs.getBoolean(GeofenceNotifications.KEY_NOTIFY_REGION_STATUS, true))
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Standort aktualisiert", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Meldet neu abgeglichene GPS-Position, erst wieder ab 300m Abweichung",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = notifyLocationUpdated,
+                    onCheckedChange = {
+                        notifyLocationUpdated = it
+                        notifPrefs.edit().putBoolean(GeofenceNotifications.KEY_NOTIFY_LOCATION_UPDATED, it).apply()
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF1A1A00),
+                        checkedTrackColor = NeonYellow
+                    )
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Bereich betreten/verlassen", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Meldet, wenn du einen gewählten Standort (Umkreis) betrittst oder verlässt",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = notifyRegionStatus,
+                    onCheckedChange = {
+                        notifyRegionStatus = it
+                        notifPrefs.edit().putBoolean(GeofenceNotifications.KEY_NOTIFY_REGION_STATUS, it).apply()
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF1A1A00),
+                        checkedTrackColor = NeonYellow
+                    )
+                )
             }
 
             // ── Geofence-Vibration ────────────────────────────────────────────

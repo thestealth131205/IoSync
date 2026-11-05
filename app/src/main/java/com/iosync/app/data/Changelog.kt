@@ -8,6 +8,16 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.2.5",
+        date = "06.11.2026",
+        changes = listOf(
+            "\"Standort aktualisiert\"-Benachrichtigung erscheint erst wieder ab 300m Abweichung zur letzten Meldung, statt bei jedem Intervall-Check",
+            "Neue Einstellung unter Backup & Wiederherstellen: \"Standort aktualisiert\" und \"Bereich betreten/verlassen\" einzeln ein-/ausschaltbar",
+            "Fix: Absturz durch Zeitlimit des Hintergrund-Sync-Dienstes (ForegroundServiceDidNotStopInTimeException nach 6h Laufzeit)",
+            "Fix: Absturz der Standort-Überwachung, wenn die Standort-Berechtigung nachträglich entzogen wurde"
+        )
+    ),
+    ChangelogEntry(
         version = "5.2.4",
         date = "30.10.2026",
         changes = listOf(

@@ -111,11 +111,15 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- Zentraler Hintergrund-Sync (Wetter, Akku, ioBroker-Slots, Health) ans Watchface -->
+        <!-- Zentraler Hintergrund-Sync (Akku) ans Watchface. Nur "connectedDevice", NICHT
+             "dataSync": Letzteres hat seit Android 15 ein 6h/24h-Zeitlimit, nach dessen
+             Ablauf der Service ohne eigenes Zutun gekillt wird (ForegroundServiceDidNotStopInTimeException),
+             wenn er nicht rechtzeitig stoppt. connectedDevice (Sync zur gekoppelten Uhr) hat
+             dieses Limit nicht und passt inhaltlich ohnehin besser. -->
         <service
             android:name=".data.sync.IoSyncSyncService"
             android:exported="false"
-            android:foregroundServiceType="dataSync|connectedDevice" />
+            android:foregroundServiceType="connectedDevice" />
 
         <!-- Health Connect: Berechtigungs-Rationale → leitet auf MainActivity -->
         <activity-alias

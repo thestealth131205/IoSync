@@ -235,12 +235,20 @@ class IoSyncSyncService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+    }
+
+    // Sicherheitsnetz: Falls Android diesem Service künftig doch ein Zeitlimit setzt
+    // (aktuell nur bei "dataSync"/"mediaProcessing" der Fall), sofort selbst stoppen statt
+    // nach ~Timeout mit ForegroundServiceDidNotStopInTimeException gekillt zu werden.
+    // Der batteryLoop startet beim nächsten Trigger (z.B. ACTION_SYNC_NOW) automatisch neu.
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        Log.w(TAG, "onTimeout für FGS-Typ $fgsType – Service wird gestoppt")
+        stopEverything()
     }
 
     private fun buildNotification(): Notification {

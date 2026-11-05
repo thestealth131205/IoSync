@@ -49,6 +49,33 @@ class GeofenceService : Service() {
             return START_NOT_STICKY
         }
 
+        // Ohne Standort-Berechtigung schlägt startForeground() mit Location-Typ auf
+        // Android 14+ mit einer SecurityException fehl (z.B. wenn die Berechtigung durch
+        // Android's Auto-Revoke nach Nichtnutzung entzogen wurde, der Geofence in den
+        // Prefs aber noch aktiv ist). Ohne diese Prüfung stürzt der Prozess bei jedem
+        // Alarm erneut ab ("Unable to start service").
+        if (!hasLocationPermission()) {
+            Log.w(TAG, "Standort-Berechtigung fehlt – Service wird beendet, Alarm abgebrochen")
+            cancelAlarm()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        return try {
+            handleStartCommand(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "onStartCommand fehlgeschlagen, Service wird beendet: ${e.message}", e)
+            cancelAlarm()
+            stopSelf()
+            START_NOT_STICKY
+        }
+    }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    private fun handleStartCommand(intent: Intent?): Int {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         if (intent?.action == ACTION_CHECK_LOCATION) {
@@ -193,7 +220,9 @@ class GeofenceService : Service() {
     }
 
     private fun handleLocation(location: Location) {
-        GeofenceNotifications.notifyLocationUpdated(this, summaryOf(targetLocations))
+        GeofenceNotifications.notifyLocationUpdated(
+            this, summaryOf(targetLocations), location.latitude, location.longitude
+        )
         Log.d(TAG, "Standort-Check über ${targetLocations.size} Standort(e)")
         GeofenceVibration.evaluateAll(this, targetLocations, location.latitude, location.longitude)
     }

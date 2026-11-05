@@ -117,9 +117,9 @@ class GeofenceTransitionReceiver : BroadcastReceiver() {
         if (locations.isEmpty()) return
 
         // Notification: der GPS-Standort wurde gerade neu abgeglichen.
-        GeofenceNotifications.notifyLocationUpdated(context, "")
-
         val triggerLoc = geofencingEvent.triggeringLocation
+        GeofenceNotifications.notifyLocationUpdated(context, "", triggerLoc?.latitude, triggerLoc?.longitude)
+
         if (triggerLoc != null) {
             // Vollständige Neubewertung aller Standorte gegen die Trigger-Position.
             GeofenceVibration.evaluateAll(context, locations, triggerLoc.latitude, triggerLoc.longitude)
