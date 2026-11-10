@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.2.6",
+        date = "10.11.2026",
+        changes = listOf(
+            "Neuer Heizungsplaner-Screen auf der Uhr: Soll-/Ist-Temperatur, +/- Buttons sowie Aus/Auto/Manuell – aufrufbar per Langdruck auf die transparente 9-Uhr-Zone",
+            "Einstellungen: neue Sektion \"Heizungsplaner (9-Uhr-Taste)\" zur Konfiguration der Datenpunkte für Soll-/Ist-Temperatur und Modus",
+            "Fix: Modus-Wechsel bei Home-Assistant-Climate-Entities ruft jetzt korrekt climate.set_hvac_mode statt turn_on/turn_off auf"
+        )
+    ),
+    ChangelogEntry(
         version = "5.2.5",
         date = "06.11.2026",
         changes = listOf(

@@ -303,6 +303,15 @@ data class MainUiState(
     val klipperHeatLabel: String = "Heater",
     // ── Seite 3 – Schriftgröße ────────────────────────────────────────────────
     val p3FontScale: Int = 100,
+    // ── Heizungsplaner (9-Uhr-Overlay auf der Uhr) ───────────────────────────
+    val heatingEnabled: Boolean = false,
+    val heatingLabel: String = "",
+    val heatingTargetId: String = "",
+    val heatingCurrentId: String = "",
+    val heatingModeId: String = "",
+    val heatingStep: Float = 0.5f,
+    val heatingMin: Float = 5f,
+    val heatingMax: Float = 30f,
     // ── Geofence-Vibration ────────────────────────────────────────────────────
     val geofenceEnabled: Boolean = false,
     // Mehrere Standorte – jeder mit eigenem Umkreis. Das Prüf-Intervall gilt global.
@@ -668,6 +677,15 @@ class MainViewModel @Inject constructor(
         val KEY_KLIPPER_HEAT_GCODE_ON    = stringPreferencesKey("klipper_heat_gcode_on")
         val KEY_KLIPPER_HEAT_GCODE_OFF   = stringPreferencesKey("klipper_heat_gcode_off")
         val KEY_KLIPPER_HEAT_LABEL       = stringPreferencesKey("klipper_heat_label")
+        // Heizungsplaner (9-Uhr-Overlay)
+        val KEY_HEATING_ENABLED    = booleanPreferencesKey("heating_enabled")
+        val KEY_HEATING_LABEL      = stringPreferencesKey("heating_label")
+        val KEY_HEATING_TARGET_ID  = stringPreferencesKey("heating_target_id")
+        val KEY_HEATING_CURRENT_ID = stringPreferencesKey("heating_current_id")
+        val KEY_HEATING_MODE_ID    = stringPreferencesKey("heating_mode_id")
+        val KEY_HEATING_STEP       = stringPreferencesKey("heating_step")
+        val KEY_HEATING_MIN        = stringPreferencesKey("heating_min")
+        val KEY_HEATING_MAX        = stringPreferencesKey("heating_max")
         // Geofence-Vibration
         val KEY_GEOFENCE_ENABLED         = booleanPreferencesKey("geofence_enabled")
         // Mehrere Standorte als JSON-Liste (siehe GeofenceLocation).
@@ -926,6 +944,15 @@ class MainViewModel @Inject constructor(
             val klipperHeatGcodeOff = prefs[KEY_KLIPPER_HEAT_GCODE_OFF] ?: ""
             val klipperHeatLabel    = prefs[KEY_KLIPPER_HEAT_LABEL]     ?: "Heater"
             val p3FontScale         = prefs[KEY_P3_FONT_SCALE]          ?: 100
+            // Heizungsplaner (9-Uhr-Overlay)
+            val heatingEnabled   = prefs[KEY_HEATING_ENABLED]   ?: false
+            val heatingLabel     = prefs[KEY_HEATING_LABEL]     ?: ""
+            val heatingTargetId  = prefs[KEY_HEATING_TARGET_ID] ?: ""
+            val heatingCurrentId = prefs[KEY_HEATING_CURRENT_ID] ?: ""
+            val heatingModeId    = prefs[KEY_HEATING_MODE_ID]   ?: ""
+            val heatingStep      = prefs[KEY_HEATING_STEP]?.toFloatOrNull() ?: 0.5f
+            val heatingMin       = prefs[KEY_HEATING_MIN]?.toFloatOrNull()  ?: 5f
+            val heatingMax       = prefs[KEY_HEATING_MAX]?.toFloatOrNull()  ?: 30f
             // Geofence-Vibration
             val geofenceEnabled = prefs[KEY_GEOFENCE_ENABLED] ?: false
             val geofenceRadius  = prefs[KEY_GEOFENCE_RADIUS] ?: 300
@@ -1183,6 +1210,14 @@ class MainViewModel @Inject constructor(
                     klipperChamberHeatGcodeOff = klipperHeatGcodeOff,
                     klipperHeatLabel      = klipperHeatLabel,
                     p3FontScale           = p3FontScale,
+                    heatingEnabled        = heatingEnabled,
+                    heatingLabel          = heatingLabel,
+                    heatingTargetId       = heatingTargetId,
+                    heatingCurrentId      = heatingCurrentId,
+                    heatingModeId         = heatingModeId,
+                    heatingStep           = heatingStep,
+                    heatingMin            = heatingMin,
+                    heatingMax            = heatingMax,
                     geofenceEnabled       = geofenceEnabled,
                     geofenceLocations     = geofenceLocations,
                     geofenceRadius        = geofenceRadius,
@@ -1716,7 +1751,15 @@ class MainViewModel @Inject constructor(
             klipperHeatGcodeOff    = prefs[KEY_KLIPPER_HEAT_GCODE_OFF]   ?: "",
             klipperLedLabel  = prefs[KEY_KLIPPER_LED_LABEL]  ?: "Led",
             klipperHeatLabel = prefs[KEY_KLIPPER_HEAT_LABEL] ?: "Heater",
-            p3FontScale      = prefs[KEY_P3_FONT_SCALE]      ?: 100
+            p3FontScale      = prefs[KEY_P3_FONT_SCALE]      ?: 100,
+            heatingEnabled   = prefs[KEY_HEATING_ENABLED]    ?: false,
+            heatingLabel     = prefs[KEY_HEATING_LABEL]      ?: "",
+            heatingTargetId  = prefs[KEY_HEATING_TARGET_ID]  ?: "",
+            heatingCurrentId = prefs[KEY_HEATING_CURRENT_ID] ?: "",
+            heatingModeId    = prefs[KEY_HEATING_MODE_ID]    ?: "",
+            heatingStep      = prefs[KEY_HEATING_STEP]?.toFloatOrNull() ?: 0.5f,
+            heatingMin       = prefs[KEY_HEATING_MIN]?.toFloatOrNull()  ?: 5f,
+            heatingMax       = prefs[KEY_HEATING_MAX]?.toFloatOrNull()  ?: 30f
         )
     }
 
@@ -2324,6 +2367,52 @@ class MainViewModel @Inject constructor(
             try {
                 pushConnectionConfigToWear()
                 _uiState.update { it.copy(wearSyncLog = "Klipper-Konfig übertragen") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Speichert die Heizungsplaner-Konfiguration (9-Uhr-Overlay auf der Uhr –
+     * spiegelt die Home-Assistant-SmartHeatingPlaner-Kachel) und überträgt sie.
+     */
+    fun setHeatingConfig(
+        heatingEnabled: Boolean,
+        heatingLabel: String,
+        heatingTargetId: String,
+        heatingCurrentId: String,
+        heatingModeId: String,
+        heatingStep: Float = 0.5f,
+        heatingMin: Float = 5f,
+        heatingMax: Float = 30f
+    ) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[KEY_HEATING_ENABLED]    = heatingEnabled
+                prefs[KEY_HEATING_LABEL]      = heatingLabel
+                prefs[KEY_HEATING_TARGET_ID]  = heatingTargetId
+                prefs[KEY_HEATING_CURRENT_ID] = heatingCurrentId
+                prefs[KEY_HEATING_MODE_ID]    = heatingModeId
+                prefs[KEY_HEATING_STEP]       = heatingStep.toString()
+                prefs[KEY_HEATING_MIN]        = heatingMin.toString()
+                prefs[KEY_HEATING_MAX]        = heatingMax.toString()
+            }
+            _uiState.update {
+                it.copy(
+                    heatingEnabled   = heatingEnabled,
+                    heatingLabel     = heatingLabel,
+                    heatingTargetId  = heatingTargetId,
+                    heatingCurrentId = heatingCurrentId,
+                    heatingModeId    = heatingModeId,
+                    heatingStep      = heatingStep,
+                    heatingMin       = heatingMin,
+                    heatingMax       = heatingMax
+                )
+            }
+            try {
+                pushConnectionConfigToWear()
+                _uiState.update { it.copy(wearSyncLog = "Heizungsplaner-Konfig übertragen") }
             } catch (e: Exception) {
                 _uiState.update { it.copy(wearSyncLog = "Fehler: ${e.message}") }
             }

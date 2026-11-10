@@ -288,6 +288,19 @@ object WatchDataSyncManager {
         if (c.bc2UseIoBroker && c.conBc2Id.isNotBlank()) {
             c.bc2IoValue = formatSlotValue(valueOf(c.conBc2Id))
         }
+
+        // Heizungsplaner (9-Uhr-Overlay): Soll-/Ist-Temperatur + Modus
+        if (c.heatingEnabled) {
+            if (c.heatingTargetId.isNotBlank()) {
+                valueOf(c.heatingTargetId)?.toFloatOrNull()?.let { c.heatingTargetValue = it }
+            }
+            if (c.heatingCurrentId.isNotBlank()) {
+                valueOf(c.heatingCurrentId)?.toFloatOrNull()?.let { c.heatingCurrentValue = it }
+            }
+            if (c.heatingModeId.isNotBlank()) {
+                valueOf(c.heatingModeId)?.let { c.heatingMode = it }
+            }
+        }
     }
 
     private fun formatSlotValue(value: String?): String {
@@ -515,6 +528,43 @@ object WatchDataSyncManager {
         scope?.launch {
             backendSetState(c, c.conP2ColorTempId, kelvin)
                 .onFailure { Log.e(TAG, "setColorTempValue($kelvin) fehlgeschlagen: ${it.message}") }
+        }
+    }
+
+    /**
+     * Soll-Temperatur des Heizungsplaners (9-Uhr-Overlay) um [delta] °C ändern
+     * (+/- Buttons). Schreibt optimistisch lokal, dann an den konfigurierten
+     * Datenpunkt/Entity (iosync- oder HA-Backend, wie bei jedem anderen Slot).
+     */
+    fun adjustHeatingTarget(delta: Float) {
+        val c = WatchFaceConfigCache
+        if (!backendConfigured(c) || c.heatingTargetId.isBlank()) return
+        val base = if (c.heatingTargetValue.isNaN()) (c.heatingMin + c.heatingMax) / 2f else c.heatingTargetValue
+        val newValue = (base + delta).coerceIn(c.heatingMin, c.heatingMax)
+        c.heatingTargetValue = newValue
+        invalidate?.invoke()
+        val formatted = if (newValue % 1f == 0f) newValue.toInt().toString()
+            else String.format(Locale.US, "%.1f", newValue)
+        scope?.launch {
+            backendSetState(c, c.heatingTargetId, formatted)
+                .onFailure { Log.e(TAG, "adjustHeatingTarget($formatted) fehlgeschlagen: ${it.message}") }
+        }
+    }
+
+    /** Betriebsmodus des Heizungsplaners setzen ("off" | "auto" | "heat"). */
+    fun setHeatingMode(mode: String) {
+        val c = WatchFaceConfigCache
+        if (!backendConfigured(c) || c.heatingModeId.isBlank()) return
+        val previous = c.heatingMode
+        c.heatingMode = mode
+        invalidate?.invoke()
+        scope?.launch {
+            backendSetState(c, c.heatingModeId, mode)
+                .onFailure {
+                    Log.e(TAG, "setHeatingMode($mode) fehlgeschlagen: ${it.message}")
+                    c.heatingMode = previous
+                    invalidate?.invoke()
+                }
         }
     }
 

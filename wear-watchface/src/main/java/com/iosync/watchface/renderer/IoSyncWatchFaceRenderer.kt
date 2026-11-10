@@ -59,6 +59,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import com.google.android.gms.wearable.PutDataMapRequest
+import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.hypot
 
@@ -392,6 +393,10 @@ class IoSyncWatchFaceRenderer(
     private var currentPage = 0          // 0 = Hauptseite, 1 = Seite 2, 2 = Seite 3
     private var nineOClockTapBounds = RectF()
     private var twelveOClockTapBounds = RectF()
+    // Langdruck auf die 9-Uhr-Zone (von jeder Seite aus) öffnet das
+    // Heizungsplaner-Overlay; kurzer Tap/Doppeltap bleibt die bestehende
+    // Seitenumschaltung (siehe onTapEvent).
+    private var nineOClockDownAt = 0L
     private var page2LastTapTime = 0L
     private var page3LastTapTime = 0L
     private var page2Pill1LastTapTime = 0L
@@ -421,6 +426,14 @@ class IoSyncWatchFaceRenderer(
     private var p2ColorTempWarmBounds    = RectF()
     private var p2ColorTempNeutralBounds = RectF()
     private var p2ColorTempColdBounds    = RectF()
+
+    // ── Heizungsplaner-Overlay (Langdruck 9-Uhr, über jeder Seite) ───────────
+    private var heatingOverlayVisible = false
+    private var heatingMinusBounds = RectF()
+    private var heatingPlusBounds = RectF()
+    private var heatingModeOffBounds = RectF()
+    private var heatingModeAutoBounds = RectF()
+    private var heatingModeManualBounds = RectF()
 
     // ── Seite 3 Pille (6 Uhr, Klipper) ───────────────────────────────────────
     private var p3PillBounds = RectF()
@@ -488,6 +501,9 @@ class IoSyncWatchFaceRenderer(
     }
     companion object {
         private const val DOUBLE_TAP_MS   = 400L
+        // Langdruck auf die 9-Uhr-Zone, der statt der Doppeltap-Seitenumschaltung
+        // das Heizungsplaner-Overlay öffnet.
+        private const val NINE_OCLOCK_LONG_PRESS_MS = 550L
         // NTP-Zeitkorrektur
         // Die Quarz-Drift einer Smartwatch verschiebt sich in wenigen Stunden nur um
         // wenige Millisekunden – eine seltene Hintergrund-Abfrage (6 h) genügt also
@@ -906,6 +922,13 @@ class IoSyncWatchFaceRenderer(
         nineOClockTapBounds.set(0f, cy - radius * 0.28f, cx * 0.50f, cy + radius * 0.28f)
         // 12-Uhr-Tipp-Zone (obere Mitte, für Navigation Page 2↔3 und Page 3→1)
         twelveOClockTapBounds.set(cx - radius * 0.28f, 0f, cx + radius * 0.28f, cy * 0.50f)
+
+        // Heizungsplaner-Overlay (Langdruck 9-Uhr) hat Vorrang vor allen Seiten –
+        // über jeder Seite aufrufbar, legt sich wie das Farbwahlrad über alles.
+        if (!isAmbient && heatingOverlayVisible) {
+            drawHeatingOverlay(canvas, cx, cy, radius)
+            return
+        }
 
         // Seite 2 im aktiven Modus rendern (überspringt gesamte Seite-1-Logik)
         if (!isAmbient && currentPage == 1) {
@@ -2477,6 +2500,22 @@ class IoSyncWatchFaceRenderer(
         val y = tapEvent.yPos.toFloat()
         val config = WatchFaceConfigCache
 
+        // ── Heizungsplaner-Overlay hat Priorität, solange es sichtbar ist ──────
+        if (heatingOverlayVisible) {
+            if (tapType == TapType.UP) {
+                when {
+                    heatingMinusBounds.contains(x, y) -> WatchDataSyncManager.adjustHeatingTarget(-config.heatingStep)
+                    heatingPlusBounds.contains(x, y)   -> WatchDataSyncManager.adjustHeatingTarget(config.heatingStep)
+                    heatingModeOffBounds.contains(x, y)    -> WatchDataSyncManager.setHeatingMode("off")
+                    heatingModeAutoBounds.contains(x, y)   -> WatchDataSyncManager.setHeatingMode("auto")
+                    heatingModeManualBounds.contains(x, y) -> WatchDataSyncManager.setHeatingMode("heat")
+                    else -> heatingOverlayVisible = false  // Tap außerhalb aller Buttons = schließen
+                }
+                invalidate()
+            }
+            return
+        }
+
         // ── RGB-Farbwahlrad-Overlay hat Priorität, solange es sichtbar ist ──
         if (p2ColorWheelVisible) {
             if (tapType == TapType.DOWN) {
@@ -2529,21 +2568,34 @@ class IoSyncWatchFaceRenderer(
             return
         }
 
-        // ── 9-Uhr Doppeltipp: zwischen Seite 1 und 2 wechseln (nicht auf Seite 3) ──
-        if (nineOClockTapBounds.contains(x, y) && currentPage != 2) {
-            if (tapType == TapType.UP) {
-                val now = System.currentTimeMillis()
-                if (now - page2LastTapTime <= DOUBLE_TAP_MS) {
-                    currentPage = 1 - currentPage
+        // ── 9-Uhr: Doppeltipp wechselt Seite 1↔2 (nicht auf Seite 3); ein
+        // Langdruck öffnet von JEDER Seite aus das Heizungsplaner-Overlay ──────
+        if (nineOClockTapBounds.contains(x, y)) {
+            if (tapType == TapType.DOWN) {
+                nineOClockDownAt = System.currentTimeMillis()
+            } else if (tapType == TapType.UP) {
+                val heldMs = System.currentTimeMillis() - nineOClockDownAt
+                if (heldMs >= NINE_OCLOCK_LONG_PRESS_MS && config.heatingEnabled) {
                     page2LastTapTime = 0L
-                    WatchDataSyncManager.setActivePage(currentPage)
-                    // Beim Wechsel auf Seite 2 die aktuellsten Data-Layer-Werte
-                    // nachladen, damit die 4 Werte sofort frisch sind – auch wenn
-                    // zwischenzeitliche onDataChanged-Updates verpasst wurden.
-                    if (currentPage == 1) loadInitialConfig()
+                    heatingOverlayVisible = true
+                    WatchDataSyncManager.syncNow()
                     invalidate()
-                } else {
-                    page2LastTapTime = now
+                    return
+                }
+                if (currentPage != 2) {
+                    val now = System.currentTimeMillis()
+                    if (now - page2LastTapTime <= DOUBLE_TAP_MS) {
+                        currentPage = 1 - currentPage
+                        page2LastTapTime = 0L
+                        WatchDataSyncManager.setActivePage(currentPage)
+                        // Beim Wechsel auf Seite 2 die aktuellsten Data-Layer-Werte
+                        // nachladen, damit die 4 Werte sofort frisch sind – auch wenn
+                        // zwischenzeitliche onDataChanged-Updates verpasst wurden.
+                        if (currentPage == 1) loadInitialConfig()
+                        invalidate()
+                    } else {
+                        page2LastTapTime = now
+                    }
                 }
             }
             return
@@ -3315,6 +3367,115 @@ class IoSyncWatchFaceRenderer(
         canvas.drawText(kelvin, bx, by - (fm.ascent + fm.descent) / 2f, txtPaint)
         bounds.set(bx - r, by - r, bx + r, by + r)
     }
+
+    /**
+     * Zeichnet das Heizungsplaner-Overlay (Langdruck auf die 9-Uhr-Zone, von
+     * jeder Seite aus aufrufbar) – spiegelt die Home-Assistant-SmartHeating-
+     * Planer-Kachel: oben groß die Soll-Temperatur mit +/- Buttons links/rechts,
+     * darunter die Ist-Temperatur, darunter die Modus-Buttons Aus/Auto/Manuell.
+     * Ein Tap außerhalb aller Buttons schließt das Overlay (siehe onTapEvent).
+     */
+    private fun drawHeatingOverlay(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        val config = WatchFaceConfigCache
+
+        val dimPaint = Paint().apply { isAntiAlias = true; color = Color.argb(225, 0, 0, 0) }
+        canvas.drawRect(0f, 0f, cx * 2f, cy * 2f, dimPaint)
+
+        // Titel (optional, oberes Drittel)
+        if (config.heatingLabel.isNotBlank()) {
+            val titlePaint = Paint().apply {
+                isAntiAlias = true; color = Color.parseColor("#AAAAAA")
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                textSize = radius * 0.11f; textAlign = Paint.Align.CENTER
+            }
+            canvas.drawText(config.heatingLabel.uppercase(), cx, cy - radius * 0.62f, titlePaint)
+        }
+
+        // ── Soll-Temperatur groß, mittig, mit +/- Buttons links/rechts ───────
+        val targetY = cy - radius * 0.22f
+        val btnR = radius * 0.22f
+        val minusCx = cx - radius * 0.52f
+        val plusCx  = cx + radius * 0.52f
+
+        fun drawRoundButton(bx: Float, by: Float, label: String) {
+            val fillPaint = Paint().apply {
+                isAntiAlias = true; style = Paint.Style.FILL; color = Color.parseColor("#2A2A2A")
+            }
+            canvas.drawCircle(bx, by, btnR, fillPaint)
+            val strokePaint = Paint().apply {
+                isAntiAlias = true; style = Paint.Style.STROKE
+                strokeWidth = radius * 0.015f; color = Color.parseColor("#EAFF00")
+            }
+            canvas.drawCircle(bx, by, btnR, strokePaint)
+            val txtPaint = Paint().apply {
+                isAntiAlias = true; color = Color.parseColor("#EAFF00")
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textSize = btnR * 0.9f; textAlign = Paint.Align.CENTER
+            }
+            val fm = txtPaint.fontMetrics
+            canvas.drawText(label, bx, by - (fm.ascent + fm.descent) / 2f, txtPaint)
+        }
+        drawRoundButton(minusCx, targetY, "–")
+        drawRoundButton(plusCx, targetY, "+")
+        heatingMinusBounds.set(minusCx - btnR, targetY - btnR, minusCx + btnR, targetY + btnR)
+        heatingPlusBounds.set(plusCx - btnR, targetY - btnR, plusCx + btnR, targetY + btnR)
+
+        val targetText = if (config.heatingTargetValue.isNaN()) "--°"
+            else "${formatHeatingTemp(config.heatingTargetValue)}°"
+        val targetPaint = Paint().apply {
+            isAntiAlias = true; color = Color.WHITE
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = radius * 0.46f; textAlign = Paint.Align.CENTER
+        }
+        val targetFm = targetPaint.fontMetrics
+        canvas.drawText(targetText, cx, targetY - (targetFm.ascent + targetFm.descent) / 2f, targetPaint)
+
+        // ── Ist-Temperatur ────────────────────────────────────────────────────
+        val currentText = if (config.heatingCurrentValue.isNaN()) "Ist: --°"
+            else "Ist: ${formatHeatingTemp(config.heatingCurrentValue)}°"
+        val currentPaint = Paint().apply {
+            isAntiAlias = true; color = Color.parseColor("#CCCCCC")
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textSize = radius * 0.15f; textAlign = Paint.Align.CENTER
+        }
+        val currentY = targetY + radius * 0.34f
+        canvas.drawText(currentText, cx, currentY, currentPaint)
+
+        // ── Modus-Buttons: Aus / Auto / Manuell ─────────────────────────────
+        val modeY = currentY + radius * 0.34f
+        val modeW = radius * 0.46f
+        val modeH = radius * 0.24f
+        val modeGap = radius * 0.06f
+        val totalW = modeW * 3f + modeGap * 2f
+        val startX = cx - totalW / 2f
+
+        fun drawModeButton(index: Int, label: String, mode: String, bounds: RectF) {
+            val left = startX + index * (modeW + modeGap)
+            val rect = RectF(left, modeY - modeH / 2f, left + modeW, modeY + modeH / 2f)
+            val active = config.heatingMode == mode
+            val fillPaint = Paint().apply {
+                isAntiAlias = true; style = Paint.Style.FILL
+                color = if (active) Color.parseColor("#EAFF00") else Color.parseColor("#2A2A2A")
+            }
+            canvas.drawRoundRect(rect, modeH * 0.3f, modeH * 0.3f, fillPaint)
+            val txtPaint = Paint().apply {
+                isAntiAlias = true
+                color = if (active) Color.parseColor("#1A1A00") else Color.parseColor("#DDDDDD")
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textSize = modeH * 0.42f; textAlign = Paint.Align.CENTER
+            }
+            val fm = txtPaint.fontMetrics
+            canvas.drawText(label, rect.centerX(), rect.centerY() - (fm.ascent + fm.descent) / 2f, txtPaint)
+            bounds.set(rect)
+        }
+        drawModeButton(0, "Aus", "off", heatingModeOffBounds)
+        drawModeButton(1, "Auto", "auto", heatingModeAutoBounds)
+        drawModeButton(2, "Manuell", "heat", heatingModeManualBounds)
+    }
+
+    /** Formatiert eine Heizungs-Temperatur ohne überflüssige Nachkommastelle (z.B. "21" statt "21.0", aber "21.5"). */
+    private fun formatHeatingTemp(value: Float): String =
+        if (value % 1f == 0f) value.toInt().toString() else String.format(Locale.US, "%.1f", value)
 
     /**
      * Zeichnet 4 ioBroker-Slots auf Seite 2 in einem 2×2 Gitter.

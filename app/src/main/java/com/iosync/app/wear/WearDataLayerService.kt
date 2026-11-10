@@ -687,7 +687,15 @@ class WearDataLayerService @Inject constructor(
         klipperHeatGcodeOff: String = "",
         klipperLedLabel: String = "Led",
         klipperHeatLabel: String = "Heater",
-        p3FontScale: Int = 100
+        p3FontScale: Int = 100,
+        heatingEnabled: Boolean = false,
+        heatingLabel: String = "",
+        heatingTargetId: String = "",
+        heatingCurrentId: String = "",
+        heatingModeId: String = "",
+        heatingStep: Float = 0.5f,
+        heatingMin: Float = 5f,
+        heatingMax: Float = 30f
     ) {
         withContext(Dispatchers.IO) {
             try {
@@ -759,6 +767,15 @@ class WearDataLayerService @Inject constructor(
                     dataMap.putString("con_klipper_led_label", klipperLedLabel)
                     dataMap.putString("con_klipper_heat_label", klipperHeatLabel)
                     dataMap.putInt("con_p3_font_scale", p3FontScale)
+                    // Heizungsplaner (9-Uhr-Overlay)
+                    dataMap.putBoolean("con_heating_enabled", heatingEnabled)
+                    dataMap.putString("con_heating_label", heatingLabel)
+                    dataMap.putString("con_heating_target_id", heatingTargetId)
+                    dataMap.putString("con_heating_current_id", heatingCurrentId)
+                    dataMap.putString("con_heating_mode_id", heatingModeId)
+                    dataMap.putFloat("con_heating_step", heatingStep)
+                    dataMap.putFloat("con_heating_min", heatingMin)
+                    dataMap.putFloat("con_heating_max", heatingMax)
                     dataMap.putLong(KEY_TIMESTAMP, System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
                 dataClient.putDataItem(request).await()

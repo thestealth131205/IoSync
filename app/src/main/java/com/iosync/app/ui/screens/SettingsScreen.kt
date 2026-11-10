@@ -295,6 +295,17 @@ fun SettingsScreen(
     var p3FontScale                by remember(uiState.p3FontScale)                { mutableStateOf(uiState.p3FontScale) }
     var sectionKlipper           by remember { mutableStateOf(false) }
 
+    // Heizungsplaner (9-Uhr-Overlay, spiegelt die HA-SmartHeatingPlaner-Kachel)
+    var sectionHeating        by remember { mutableStateOf(false) }
+    var heatingEnabled        by remember(uiState.heatingEnabled)    { mutableStateOf(uiState.heatingEnabled) }
+    var heatingLabel          by remember(uiState.heatingLabel)      { mutableStateOf(uiState.heatingLabel) }
+    var heatingTargetId       by remember(uiState.heatingTargetId)   { mutableStateOf(uiState.heatingTargetId) }
+    var heatingCurrentId      by remember(uiState.heatingCurrentId)  { mutableStateOf(uiState.heatingCurrentId) }
+    var heatingModeId         by remember(uiState.heatingModeId)     { mutableStateOf(uiState.heatingModeId) }
+    var heatingStep           by remember(uiState.heatingStep)       { mutableStateOf(uiState.heatingStep.toString()) }
+    var heatingMin            by remember(uiState.heatingMin)        { mutableStateOf(uiState.heatingMin.toString()) }
+    var heatingMax            by remember(uiState.heatingMax)        { mutableStateOf(uiState.heatingMax.toString()) }
+
     // Geofence-Vibration
     var geofenceSearchQuery by remember { mutableStateOf("") }
     var sectionGeofence     by remember { mutableStateOf(false) }
@@ -2583,6 +2594,92 @@ fun SettingsScreen(
                     Text(text = uiState.wearSyncLog, style = MaterialTheme.typography.labelSmall, color = if (uiState.wearSyncLog.startsWith("Fehler")) Color(0xFFF44336) else Color(0xFF4CAF50), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
                 }
             } // end AccordionSection "Dritte Seite Watchface"
+
+            Spacer(Modifier.height(4.dp))
+
+            // ── Sektion: Heizungsplaner (Langdruck 9-Uhr-Taste, jede Seite) ───
+            AccordionSection(
+                title = "Heizungsplaner (9-Uhr-Taste)",
+                expanded = sectionHeating,
+                onToggle = { sectionHeating = !sectionHeating }
+            ) {
+                WatchFaceToggleRow(
+                    text = "Heizungsplaner aktivieren",
+                    subText = "Langdruck auf die 9-Uhr-Taste öffnet Soll-/Ist-Temperatur + Aus/Auto/Manuell – spiegelt die SmartHeatingPlaner-Kachel",
+                    checked = heatingEnabled,
+                    onCheckedChange = { heatingEnabled = it }
+                )
+                if (heatingEnabled) {
+                    OutlinedTextField(
+                        value = heatingLabel, onValueChange = { heatingLabel = it },
+                        label = { Text("Anzeige-Titel (optional)") }, placeholder = { Text("Wohnzimmer") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = heatingTargetId, onValueChange = { heatingTargetId = it },
+                        label = { Text("Datenpunkt/Entity Soll-Temperatur (schreibbar)") },
+                        placeholder = { Text("climate.heizung#temperature") },
+                        supportingText = { Text("HA-Backend: virtuelles Attribut der Thermostat-Entity") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = heatingCurrentId, onValueChange = { heatingCurrentId = it },
+                        label = { Text("Datenpunkt/Entity Ist-Temperatur") },
+                        placeholder = { Text("climate.heizung#current_temperature") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = heatingModeId, onValueChange = { heatingModeId = it },
+                        label = { Text("Datenpunkt/Entity Modus (Aus/Auto/Manuell)") },
+                        placeholder = { Text("climate.heizung") },
+                        supportingText = { Text("Basis-Entity ohne Attribut-Suffix – schreibt \"off\"/\"auto\"/\"heat\"") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = heatingStep, onValueChange = { v -> heatingStep = v.filter { it.isDigit() || it == '.' } },
+                            label = { Text("Schritt °C") }, modifier = Modifier.weight(1f), singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                        )
+                        OutlinedTextField(
+                            value = heatingMin, onValueChange = { v -> heatingMin = v.filter { it.isDigit() || it == '.' } },
+                            label = { Text("Min °C") }, modifier = Modifier.weight(1f), singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                        )
+                        OutlinedTextField(
+                            value = heatingMax, onValueChange = { v -> heatingMax = v.filter { it.isDigit() || it == '.' } },
+                            label = { Text("Max °C") }, modifier = Modifier.weight(1f), singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            viewModel.setHeatingConfig(
+                                heatingEnabled   = heatingEnabled,
+                                heatingLabel     = heatingLabel.trim(),
+                                heatingTargetId  = heatingTargetId.trim(),
+                                heatingCurrentId = heatingCurrentId.trim(),
+                                heatingModeId    = heatingModeId.trim(),
+                                heatingStep = heatingStep.toFloatOrNull()?.coerceIn(0.1f, 5f) ?: 0.5f,
+                                heatingMin  = heatingMin.toFloatOrNull() ?: 5f,
+                                heatingMax  = heatingMax.toFloatOrNull() ?: 30f
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonYellow, contentColor = Color(0xFF1A1A00))
+                    ) { Text("Heizungsplaner speichern & übertragen", style = MaterialTheme.typography.labelLarge) }
+                    if (uiState.wearSyncLog.isNotBlank()) {
+                        Text(text = uiState.wearSyncLog, style = MaterialTheme.typography.labelSmall, color = if (uiState.wearSyncLog.startsWith("Fehler")) Color(0xFFF44336) else Color(0xFF4CAF50), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                    }
+                } else {
+                    Button(
+                        onClick = { viewModel.setHeatingConfig(heatingEnabled = false, heatingLabel = heatingLabel, heatingTargetId = heatingTargetId, heatingCurrentId = heatingCurrentId, heatingModeId = heatingModeId, heatingStep = heatingStep.toFloatOrNull() ?: 0.5f, heatingMin = heatingMin.toFloatOrNull() ?: 5f, heatingMax = heatingMax.toFloatOrNull() ?: 30f) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A2A), contentColor = Color(0xFFEAFF00))
+                    ) { Text("Deaktivierung übertragen", style = MaterialTheme.typography.labelSmall) }
+                }
+            } // end AccordionSection "Heizungsplaner"
 
             Spacer(Modifier.height(4.dp))
 

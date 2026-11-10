@@ -84,6 +84,16 @@ object WatchConnectionPrefs {
     private const val KEY_KLIPPER_CHAMBER_OBJ = "klipper_chamber_obj"
     private const val KEY_KLIPPER_INTERVAL    = "klipper_interval_sec"
 
+    // Heizungsplaner (9-Uhr-Overlay)
+    private const val KEY_HEATING_ENABLED   = "heating_enabled"
+    private const val KEY_HEATING_LABEL     = "heating_label"
+    private const val KEY_HEATING_TARGET_ID = "heating_target_id"
+    private const val KEY_HEATING_CURRENT_ID = "heating_current_id"
+    private const val KEY_HEATING_MODE_ID   = "heating_mode_id"
+    private const val KEY_HEATING_STEP      = "heating_step"
+    private const val KEY_HEATING_MIN       = "heating_min"
+    private const val KEY_HEATING_MAX       = "heating_max"
+
     /**
      * Speichert die aktuelle Verbindungs-Config aus [WatchFaceConfigCache] in
      * SharedPreferences. Wird nach jedem Empfang vom Handy aufgerufen.
@@ -135,6 +145,14 @@ object WatchConnectionPrefs {
             ed.putString(KEY_KLIPPER_API_KEY, c.klipperApiKey)
             ed.putString(KEY_KLIPPER_CHAMBER_OBJ, c.klipperChamberObject)
             ed.putInt(KEY_KLIPPER_INTERVAL, c.klipperIntervalSec)
+            ed.putBoolean(KEY_HEATING_ENABLED, c.heatingEnabled)
+            ed.putString(KEY_HEATING_LABEL, c.heatingLabel)
+            ed.putString(KEY_HEATING_TARGET_ID, c.heatingTargetId)
+            ed.putString(KEY_HEATING_CURRENT_ID, c.heatingCurrentId)
+            ed.putString(KEY_HEATING_MODE_ID, c.heatingModeId)
+            ed.putFloat(KEY_HEATING_STEP, c.heatingStep)
+            ed.putFloat(KEY_HEATING_MIN, c.heatingMin)
+            ed.putFloat(KEY_HEATING_MAX, c.heatingMax)
             ed.apply()
         }
         Log.d(TAG, "Connection-Config gespeichert (host=${c.ioHost})")
@@ -196,6 +214,14 @@ object WatchConnectionPrefs {
         c.klipperApiKey       = prefs.getString(KEY_KLIPPER_API_KEY, "") ?: ""
         c.klipperChamberObject = prefs.getString(KEY_KLIPPER_CHAMBER_OBJ, "") ?: ""
         c.klipperIntervalSec  = prefs.getInt(KEY_KLIPPER_INTERVAL, 15)
+        c.heatingEnabled      = prefs.getBoolean(KEY_HEATING_ENABLED, false)
+        c.heatingLabel        = prefs.getString(KEY_HEATING_LABEL, "") ?: ""
+        c.heatingTargetId     = prefs.getString(KEY_HEATING_TARGET_ID, "") ?: ""
+        c.heatingCurrentId    = prefs.getString(KEY_HEATING_CURRENT_ID, "") ?: ""
+        c.heatingModeId       = prefs.getString(KEY_HEATING_MODE_ID, "") ?: ""
+        c.heatingStep         = prefs.getFloat(KEY_HEATING_STEP, 0.5f)
+        c.heatingMin          = prefs.getFloat(KEY_HEATING_MIN, 5f)
+        c.heatingMax          = prefs.getFloat(KEY_HEATING_MAX, 30f)
         Log.d(TAG, "Connection-Config wiederhergestellt (host=${c.ioHost})")
         return true
     }

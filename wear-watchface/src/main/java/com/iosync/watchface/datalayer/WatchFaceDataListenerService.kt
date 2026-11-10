@@ -685,6 +685,24 @@ object WatchFaceConfigCache {
     @Volatile var klipperHeatLabel: String = "Heater"
     @Volatile var p3FontScale: Int = 100
 
+    // ── Heizungsplaner (Overlay über der 9-Uhr-Taste, auf jeder Seite) ───────
+    // Spiegelt die Home-Assistant-SmartHeatingPlaner-Kachel: Soll-/Ist-Temperatur
+    // + Modus (Aus/Auto/Manuell). Die IDs sind generische Datenpunkte, die wie
+    // jeder andere Slot über backendFetch/backendSetState (iosync- oder
+    // HA-Backend, je nach Verbindungs-Konfig) gelesen/geschrieben werden.
+    @Volatile var heatingEnabled: Boolean = false
+    @Volatile var heatingLabel: String = ""
+    @Volatile var heatingTargetId: String = ""
+    @Volatile var heatingCurrentId: String = ""
+    @Volatile var heatingModeId: String = ""
+    @Volatile var heatingStep: Float = 0.5f
+    @Volatile var heatingMin: Float = 5f
+    @Volatile var heatingMax: Float = 30f
+    // Gecacht/aufgelöst durch WatchDataSyncManager.resolveAll()
+    @Volatile var heatingTargetValue: Float = Float.NaN
+    @Volatile var heatingCurrentValue: Float = Float.NaN
+    @Volatile var heatingMode: String = ""   // "off" | "auto" | "heat"
+
     // ── Seite 3 – Live-Druckdaten (direkt von Moonraker abgerufen) ────────────
     @Volatile var klipperIsActive: Boolean = false   // true wenn Drucker aktiv druckt
     @Volatile var klipperPrintProgress: Float = 0f   // 0.0–1.0
@@ -825,6 +843,15 @@ object WatchFaceConfigCache {
         dataMap.getString("con_klipper_heat_gcode_off")?.let { klipperChamberHeatGcodeOff = it }
         dataMap.getString("con_klipper_heat_label")?.let     { klipperHeatLabel           = it }
         if (dataMap.containsKey("con_p3_font_scale")) p3FontScale = dataMap.getInt("con_p3_font_scale")
+        // Heizungsplaner (9-Uhr-Overlay)
+        if (dataMap.containsKey("con_heating_enabled")) heatingEnabled = dataMap.getBoolean("con_heating_enabled")
+        dataMap.getString("con_heating_label")?.let      { heatingLabel     = it }
+        dataMap.getString("con_heating_target_id")?.let  { heatingTargetId  = it }
+        dataMap.getString("con_heating_current_id")?.let { heatingCurrentId = it }
+        dataMap.getString("con_heating_mode_id")?.let    { heatingModeId    = it }
+        if (dataMap.containsKey("con_heating_step")) heatingStep = dataMap.getFloat("con_heating_step")
+        if (dataMap.containsKey("con_heating_min"))  heatingMin  = dataMap.getFloat("con_heating_min")
+        if (dataMap.containsKey("con_heating_max"))  heatingMax  = dataMap.getFloat("con_heating_max")
     }
 
     fun updateFromDataMap(dataMap: DataMap) {

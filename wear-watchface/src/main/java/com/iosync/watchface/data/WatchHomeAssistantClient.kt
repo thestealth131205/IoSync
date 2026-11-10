@@ -181,7 +181,8 @@ object WatchHomeAssistantClient {
         val isOn = value == "true" || value == "1" || value == "on"
         val base = JSONObject().put("entity_id", id.substringBefore(ATTR_SEPARATOR))
         val attr = id.substringAfter(ATTR_SEPARATOR, missingDelimiterValue = "")
-        // Nur Licht-Attribute und die Thermostat-Soll-Temperatur sind steuerbar
+        // Steuerbar: Licht-Attribute, Thermostat-Soll-Temperatur, und jede Basis-Entity
+        // ohne Attribut-Suffix (z.B. climate-Modus, light/switch/cover on/off).
         require(attr.isEmpty() || domain == "light" || (domain == "climate" && attr == ATTR_TARGET_TEMP)) {
             "$id ist nur lesbar"
         }
@@ -212,10 +213,16 @@ object WatchHomeAssistantClient {
                     else -> (if (isOn) "turn_on" else "turn_off") to base
                 }
             }
-            "climate" -> if (attr == ATTR_TARGET_TEMP) {
-                val temp = requireNotNull(value.toDoubleOrNull()) { "Ungültige Temperatur: $value" }
-                "set_temperature" to JSONObject(base.toString()).put("temperature", temp)
-            } else (if (isOn) "turn_on" else "turn_off") to base
+            "climate" -> when {
+                attr == ATTR_TARGET_TEMP -> {
+                    val temp = requireNotNull(value.toDoubleOrNull()) { "Ungültige Temperatur: $value" }
+                    "set_temperature" to JSONObject(base.toString()).put("temperature", temp)
+                }
+                // Basis-Entity ohne Attribut-Suffix = Betriebsmodus (Heizungsplaner-Overlay:
+                // "off"/"auto"/"heat"), NICHT turn_on/turn_off (das gibt es bei climate nicht).
+                attr.isEmpty() -> "set_hvac_mode" to JSONObject(base.toString()).put("hvac_mode", value)
+                else -> (if (isOn) "turn_on" else "turn_off") to base
+            }
             "cover" -> (if (isOn) "open_cover" else "close_cover") to base
             "lock"  -> (if (isOn) "lock" else "unlock") to base
             "script" -> "turn_on" to base
