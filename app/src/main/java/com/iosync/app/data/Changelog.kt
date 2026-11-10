@@ -8,6 +8,14 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.2.7",
+        date = "10.11.2026",
+        changes = listOf(
+            "Fix: Heizungsplaner-Einstellungen (Soll-/Ist-Temperatur, Modus) zeigten keine Auswahlliste der HA-/ioBroker-Datenpunkte mehr, Eingabe musste händisch erfolgen",
+            "Die drei Felder nutzen jetzt dieselbe Datenpunkt-Auswahl mit Suchfeld wie Seite 2"
+        )
+    ),
+    ChangelogEntry(
         version = "5.2.6",
         date = "10.11.2026",
         changes = listOf(

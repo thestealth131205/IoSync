@@ -2610,30 +2610,32 @@ fun SettingsScreen(
                     onCheckedChange = { heatingEnabled = it }
                 )
                 if (heatingEnabled) {
+                    val heatingStates = uiState.ioSyncStates.ifEmpty { uiState.states }
                     OutlinedTextField(
                         value = heatingLabel, onValueChange = { heatingLabel = it },
                         label = { Text("Anzeige-Titel (optional)") }, placeholder = { Text("Wohnzimmer") },
                         modifier = Modifier.fillMaxWidth(), singleLine = true
                     )
-                    OutlinedTextField(
-                        value = heatingTargetId, onValueChange = { heatingTargetId = it },
-                        label = { Text("Datenpunkt/Entity Soll-Temperatur (schreibbar)") },
-                        placeholder = { Text("climate.heizung#temperature") },
-                        supportingText = { Text("HA-Backend: virtuelles Attribut der Thermostat-Entity") },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    Text("Soll-Temperatur (schreibbar)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DatapointDropdown(
+                        selectedId = heatingTargetId,
+                        availableStates = heatingStates,
+                        onSelect = { heatingTargetId = it },
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
-                        value = heatingCurrentId, onValueChange = { heatingCurrentId = it },
-                        label = { Text("Datenpunkt/Entity Ist-Temperatur") },
-                        placeholder = { Text("climate.heizung#current_temperature") },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    Text("Ist-Temperatur", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DatapointDropdown(
+                        selectedId = heatingCurrentId,
+                        availableStates = heatingStates,
+                        onSelect = { heatingCurrentId = it },
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
-                        value = heatingModeId, onValueChange = { heatingModeId = it },
-                        label = { Text("Datenpunkt/Entity Modus (Aus/Auto/Manuell)") },
-                        placeholder = { Text("climate.heizung") },
-                        supportingText = { Text("Basis-Entity ohne Attribut-Suffix – schreibt \"off\"/\"auto\"/\"heat\"") },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    Text("Modus (Aus/Auto/Manuell) – Basis-Entity, z.B. climate.heizung", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DatapointDropdown(
+                        selectedId = heatingModeId,
+                        availableStates = heatingStates,
+                        onSelect = { heatingModeId = it },
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
