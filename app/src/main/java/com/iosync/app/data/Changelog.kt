@@ -8,6 +8,16 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.3.0",
+        date = "24.11.2026",
+        changes = listOf(
+            "Neu: Schlafstatus von der Healthy-Uhr-App – Healthy meldet Einschlafen und Aufwachen sofort an das Watchface, das ihn ans Handy weiterreicht",
+            "Das Handy legt in Home Assistant das Gerät \"Healthy\" mit den Entitäten binary_sensor.healthy_schlaf, sensor.healthy_eingeschlafen und sensor.healthy_aufgewacht an (z.B. für die Heizungssteuerung)",
+            "Einstellungen → Home Assistant → \"Schlafstatus von Healthy\": aktueller Status, Übertragung ein/aus, erneut senden",
+            "Das Watchface nimmt den Status nur von der echten Healthy-App an (Signaturprüfung)"
+        )
+    ),
+    ChangelogEntry(
         version = "5.2.7",
         date = "10.11.2026",
         changes = listOf(

@@ -11,6 +11,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
@@ -34,6 +35,9 @@ private const val ATTR_TARGET_TEMP = "temperature"
 private const val ATTR_CURRENT_HUMIDITY = "current_humidity"
 private const val ATTR_HUMIDITY = "humidity"
 private const val ATTR_WIND_SPEED = "wind_speed"
+
+/** mobile_app-Gerät wurde in Home Assistant gelöscht (HTTP 410) → neu anmelden. */
+class MobileAppGoneException : IllegalStateException("Gerät in Home Assistant gelöscht")
 
 /** HA-Zustände ohne Messwert → als "kein Wert" (null) behandeln, Anzeige "--". */
 private val NO_VALUE_STATES = setOf("unknown", "unavailable", "")
@@ -142,6 +146,57 @@ class HomeAssistantClient @Inject constructor() {
             ).execute()
             check(response.isSuccessful) { "HTTP ${response.code}" }
         }.onFailure { Log.e(TAG, "setState($id) fehlgeschlagen: ${it.message}") }
+    }
+
+    /**
+     * Meldet IoSync bei der mobile_app-Integration als eigenes Gerät an (wie die HA-Companion-App).
+     * Darüber legt das Handy eigene Entitäten an (z.B. Schlafstatus von Healthy).
+     * @return webhook_id für [mobileAppWebhook]
+     */
+    suspend fun registerMobileApp(
+        host: String,
+        port: Int,
+        useHttps: Boolean,
+        token: String,
+        registration: JSONObject
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val url = buildUrl(host, port, "/api/mobile_app/registrations", useHttps)
+            okHttpClient.newCall(
+                buildRequest(url, token).post(registration.toString().toRequestBody("application/json".toMediaType())).build()
+            ).execute().use { response ->
+                check(response.isSuccessful) { "HTTP ${response.code}" }
+                JSONObject(response.body!!.string()).getString("webhook_id")
+            }
+        }.onFailure { Log.e(TAG, "registerMobileApp fehlgeschlagen: ${it.message}") }
+    }
+
+    /**
+     * Webhook-Befehl an die mobile_app-Integration (register_sensor, update_sensor_states, …).
+     * Braucht kein Token — die webhook_id ist das Geheimnis.
+     * @return Antwort als JSON; null = leere Antwort (HA kennt den Webhook nicht mehr).
+     * Fehler [MobileAppGoneException] = HA hat das Gerät gelöscht → neu anmelden.
+     */
+    suspend fun mobileAppWebhook(
+        host: String,
+        port: Int,
+        useHttps: Boolean,
+        webhookId: String,
+        type: String,
+        data: Any
+    ): Result<Any?> = withContext(Dispatchers.IO) {
+        runCatching {
+            val url = buildUrl(host, port, "/api/webhook/$webhookId", useHttps)
+            val body = JSONObject().put("type", type).put("data", data).toString()
+            okHttpClient.newCall(
+                Request.Builder().url(url).post(body.toRequestBody("application/json".toMediaType())).build()
+            ).execute().use { response ->
+                if (response.code == 410) throw MobileAppGoneException()
+                check(response.isSuccessful) { "HTTP ${response.code}" }
+                val text = response.body?.string().orEmpty().trim()
+                if (text.isEmpty()) null else JSONTokener(text).nextValue()
+            }
+        }.onFailure { Log.e(TAG, "mobileAppWebhook($type) fehlgeschlagen: ${it.message}") }
     }
 
     suspend fun checkHealth(host: String, port: Int, useHttps: Boolean, token: String): Boolean =

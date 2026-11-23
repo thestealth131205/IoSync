@@ -31,6 +31,8 @@
         <package android:name="com.mobvoi.wear.weather" />
         <package android:name="com.google.android.apps.weather" />
         <package android:name="com.google.android.gms.weather" />
+        <!-- Healthy (Schlaf-/Wach-Status): Signatur des Aufrufers prüfen -->
+        <package android:name="de.letheapp.healthy" />
     </queries>
 
     <application
@@ -91,6 +93,12 @@
             android:name=".health.HealthPassiveDataService"
             android:exported="true"
             android:foregroundServiceType="health" />
+
+        <!-- Schlaf-/Wach-Status von der Healthy-Uhr-App (nur Healthy wird angenommen, Signaturprüfung im Provider) -->
+        <provider
+            android:name=".healthy.HealthySleepStateProvider"
+            android:authorities="com.iosync.app.healthy"
+            android:exported="true" />
 
         <!-- Data Layer listener for complication data -->
         <service

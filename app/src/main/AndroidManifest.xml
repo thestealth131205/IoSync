@@ -82,6 +82,10 @@
                     android:host="*"
                     android:path="/iosync/watchface/ntp_offset"
                     android:scheme="wear" />
+                <data
+                    android:host="*"
+                    android:path="/iosync/watch/healthy_sleep"
+                    android:scheme="wear" />
             </intent-filter>
         </service>
 

@@ -1,6 +1,6 @@
 # memory.md — IoSync Arbeitsgedächtnis
 
-Letzte Aktualisierung: 2026-05-18
+Letzte Aktualisierung: 2026-11-24
 
 ## Was wurde erstellt (Grundgerüst v1.0)
 
@@ -59,6 +59,14 @@ Das vollständige Projektgrundgerüst wurde unter `/opt/Iosync/` angelegt. Alle 
 - `package.json` — Abhängigkeiten: @iobroker/adapter-core, axios, ws
 - `tsconfig.json` — TypeScript-Konfiguration (für optionale TS-Migration)
 - `admin/index_m.html` — Admin-UI mit Formular für Server-URL, API-Key, Datenpunkt-Konfiguration
+
+## v5.3.0 (2026-11-24): Schlafstatus von Healthy → Home Assistant
+
+- Weg: Healthy-Uhr-App (`/opt/Healthy`, `wear/sync/IoSyncBridge`) → `wear-watchface/.../healthy/HealthySleepStateProvider` (ContentProvider `com.iosync.app.healthy`, Methode `sleepState`) → Data Layer `/iosync/watch/healthy_sleep` (urgent) → App `WatchFaceTriggerListenerService` → `data/sleep/HealthySleep.onStateFromWatch` (DataStore) → `HealthySleepHaWorker` (expedited, Netz nötig, Backoff 30 s exponentiell, max. 12 Versuche, REPLACE)
+- Provider nimmt nur Paket `de.letheapp.healthy` mit SHA-256 des Healthy-Release-Zertifikats an (`8F9DF927F469A1CD4CD34890D5AB1E56297EE26D1394E8812A36AAFBED5A673B`); Healthy-Debug-APKs werden abgelehnt
+- HA: Anmeldung über mobile_app (`HomeAssistantClient.registerMobileApp`/`mobileAppWebhook`, Langzeit-Token aus den HA-Einstellungen) als Gerät "Healthy" → `binary_sensor.healthy_schlaf` (an = schläft, Attribute status/geaendert/eingeschlafen/aufgewacht), `sensor.healthy_eingeschlafen`, `sensor.healthy_aufgewacht` (timestamp). Webhook-ID bleibt gespeichert; HTTP 410 oder leere Antwort (HA kennt den Webhook nicht) → neu anmelden; `not_registered` → Sensoren neu registrieren (`SENSORS_VERSION` erhöhen bei Änderungen an Name/Typ). mobile_app legt automatisch auch `device_tracker.healthy`/`notify.healthy` an
+- UI: Einstellungen → ioBroker Adapter Verbindung → unter Home Assistant aufklappbar "Schlafstatus von Healthy" (`ui/screens/HealthySleepSection.kt`, eigenes `HealthySleepViewModel` — MainUiState nicht vergrößern)
+- Hinweis Deploy: `/opt/push_and_deploy-iosync.sh` committet selbst (`git add -A`) und bricht ab, wenn nichts Uncommittetes da ist — lokal bereits committete Änderungen pusht es nicht; untracked `Ha-LongtimeToken.md` würde mit committet
 
 ## Offene Punkte / Nächste Schritte
 

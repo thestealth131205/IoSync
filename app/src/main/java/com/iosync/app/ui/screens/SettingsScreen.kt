@@ -294,6 +294,7 @@ fun SettingsScreen(
     var klipperHeatLabel           by remember(uiState.klipperHeatLabel)           { mutableStateOf(uiState.klipperHeatLabel) }
     var p3FontScale                by remember(uiState.p3FontScale)                { mutableStateOf(uiState.p3FontScale) }
     var sectionKlipper           by remember { mutableStateOf(false) }
+    var sectionHealthySleep      by remember { mutableStateOf(false) }
 
     // Heizungsplaner (9-Uhr-Overlay, spiegelt die HA-SmartHeatingPlaner-Kachel)
     var sectionHeating        by remember { mutableStateOf(false) }
@@ -688,6 +689,15 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = if (uiState.useHomeAssistant) NeonYellow else Color(0xFF333333), contentColor = if (uiState.useHomeAssistant) Color(0xFF1A1A00) else Color(0xFFAAAAAA))
                 ) { Text("Home Assistant speichern & verbinden", style = MaterialTheme.typography.labelLarge) }
+
+                // ── Schlafstatus von Healthy → Home Assistant (aufklappbar) ───
+                AccordionSection(
+                    title = "Schlafstatus von Healthy",
+                    expanded = sectionHealthySleep,
+                    onToggle = { sectionHealthySleep = !sectionHealthySleep }
+                ) {
+                    HealthySleepSection()
+                }
 
                 HorizontalDivider(color = Color(0xFF2A2A2A))
                 // ── Klipper 3D-Drucker (aufklappbar) ──────────────────────────
