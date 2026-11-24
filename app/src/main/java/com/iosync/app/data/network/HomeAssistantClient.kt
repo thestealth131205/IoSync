@@ -199,6 +199,32 @@ class HomeAssistantClient @Inject constructor() {
         }.onFailure { Log.e(TAG, "mobileAppWebhook($type) fehlgeschlagen: ${it.message}") }
     }
 
+    /**
+     * Sensorwerte an die IoSync-Integration (HACS, github.com/thestealth131205/HA-IoSync).
+     * @return true = angenommen; false = Integration nicht installiert/eingerichtet (HTTP 404) → mobile_app nutzen.
+     */
+    suspend fun iosyncUpdate(
+        host: String,
+        port: Int,
+        useHttps: Boolean,
+        token: String,
+        payload: JSONObject
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        runCatching {
+            val url = buildUrl(host, port, "/api/iosync/update", useHttps)
+            okHttpClient.newCall(
+                buildRequest(url, token).post(payload.toString().toRequestBody("application/json".toMediaType())).build()
+            ).execute().use { response ->
+                if (response.code == 404) {
+                    false
+                } else {
+                    check(response.isSuccessful) { "HTTP ${response.code}: ${response.body?.string().orEmpty().take(200)}" }
+                    true
+                }
+            }
+        }.onFailure { Log.e(TAG, "iosyncUpdate fehlgeschlagen: ${it.message}") }
+    }
+
     suspend fun checkHealth(host: String, port: Int, useHttps: Boolean, token: String): Boolean =
         withContext(Dispatchers.IO) {
             runCatching {

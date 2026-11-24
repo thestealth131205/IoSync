@@ -8,6 +8,15 @@ data class ChangelogEntry(
 
 val appChangelog = listOf(
     ChangelogEntry(
+        version = "5.3.1",
+        date = "24.11.2026",
+        changes = listOf(
+            "Neu: Eigene Home-Assistant-Integration \"IoSync\" (HACS, github.com/thestealth131205/HA-IoSync) für den Schlafstatus und künftige Daten von IoSync an Home Assistant",
+            "Ist die Integration eingerichtet, sendet die App den Schlafstatus automatisch darüber, sonst wie bisher über die Mobile-App-Integration",
+            "Einstellungen → \"Schlafstatus von Healthy\" zeigt an, über welchen Weg zuletzt übertragen wurde"
+        )
+    ),
+    ChangelogEntry(
         version = "5.3.0",
         date = "24.11.2026",
         changes = listOf(

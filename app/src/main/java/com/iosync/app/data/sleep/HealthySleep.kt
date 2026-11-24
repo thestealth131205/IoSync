@@ -45,9 +45,10 @@ import java.util.concurrent.TimeUnit
  * Weg: Healthy (Uhr) → IoSync-Watchface (HealthySleepStateProvider) → Data Layer →
  * [com.iosync.app.wear.WatchFaceTriggerListenerService] → [onStateFromWatch] → [HealthySleepHaWorker].
  *
- * In Home Assistant meldet sich IoSync über die mobile_app-Integration als eigenes Gerät „Healthy“
- * an (wie die HA-Companion-App) und legt dort echte Entitäten an — mit Gerät, bleiben nach einem
+ * In Home Assistant entsteht ein eigenes Gerät „Healthy“ mit echten Entitäten — bleiben nach einem
  * HA-Neustart erhalten und lassen sich in Automationen nutzen (z.B. Heizung absenken, solange man schläft).
+ * Bevorzugt über die IoSync-Integration (HACS, github.com/thestealth131205/HA-IoSync); ist sie nicht
+ * installiert, meldet sich IoSync wie die HA-Companion-App über die mobile_app-Integration an.
  */
 object HealthySleep {
 
@@ -65,6 +66,11 @@ object HealthySleep {
     val KEY_HA_SENSORS   = intPreferencesKey("healthy_sleep_ha_sensors_version")
     val KEY_HA_STATUS    = stringPreferencesKey("healthy_sleep_ha_status")
     val KEY_HA_SYNCED_AT = longPreferencesKey("healthy_sleep_ha_synced_at")
+    /** Weg der letzten erfolgreichen Übertragung: [VIA_INTEGRATION] oder [VIA_MOBILE_APP]. */
+    val KEY_HA_VIA       = stringPreferencesKey("healthy_sleep_ha_via")
+
+    const val VIA_INTEGRATION = "integration"
+    const val VIA_MOBILE_APP = "mobile_app"
 
     /** Erhöhen, wenn sich Name/Typ/Icon einer Entität ändert → wird neu registriert. */
     const val SENSORS_VERSION = 1
@@ -115,6 +121,16 @@ object HealthySleep {
         fun registration(): JSONObject = update()
             .put("name", name)
             .apply { deviceClass?.let { put("device_class", it) } }
+
+        /** Format der IoSync-Integration (POST /api/iosync/update). */
+        fun iosync(): JSONObject = JSONObject()
+            .put("key", uniqueId)
+            .put("type", type)
+            .put("name", name)
+            .put("state", state ?: JSONObject.NULL)
+            .put("icon", icon)
+            .put("device_class", deviceClass ?: JSONObject.NULL)
+            .put("attributes", attributes)
     }
 
     internal fun sensors(prefs: Preferences): List<Sensor> {
@@ -146,6 +162,16 @@ object HealthySleep {
         .put("model", "Schlafstatus Uhr")
         .put("os_name", "Wear OS")
         .put("supports_encryption", false)
+
+    /** Nutzt dieselbe Geräte-ID wie die mobile_app-Anmeldung. */
+    internal fun iosyncPayload(deviceId: String, prefs: Preferences): JSONObject = JSONObject()
+        .put("device", JSONObject()
+            .put("id", deviceId)
+            .put("name", "Healthy")
+            .put("manufacturer", "letheapp")
+            .put("model", "Schlafstatus Uhr")
+            .put("sw_version", BuildConfig.VERSION_NAME))
+        .put("sensors", JSONArray(sensors(prefs).map { it.iosync() }))
 
     private fun iso(millis: Long?): String? =
         millis?.takeIf { it > 0 }?.let { Instant.ofEpochMilli(it).truncatedTo(ChronoUnit.SECONDS).toString() }
@@ -190,13 +216,19 @@ class HealthySleepHaWorker(
         var registered = webhookId != null && prefs[HealthySleep.KEY_HA_SENSORS] == HealthySleep.SENSORS_VERSION
 
         return try {
+            val deviceId = prefs[HealthySleep.KEY_HA_DEVICE_ID] ?: UUID.randomUUID().toString().also { id ->
+                dataStore.edit { it[HealthySleep.KEY_HA_DEVICE_ID] = id }
+            }
+            // Bevorzugt über die IoSync-Integration; ohne sie (HTTP 404) wie bisher über mobile_app.
+            if (ha.iosyncUpdate(host, port, https, token, HealthySleep.iosyncPayload(deviceId, prefs)).getOrThrow()) {
+                setStatus(dataStore, null, HealthySleep.VIA_INTEGRATION)
+                return Result.success()
+            }
             // Zweite Runde nur, wenn HA das Gerät nicht (mehr) kennt: gelöscht oder andere HA-Instanz.
             for (round in 0..1) {
                 val id = webhookId ?: run {
-                    val deviceId = prefs[HealthySleep.KEY_HA_DEVICE_ID] ?: UUID.randomUUID().toString()
                     val newId = ha.registerMobileApp(host, port, https, token, HealthySleep.registration(deviceId)).getOrThrow()
                     dataStore.edit {
-                        it[HealthySleep.KEY_HA_DEVICE_ID] = deviceId
                         it[HealthySleep.KEY_HA_WEBHOOK] = newId
                         it.remove(HealthySleep.KEY_HA_SENSORS)
                     }
@@ -222,7 +254,7 @@ class HealthySleepHaWorker(
                         }
                         dataStore.edit { it[HealthySleep.KEY_HA_SENSORS] = HealthySleep.SENSORS_VERSION }
                     }
-                    setStatus(dataStore, null)
+                    setStatus(dataStore, null, HealthySleep.VIA_MOBILE_APP)
                     return Result.success()
                 } catch (e: MobileAppGoneException) {
                     if (round == 1) throw e
@@ -239,12 +271,13 @@ class HealthySleepHaWorker(
         }
     }
 
-    /** [error] null = erfolgreich übertragen. */
-    private suspend fun setStatus(dataStore: DataStore<Preferences>, error: String?) {
+    /** [error] null = erfolgreich übertragen, [via] = genutzter Weg. */
+    private suspend fun setStatus(dataStore: DataStore<Preferences>, error: String?, via: String? = null) {
         dataStore.edit {
             if (error == null) {
                 it.remove(HealthySleep.KEY_HA_STATUS)
                 it[HealthySleep.KEY_HA_SYNCED_AT] = System.currentTimeMillis()
+                via?.let { v -> it[HealthySleep.KEY_HA_VIA] = v }
             } else {
                 it[HealthySleep.KEY_HA_STATUS] = error
             }

@@ -46,7 +46,8 @@ data class HealthySleepUiState(
     val sleepEnd: Long? = null,
     val haEnabled: Boolean = true,
     val haError: String? = null,
-    val haSyncedAt: Long? = null
+    val haSyncedAt: Long? = null,
+    val haVia: String? = null
 )
 
 /**
@@ -67,7 +68,8 @@ class HealthySleepViewModel @Inject constructor(
             sleepEnd   = prefs[HealthySleep.KEY_SLEEP_END],
             haEnabled  = prefs[HealthySleep.KEY_HA_ENABLED] ?: true,
             haError    = prefs[HealthySleep.KEY_HA_STATUS],
-            haSyncedAt = prefs[HealthySleep.KEY_HA_SYNCED_AT]
+            haSyncedAt = prefs[HealthySleep.KEY_HA_SYNCED_AT],
+            haVia      = prefs[HealthySleep.KEY_HA_VIA]
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HealthySleepUiState())
 
@@ -89,7 +91,8 @@ fun HealthySleepSection(viewModel: HealthySleepViewModel = hiltViewModel()) {
 
     Text(
         "Die Healthy-App auf der Uhr meldet Einschlafen und Aufwachen sofort an das IoSync-Watchface; " +
-            "das Handy trägt den Status als Gerät „Healthy“ in Home Assistant ein (Langzeit-Token von oben). " +
+            "das Handy trägt den Status als Gerät „Healthy“ in Home Assistant ein (Langzeit-Token von oben) – " +
+            "über die IoSync-Integration aus HACS, ohne sie über die Mobile-App-Integration. " +
             "So lässt sich z.B. die Heizung steuern, solange du schläfst.",
         style = MaterialTheme.typography.bodySmall, color = muted
     )
@@ -124,7 +127,14 @@ fun HealthySleepSection(viewModel: HealthySleepViewModel = hiltViewModel()) {
         val syncedAt = state.haSyncedAt
         when {
             error != null -> Text(error, style = MaterialTheme.typography.labelSmall, color = StatusError)
-            syncedAt != null -> Text("Übertragen ${time(syncedAt)}", style = MaterialTheme.typography.labelSmall, color = StatusOnline)
+            syncedAt != null -> Text(
+                "Übertragen ${time(syncedAt)}" + when (state.haVia) {
+                    HealthySleep.VIA_INTEGRATION -> " über IoSync-Integration"
+                    HealthySleep.VIA_MOBILE_APP  -> " über Mobile-App-Integration"
+                    else -> ""
+                },
+                style = MaterialTheme.typography.labelSmall, color = StatusOnline
+            )
         }
         if (sleeping != null) {
             OutlinedButton(onClick = viewModel::syncNow, modifier = Modifier.fillMaxWidth()) {
